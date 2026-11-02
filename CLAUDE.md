@@ -38,7 +38,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 - Use `$wpdb` directly for storage and queries, and `wp_cache_get` / `wp_cache_set` for caching.
 - Admin JavaScript is ES modules and functional React components, built with `@wordpress/scripts`. Core `@wordpress/*` packages stay external; only `@wordpress/dataviews` is bundled, at a pinned version. Use `@wordpress/data` for state and `@wordpress/api-fetch` for REST. No jQuery.
 - Lint JavaScript with ESLint and Prettier (the `@wordpress/scripts` configs).
-- Minimum WordPress 6.9 (D-03) and PHP 8.1 (D-04). Test against WordPress 6.9, 7.0 and nightly, PHP 8.1–8.4, MySQL 5.7 / 8.0 and MariaDB 10.4 / 10.11.
+- Minimum WordPress 7.0 (D-03) and PHP 8.1 (D-04). Test against WordPress 7.0, 7.1 and nightly, PHP 8.1–8.4, MySQL 5.7 / 8.0 and MariaDB 10.4 / 10.11.
 
 ## Definition of done (every PR)
 

@@ -28,7 +28,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | --- | --- | --- | --- | --- |
 | D-01 | Coding conventions | G0 | **Default, pending owner confirmation** | As in `CLAUDE.md` |
 | D-02 | Plugin name | G0 | **Default, pending owner confirmation** | Keep "NF" internally until 4.10 |
-| D-03 | Minimum WordPress | G0 | **Default, pending owner confirmation** | 6.9 |
+| D-03 | Minimum WordPress | G0 | **Decided by owner 2026-11-02** | 7.0 (test 7.0, 7.1, nightly) |
 | D-04 | Minimum PHP | G0 | **Default, pending owner confirmation** | 8.1 |
 | D-05 | ACF PRO + SCF support | G0 | **Default, pending owner confirmation** | Both from day one (same public API) |
 | D-06 | Pilot site | G1 | Open | Default: one large client site copy |

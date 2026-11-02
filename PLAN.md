@@ -9,7 +9,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.1 | Repo and plugin skeleton | A1 | S | — | ready | | Activates cleanly on WP 6.9 and 7.0 |
+| 0.1 | Repo and plugin skeleton | A1 | S | — | ready | | Activates cleanly on WP 7.0 and 7.1 |
 | 0.2 | Dev environment and CI | A1 | M | 0.1 | todo | | Empty test suite green on the whole matrix |
 | 0.3 | Dataset generator | A12 | S | 0.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k) |
 | 0.4 | ACF API inventory | A5 | M | — | ready | | `contracts/api.md` lists the full surface, ranked by usage |
@@ -67,7 +67,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 4.1 | Admin shell | A8 | M | G3 | todo | | Loads on WP 6.9 / 7.0, no console errors |
+| 4.1 | Admin shell | A8 | M | G3 | todo | | Loads on WP 7.0 / 7.1, no console errors |
 | 4.2 | Field group builder | A8 | XL | 4.1 | todo | | Every core type configurable; Playwright tests |
 | 4.3 | Edit forms and repeater editor | A8 | XL | 4.1 | todo | | Save/reload identical for every type; no `max_input_vars` limit |
 | 4.4 | Tools, import wizard, health screens | A8 + A9 | L | 4.1, 2.6 | todo | | Wizard ports a real site end to end |

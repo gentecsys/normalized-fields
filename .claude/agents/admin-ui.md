@@ -23,5 +23,5 @@ If you need a change outside your paths, or a contract change, stop. Write it in
 
 ## Definition of done
 - `npm run build` succeeds with no errors or warnings, then run the `wp-ada-audit` skill on the changed screens and fix every 🔴 and 🟡 finding (WCAG 2.1 AA).
-- Playwright tests pass and there are no console errors on WordPress 6.9 and 7.0.
+- Playwright tests pass and there are no console errors on WordPress 7.0 and 7.1.
 - The definition of done in `CLAUDE.md` is met: CI green, tests included, and the report `reports/WP-<id>.md` written (what changed, tests and results, deviations, open questions, follow-ups).

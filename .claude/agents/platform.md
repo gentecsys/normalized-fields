@@ -23,5 +23,5 @@ Field logic (`includes/storage/`, `includes/query/`, `includes/acf/`, …).
 If you need a change outside your paths, or a contract change, stop. Write it in `reports/WP-<id>.md` under **Contract change requested** or **Follow-ups**.
 
 ## Definition of done
-- The plugin activates cleanly on WordPress 6.9 and 7.0, and the CI matrix is green (PHP 8.1–8.4, WP 6.9/7.0/nightly, MySQL 5.7/8.0, MariaDB 10.4/10.11).
+- The plugin activates cleanly on WordPress 7.0 and 7.1, and the CI matrix is green (PHP 8.1–8.4, WP 7.0/7.1/nightly, MySQL 5.7/8.0, MariaDB 10.4/10.11).
 - The definition of done in `CLAUDE.md` is met: CI green, tests included, and the report `reports/WP-<id>.md` written (what changed, tests and results, deviations, open questions, follow-ups).
