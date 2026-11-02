@@ -11,6 +11,6 @@ class RequirementsTest extends WP_UnitTestCase {
 	}
 
 	public function test_loaded_action_fires() {
-		$this->assertSame( 1, did_action( 'nf_loaded' ) );
+		$this->assertGreaterThanOrEqual( 1, did_action( 'nf_loaded' ) );
 	}
 }

@@ -19,7 +19,9 @@ function nf_requirement_errors(): array {
 		/* translators: 1: required PHP version, 2: current PHP version. */
 		$errors[] = sprintf( __( 'NF requires PHP %1$s or higher (running %2$s).', 'nf' ), NF_MIN_PHP, PHP_VERSION );
 	}
-	if ( isset( $wp_version ) && version_compare( $wp_version, NF_MIN_WP, '<' ) ) {
+	// Strip pre-release suffixes (7.0-beta1, 7.1-alpha-123) so nightly builds pass.
+	$wp_core_version = isset( $wp_version ) ? preg_replace( '/-.*$/', '', $wp_version ) : '';
+	if ( '' !== $wp_core_version && version_compare( $wp_core_version, NF_MIN_WP, '<' ) ) {
 		/* translators: 1: required WordPress version, 2: current WordPress version. */
 		$errors[] = sprintf( __( 'NF requires WordPress %1$s or higher (running %2$s).', 'nf' ), NF_MIN_WP, $wp_version );
 	}
