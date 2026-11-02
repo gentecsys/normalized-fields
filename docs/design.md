@@ -109,7 +109,7 @@ No existing product combines full ACF compatibility, normalized repeaters/relati
 
 ACF's storage is replaced by a fixed set of tables that never change shape, whatever post types, collections or repeaters a site defines. Speed comes from three things `wp_postmeta` lacks: integer field IDs instead of string keys, one table per **data type** (not per content type) so every value sits in a properly typed column, and composite indexes that lead with the field ID and end with the object ID. Working name: **Normalized Fields (NF)**.
 
-**Terminology:** NF calls a set of fields shown together a **collection**; ACF calls the same thing a *field group*. NF's own UI, API, JSON and docs say "collection". The ACF compatibility layer keeps ACF's names unchanged (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, ACF JSON), because themes and plugins call them.
+**Terminology:** NF calls a set of fields shown together a **collection**; ACF calls the same thing a *field group*. NF's own UI, API, JSON and docs say "collection". The ACF compatibility layer keeps ACF's names unchanged (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, ACF JSON), because themes and plugins call them. In the same way, the repeater field is called **Series** in NF's UI, and each entry is a row. This doc and the code keep "repeater" as the technical name, and ACF JSON keeps `type: "repeater"`. NF has **no flexible content field**: it is an old page-building pattern that blocks now cover.
 
 ```mermaid
 flowchart TB
@@ -152,7 +152,7 @@ CREATE TABLE wp_nf_fields (
   field_id    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   field_key   VARCHAR(64)  NOT NULL UNIQUE,    -- ACF field_abc123
   field_name  VARCHAR(191) NOT NULL,
-  parent_id   INT UNSIGNED NOT NULL DEFAULT 0, -- group / repeater / layout / compound
+  parent_id   INT UNSIGNED NOT NULL DEFAULT 0, -- group / repeater / compound
   data_table  ENUM('int','dec','date','str','text','json','rows','none') NOT NULL,
   multi       TINYINT(1) NOT NULL DEFAULT 0,  -- several values per object/row
   row_count   BIGINT UNSIGNED NOT NULL DEFAULT 0,   -- planner statistics
@@ -160,14 +160,13 @@ CREATE TABLE wp_nf_fields (
   KEY by_name (field_name, parent_id)
 );
 
--- 2. Structure: one row per repeater item / flexible layout instance
+-- 2. Structure: one row per repeater item
 CREATE TABLE wp_nf_rows (
   row_id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   object_type   TINYINT UNSIGNED NOT NULL,   -- 1 post, 2 term, 3 user, 4 comment, 5 option
   object_id     BIGINT UNSIGNED NOT NULL,
-  field_id      INT UNSIGNED NOT NULL,       -- the repeater / flexible field
+  field_id      INT UNSIGNED NOT NULL,       -- the repeater field
   parent_row_id BIGINT UNSIGNED NOT NULL DEFAULT 0,  -- nesting
-  layout_id     INT UNSIGNED NOT NULL DEFAULT 0,     -- flexible layout
   row_order     SMALLINT UNSIGNED NOT NULL,
   KEY owner (object_type, object_id, field_id, parent_row_id, row_order)
 );
@@ -208,7 +207,7 @@ Two index facts do most of the work. The primary key clusters each object's valu
 | Link, Google Map | pseudo sub-fields | Decomposed: `url`/`title`/`target` in `str`; `lat`/`lng` in `dec`, `address` in `str`, `zoom` in `int` |
 | Group | none | Sub-fields stored directly on the parent (same `row_id`) |
 | Repeater | `rows` | One `nf_rows` row per item; sub-values carry its `row_id` |
-| Flexible content | `rows` | Same, with `layout_id` set |
+| Flexible content | not supported | NF has no flexible content field; the importer reports these fields and does not port their collection |
 | Clone | none | Resolves to the cloned fields' storage |
 | Third-party / unknown | `json` | Raw value; adapters can map it to typed tables later |
 
@@ -297,13 +296,12 @@ CREATE TABLE wp_nf_pivot (
   KEY i1 (pivot_id, i1)  -- … one (pivot_id, slot) key per typed slot; m-slots are not indexed
 );
 
--- One flat row per repeater / flexible-content item
+-- One flat row per repeater item
 CREATE TABLE wp_nf_row_pivot (
   row_id    BIGINT UNSIGNED PRIMARY KEY,     -- same ID as nf_rows
   pivot_id  SMALLINT UNSIGNED NOT NULL,
   object_id BIGINT UNSIGNED NOT NULL,
-  field_id  INT UNSIGNED NOT NULL,           -- the repeater / flexible field
-  layout_id INT UNSIGNED NOT NULL DEFAULT 0,
+  field_id  INT UNSIGNED NOT NULL,           -- the repeater field
   i1 BIGINT NULL,  -- … i4
   n1 DECIMAL(20,6) NULL,  -- … n2
   t1 DATETIME NULL,  -- … t4
@@ -383,7 +381,7 @@ The remaining joins disappear for most fields by picking storage by field shape:
 | --- | --- | --- | --- |
 | Multi-valued, up to 64 distinct values | Checkbox, multi-select, amenities, small taxonomies | Bitmask slot `m1`–`m4`; each value's bit position lives in `nf_dict.bit` | Bitwise test on the same row: any-of `m & mask <> 0`, all-of `m & mask = mask`, none-of `m & mask = 0` |
 | Multi-valued, high cardinality | Relationships to many posts, large tag sets | Stays in the typed tables (`by_value` index) | One indexed probe; the planner drives from it when the value is selective, otherwise probes survivors |
-| Repeater / flexible sub-fields | Sessions, ticket tiers, opening hours | One `nf_row_pivot` row per item, plus rollup slots (min, max, count) on the object pivot | Rollups prefilter on the object row; the exact check reads only that object's own items through `by_object` |
+| Repeater sub-fields | Sessions, ticket tiers, opening hours | One `nf_row_pivot` row per item, plus rollup slots (min, max, count) on the object pivot | Rollups prefilter on the object row; the exact check reads only that object's own items through `by_object` |
 
 - **Bitmasks need no index and no join.** They are checked on rows the pivot index already selected, which is where the old semi-join spent its time. A field that grows past 64 values spills into a second m-slot, or is demoted to high cardinality in the background with an admin notice.
 - **Facet counts come from one query.** `SELECT m1, COUNT(*) … GROUP BY m1` over the filtered rows returns a handful of distinct masks; PHP sums the bits per value. This replaces ID-set caching for facets: counts are always live and need no invalidation.
@@ -419,7 +417,7 @@ Assumptions: an `event` post type with 10,000 posts, each with a `sessions` repe
 
 ### Sorting repeater rows
 
-Repeaters and flexible content get a sort setting, a PHP hook and a toolbar action in the admin. Rows can be ordered alphabetically by a sub-field, by a date sub-field, or by the `post_date` of a linked post, either once by the editor or automatically on every save.
+Repeaters (Series in the UI) get a sort setting, a PHP hook and a toolbar action in the admin. Rows can be ordered alphabetically by a sub-field, by a date sub-field, or by the `post_date` of a linked post, either once by the editor or automatically on every save.
 
 **Field setting** (stored in the field's JSON under an `nf_sort` key, which ACF ignores, so collections still round-trip through ACF JSON):
 
@@ -466,7 +464,7 @@ Templates can sort per call without touching stored order: `get_field( 'sessions
 
 **Admin interface**
 
-- A **Sort** `DropdownMenu` in the repeater toolbar lists A–Z and Z–A for each text sub-field, Oldest and Newest for each date or linked post, and any registered sorters. Choosing one reorders rows in place with an undo snackbar; the editor can keep dragging afterwards.
+- A **Sort** `DropdownMenu` in the Series toolbar lists A–Z and Z–A for each text sub-field, Oldest and Newest for each date or linked post, and any registered sorters. Choosing one reorders rows in place with an undo snackbar; the editor can keep dragging afterwards.
 - When the field uses `on_save`, the toolbar shows the active rule instead, drag handles are hidden, and new rows drop into their sorted position.
 - In the field builder, the repeater's settings panel has a **Row order** section (mode, sort key, direction, empty values) built with DataForm.
 - JS sorters register through `@wordpress/hooks` (`addFilter( 'nf.repeater.sortOptions', … )`). The server always re-applies the PHP comparator on save, so a client-only sorter can never produce an order the server disagrees with.
@@ -568,7 +566,7 @@ NF ships its own implementation of ACF's public PHP API, hooks and JSON format, 
 
 | Surface | What NF provides |
 | --- | --- |
-| Template functions: `get_field`, `the_field`, `get_fields`, `get_field_object`, `have_rows`, `the_row`, `get_sub_field`, `get_row_layout`, `get_row_index`, `update_field`, `update_sub_field`, `add_row`, `update_row`, `delete_row`, `delete_field` | Same signatures and return values, served from the hydrated object cache |
+| Template functions: `get_field`, `the_field`, `get_fields`, `get_field_object`, `have_rows`, `the_row`, `get_sub_field`, `get_row_index`, `update_field`, `update_sub_field`, `add_row`, `update_row`, `delete_row`, `delete_field` | Same signatures and return values, served from the hydrated object cache |
 | Registration: `acf_add_local_field_group`, `acf_add_local_field`, `acf_add_options_page`, `acf_add_options_sub_page` | Parsed into `nf_fields`; field keys preserved so existing data and JSON still match |
 | Local JSON: `acf-json` folders, `acf/settings/save_json` and `load_json` | Read and written in ACF's JSON format, so collections move between ACF (as field groups) and NF in both directions |
 | Hooks: `acf/init`, `acf/load_field`, `acf/prepare_field`, `acf/load_value`, `acf/format_value`, `acf/update_value`, `acf/validate_value`, `acf/save_post` (with `/name=`, `/key=`, `/type=` variants) | Fired at the same points with the same arguments |
@@ -838,7 +836,7 @@ The goal is a constant number of queries per listing, however many items it show
 | --- | --- | --- |
 | Pivot-backed fields (dates, numbers, booleans, selects) | With the query itself | 0 extra |
 | Other scalar fields, text, WYSIWYG | First access to **any** field of that collection on any item | 1 per typed table touched |
-| Repeaters and flexible content | First access to that field on any item | 1 (rows) + 1 per typed table of its sub-fields; packed repeaters 1 |
+| Repeaters | First access to that field on any item | 1 (rows) + 1 per typed table of its sub-fields; packed repeaters 1 |
 | Relationship, post object, user, taxonomy | First access | 1 for the IDs + 1 to prime targets (`_prime_post_caches`, `cache_users`, `_prime_term_caches`) |
 | Image, file, gallery | First access | 1 for attachment posts + 1 for their metadata (`update_meta_cache`) |
 | Featured images | First `get_post_thumbnail_id()` / `post.thumbnail` on the set | `update_post_thumbnail_cache()` once |
@@ -869,11 +867,11 @@ Lazy loading never changes the shape of a value. NF returns concrete arrays and 
 | --- | --- | --- |
 | Native loop (`have_posts()`, `the_post()`) | Real `WP_Post` objects in `$wp_query->posts`; `get_field( 'x' )` resolves the current post from `get_the_ID()` | Template tags, `setup_postdata()`, `found_posts`, `max_num_pages`, `paginate_links()` untouched |
 | `get_posts()` / `->posts()` | `WP_Post[]` in query order | No global `$post` needed; `get_field( 'x', $post->ID )` batches by set |
-| Repeater loops (`have_rows()`, `the_row()`, `get_sub_field()`, `get_row_index()`, `get_row_layout()`) | ACF's own loop-stack behaviour, including nested `have_rows()` | Rows come from the batched load; sorting rules (`nf_sort`) already applied |
+| Repeater loops (`have_rows()`, `the_row()`, `get_sub_field()`, `get_row_index()`) | ACF's own loop-stack behaviour, including nested `have_rows()` | Rows come from the batched load; sorting rules (`nf_sort`) already applied |
 | `get_field()` return formats | Exactly the field's setting: image as array, ID or URL; post object as `WP_Post` or ID; relationship as `WP_Post[]` or `int[]`; dates in the configured format | Same `acf/format_value` filters fire |
 | Timber (`Timber::get_posts()`, `PostQuery`) | Timber collections built from NF's IDs, so Timber's class map and post classes apply | `posts.pagination` comes from the `WP_Query` NF populated |
 | Timber `post.meta()` | The `get_field()` value; with `transform_value`, related IDs become `Timber\Post`, images `Timber\Image`, terms `Timber\Term`, built in one batch | `post.raw_meta()` returns ACF's raw format |
-| Twig repeaters | `for item in post.meta('sessions')` gets plain arrays; flexible content includes `acf_fc_layout` | Nested repeaters stay nested arrays |
+| Twig repeaters | `for item in post.meta('sessions')` gets plain arrays | Nested repeaters stay nested arrays |
 | `->values()` / REST | Plain associative arrays, typed (`int`, `float`, ISO dates) | For JSON; no `WP_Post` built |
 | `->chunk()` | Plain arrays or `WP_Post[]` per chunk | Registry and per-request cache cleared after each chunk, so memory stays flat |
 
@@ -908,7 +906,7 @@ Timber themes must work unchanged in both modes, and standalone mode needs NF's 
 | `post.meta()` with no field name | Returns all fields for the object, as `get_fields()` would |
 | `transform_value` (per call, or globally with `timber/meta/transform_value`) | Same type-based conversions Timber applies to ACF values: image to `Timber\Image`, gallery to an array of images, post object and relationship to `Timber\Post`, taxonomy to `Timber\Term`, user to `Timber\User`, and dates to date objects; driven by the field type in `nf_fields` |
 | `post.raw_meta()` | Reads core meta, which NF's metadata filters answer in ACF's raw format |
-| Repeaters and flexible content in Twig (`for item in post.meta('my_repeater')`, `item.acf_fc_layout`) | Same array shapes ACF returns, including the `acf_fc_layout` key |
+| Repeaters in Twig (`for item in post.meta('my_repeater')`) | Same array shapes ACF returns |
 | `fn('get_field', …)`, `get_fields('option')` in the Timber context | Served by NF's ACF-compatible functions |
 | `Timber::get_posts()` and `PostQuery` collections | Use `WP_Query`, so NF's loop priming hydrates a whole collection in one query per table, and `meta_query` arguments go through the pivot |
 | ACF Blocks rendered with `Timber::render()` in a `render_callback` | `block`, `fields` and `is_preview` are passed the same way; `get_fields()` reads the block's data |
@@ -1011,7 +1009,7 @@ The build uses `@wordpress/scripts`; its dependency extraction writes `index.ass
 | Relationship, post object, page link, user, taxonomy | `ComboboxControl` with REST search for single values; a `DataViewsPicker` modal with filters for multiple values |
 | WYSIWYG | The classic TinyMCE editor via `wp_enqueue_editor()`, wrapped in a React component |
 | Group | DataForm `children` with a card or panel layout |
-| Repeater, flexible content | Custom components: collapsible cards with move, duplicate and remove; a layout picker modal for flexible content. `@wordpress/components` has no sortable list, so drag-and-drop needs a small bundled library or block-editor-style up/down movers |
+| Series (repeater) | Custom components: collapsible cards with move, duplicate and remove. `@wordpress/components` has no sortable list, so drag-and-drop needs a small bundled library or block-editor-style up/down movers |
 | Link, Google Map, icon picker, oEmbed | Custom `Edit` components |
 | Conditional logic, validation | DataForm `isVisible` and `isValid` (required, min/max, pattern, custom), re-checked on the server |
 
@@ -1035,7 +1033,7 @@ Switching is per collection and reversible at every step until the final cleanup
 NF can be installed next to an active ACF (free or PRO) or SCF and port everything into its own tables from a guided **Import from ACF** screen. ACF's records are removed only if the admin chooses to, after verification, with a backup first.
 
 1. **Scan.** With ACF still active, NF enumerates every ACF field group through ACF's own API, whether stored in the database, `acf-json` or registered in PHP. It also reads ACF-managed post types, taxonomies and options pages (ACF 6.1+), so the site keeps them after ACF is deactivated.
-2. **Report (dry run).** Shows per collection: objects and values to port, repeater rows, options and widget values, orphaned meta whose field no longer exists, third-party field types without an adapter, and code that reads `wp_postmeta` with raw SQL (from a theme/plugin scan). Nothing is written yet.
+2. **Report (dry run).** Shows per collection: objects and values to port, repeater rows, options and widget values, orphaned meta whose field no longer exists, third-party field types without an adapter, flexible content fields (not supported, so their collection is not ported), and code that reads `wp_postmeta` with raw SQL (from a theme/plugin scan). Nothing is written yet.
 3. **Port.** Values are read through ACF with formatting off (exact raw values) and written into the typed tables, row pivots and pivot, in resumable background batches with a progress bar. Field keys are kept, so existing JSON and code keep matching.
 4. **Verify.** Each object is loaded through both ACF and NF and the formatted values are compared. Mismatches are listed per object and field, with a re-port button.
 5. **Switch.** NF starts serving reads (read NF, write both). When the admin is ready, ACF is deactivated and NF moves to standalone mode.
@@ -1159,7 +1157,8 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | Third-party field types and add-ons (ACF Extended and others) | jQuery-based field UIs do not render in a React admin | `json` storage fallback, an adapter API, a published list of unsupported add-ons |
 | Raw SQL against `wp_postmeta` (themes, search, import/export, reporting) | Silent wrong results after cutover | Compatibility scanner finds them; selective write-only `wp_postmeta` mirror for the fields they read; keep affected collections in read-NF / write-both mode until rewritten |
 | Plugins whose ACF integration is gated on ACF being active, or runs in the editor | SEO analysis, translation and faceting integrations silently switch off in standalone mode | ACF shim plus emulated internals and JS API; first-party adapters for the major plugins; per-plugin compatibility tests before Phase 4 |
-| Repeater/flexible row diffing bugs | Lost or reordered rows | Transactional writes, row-level verify, revision copies as a safety net |
+| Repeater row diffing bugs | Lost or reordered rows | Transactional writes, row-level verify, revision copies as a safety net |
+| Sites built on ACF flexible content | Those collections cannot move to NF; templates that call `get_row_layout()` get nothing once ACF is gone | The scanner and dry-run report list them before any port; they stay on ACF in bridge mode or are rebuilt, for example as blocks |
 | DataViews/DataForm API changes between WordPress releases | Admin breakage | Bundle a pinned version; CI on the latest two WordPress releases plus nightly |
 | Host diversity (database versions, PHP timeouts, no CLI, no object cache) | Migrations stall or time out | Small resumable batches; test matrix across MySQL and MariaDB versions |
 | Duplicate data during shadow modes | Roughly 2× storage for migrated collections | Time-box modes 2–4; cleanup step |
@@ -1204,7 +1203,7 @@ Phase 1 is the go/no-go; later phases only add coverage and safety.
 - [ ] Inventory the ACF API real themes use (grep for `get_field`, `have_rows`, `acf_*` functions and `acf/` hooks) to size the compatibility layer
 - [ ] Read the ACF 6.5+ meta instance code to design bridge mode
 - [ ] Build the Phase 1 spike for one collection with one repeater and one relationship
-- [ ] Prototype the collection builder and a repeater editor with `@wordpress/components` and DataForm to validate the UX
+- [ ] Prototype the collection builder and a Series editor with `@wordpress/components` and DataForm to validate the UX
 - [ ] Decide the name, minimum WordPress/PHP/database versions, and the business model
 
 ## Sources

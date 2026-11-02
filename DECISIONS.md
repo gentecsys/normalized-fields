@@ -27,6 +27,17 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Exception:** the ACF compatibility surface keeps ACF's names exactly: `acf_add_local_field_group()`, `acf_get_field_groups()`, `acf_get_field_group()`, `group_`-prefixed keys, the `acf-field-group` post type, ACF JSON files and ACF hooks. Themes and plugins call them, so renaming them would break compatibility. Where both appear, write "collection (ACF: field group)".
 - **Why:** owner preference for a clearer, product-neutral term.
 
+### ADR-0007: "Series" is the UI name for the repeater field (2026-11-02, owner)
+- **Decision:** the admin UI and user-facing strings call the repeater field **Series**; each entry is a **row**. Code identifiers, storage (`nf_rows`, `nf_row_pivot`) and technical docs keep "repeater".
+- **Exception:** ACF compatibility keeps `type: "repeater"` in ACF JSON, plus `have_rows()`, `the_row()` and `get_sub_field()`.
+- **Why:** not a copy of ACF's vocabulary.
+
+### ADR-0008: No flexible content field (2026-11-02, owner)
+- **Decision:** NF doesn't implement flexible content. The `layout_id` columns are dropped from `nf_rows` and `nf_row_pivot`. There's no layout picker, and NF doesn't provide `get_row_layout()` or `acf_fc_layout`.
+- **Why:** flexible content is an old page-building paradigm; blocks cover that use case.
+- **Consequences:** the scanner and the port dry-run list ACF flexible content fields. Collections that contain one aren't ported: they stay on ACF in bridge mode or get rebuilt, for example as blocks. Templates that call `get_row_layout()` won't work once ACF is deactivated. This is listed in the design doc's risks.
+- **Alternatives:** read-only import of flexible content as JSON. Not chosen for now; it can be revisited if a pilot site needs it.
+
 ## Owner decisions
 
 | # | Decision | Needed by | Status | Value |

@@ -69,7 +69,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 4.1 | Admin shell | A8 | M | G3 | todo | | Loads on WP 7.0 / 7.1, no console errors |
 | 4.2 | Collection builder | A8 | XL | 4.1 | todo | | Every core type configurable; Playwright tests |
-| 4.3 | Edit forms and repeater editor | A8 | XL | 4.1 | todo | | Save/reload identical for every type; no `max_input_vars` limit |
+| 4.3 | Edit forms and Series editor | A8 | XL | 4.1 | todo | | Save/reload identical for every type; no `max_input_vars` limit |
 | 4.4 | Tools, import wizard, health screens | A8 + A9 | L | 4.1, 2.6 | todo | | Wizard ports a real site end to end |
 | 4.5 | Schema import and export | A9 | L | 3.6 | todo | | Round-trip on corpus of real ACF exports |
 | 4.6 | Content migration | A9 | L | 4.5 | todo | | Cross-site ACF → NF-only migration |
