@@ -35,3 +35,9 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-07 | ACF shim default | G3 | Open | Default: off, enabled by the scanner's suggestion |
 | D-08 | Business model | 4.10 | Open | Undecided; doesn't block the build |
 | D-09 | Third-party adapters in 4.8 | Start of Phase 4 | Open | Default: the scanner's top hits on client sites |
+
+## Gate approvals
+
+Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
+
+_No gates approved yet._
