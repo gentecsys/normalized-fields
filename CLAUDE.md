@@ -28,6 +28,8 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 ## Coding conventions (D-01)
 
 - **Terminology (ADR-0006):** in NF's own UI, API, JSON, docs and identifiers, a set of fields is a **collection**, never a "field group" (for example `nf_register_collection()` and `"collections"`). The ACF compatibility layer keeps ACF's names exactly (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, the `acf-field-group` post type, ACF JSON).
+- **Series (ADR-0007):** the repeater field is called **Series** in the UI and in user-facing strings. Each entry is a **row**. Code, storage and docs keep "repeater" as the technical name, and ACF compatibility keeps `type: "repeater"`, `have_rows()`, `the_row()` and `get_sub_field()`.
+- **No flexible content (ADR-0008):** don't build a flexible content field, a layout picker, `layout_id` columns or `get_row_layout()`. The importer reports ACF flexible content fields and skips their collections.
 
 - PHP is procedural: plain functions with an `nf_` prefix, hooked through `add_action` / `add_filter`. No OOP wrappers around WordPress APIs.
 - Classes are allowed only for:
