@@ -10,7 +10,7 @@ project: nf-normalized-fields
 sources:
   - id: claude-doc
     resource: https://claude.ai/artifact/48mE8EJY4AfkZ8eSfJnVJt
-    title: NF design doc (Claude doc, the working copy)
+    title: NF design doc (Claude doc, a published copy of this note)
   - id: google-doc
     resource: https://docs.google.com/document/d/17LxQOsNhrv15N1bOsyntCjwaXeV4cL9GV2tuErXVO74/edit
     title: NF design doc (Google Doc, shared with Angel as editor)
@@ -18,7 +18,7 @@ sources:
 
 # NF — ACF Storage Analysis & Normalized Replacement Plugin
 
-> Synced copy of the design doc as of 2026-11-02. The Claude doc is the working copy; the Google Doc is shared with Angel as editor. Diagrams are redrawn here as Mermaid.
+> **This note is the source of truth for the NF design** (from 2026-11-02). Change it here first, then update the published copies: the Claude doc, the Google Doc (shared with Angel as editor) and the repo's `docs/design.md`. Diagrams are redrawn here as Mermaid. Last synced to the Claude doc: 2026-11-02 (collections rename).
 
 ## Executive summary
 
