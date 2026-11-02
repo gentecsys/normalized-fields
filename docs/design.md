@@ -107,7 +107,9 @@ No existing product combines full ACF compatibility, normalized repeaters/relati
 
 ## Proposed architecture: a generic typed store
 
-ACF's storage is replaced by a fixed set of tables that never change shape, whatever post types, field groups or repeaters a site defines. Speed comes from three things `wp_postmeta` lacks: integer field IDs instead of string keys, one table per **data type** (not per content type) so every value sits in a properly typed column, and composite indexes that lead with the field ID and end with the object ID. Working name: **Normalized Fields (NF)**.
+ACF's storage is replaced by a fixed set of tables that never change shape, whatever post types, collections or repeaters a site defines. Speed comes from three things `wp_postmeta` lacks: integer field IDs instead of string keys, one table per **data type** (not per content type) so every value sits in a properly typed column, and composite indexes that lead with the field ID and end with the object ID. Working name: **Normalized Fields (NF)**.
+
+**Terminology:** NF calls a set of fields shown together a **collection**; ACF calls the same thing a *field group*. NF's own UI, API, JSON and docs say "collection". The ACF compatibility layer keeps ACF's names unchanged (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, ACF JSON), because themes and plugins call them.
 
 ```mermaid
 flowchart TB
@@ -138,8 +140,8 @@ Every read and write from the NF admin, the compatibility API or core lands in t
 
 ### Why generic, not one table per content type
 
-- No DDL when content models change: adding a field, a group or a whole post type is a row in the field map, not an `ALTER TABLE`. Deploys never drift on schema, whatever the host or pipeline.
-- Field groups attached to many locations (posts, terms, users, options) just work.
+- No DDL when content models change: adding a field, a collection or a whole post type is a row in the field map, not an `ALTER TABLE`. Deploys never drift on schema, whatever the host or pipeline.
+- Collections attached to many locations (posts, terms, users, options) just work.
 - Proven pattern: Magento's EAV stores values in per-data-type tables (int, varchar, decimal, datetime, text) for the same reason. Its known weakness, many-join filters, is handled by the query planner below.
 
 ### Fixed schema
@@ -419,7 +421,7 @@ Assumptions: an `event` post type with 10,000 posts, each with a `sessions` repe
 
 Repeaters and flexible content get a sort setting, a PHP hook and a toolbar action in the admin. Rows can be ordered alphabetically by a sub-field, by a date sub-field, or by the `post_date` of a linked post, either once by the editor or automatically on every save.
 
-**Field setting** (stored in the field's JSON under an `nf_sort` key, which ACF ignores, so field groups still round-trip):
+**Field setting** (stored in the field's JSON under an `nf_sort` key, which ACF ignores, so collections still round-trip through ACF JSON):
 
 ```php
 'nf_sort' => [
@@ -560,7 +562,7 @@ NF ships its own implementation of ACF's public PHP API, hooks and JSON format, 
 ### Two modes
 
 - **Bridge mode (ACF active, migration only).** ACF keeps its admin; NF takes over storage through `acf/pre_load_metadata`, `acf/pre_update_metadata`, `acf/pre_delete_metadata` and, on ACF 6.5+, the by-field meta layer. This is how data is backfilled and verified without touching the theme.
-- **Standalone mode (ACF inactive).** NF defines the `get_field()` family and `acf_*` registration functions itself, each guarded by `function_exists()`, loads field groups from its own store and JSON, and renders its own admin. This is the target state.
+- **Standalone mode (ACF inactive).** NF defines the `get_field()` family and `acf_*` registration functions itself, each guarded by `function_exists()`, loads collections from its own store and JSON, and renders its own admin. This is the target state.
 
 ### Surface NF implements
 
@@ -568,7 +570,7 @@ NF ships its own implementation of ACF's public PHP API, hooks and JSON format, 
 | --- | --- |
 | Template functions: `get_field`, `the_field`, `get_fields`, `get_field_object`, `have_rows`, `the_row`, `get_sub_field`, `get_row_layout`, `get_row_index`, `update_field`, `update_sub_field`, `add_row`, `update_row`, `delete_row`, `delete_field` | Same signatures and return values, served from the hydrated object cache |
 | Registration: `acf_add_local_field_group`, `acf_add_local_field`, `acf_add_options_page`, `acf_add_options_sub_page` | Parsed into `nf_fields`; field keys preserved so existing data and JSON still match |
-| Local JSON: `acf-json` folders, `acf/settings/save_json` and `load_json` | Read and written in ACF's JSON format, so field groups move between ACF and NF in both directions |
+| Local JSON: `acf-json` folders, `acf/settings/save_json` and `load_json` | Read and written in ACF's JSON format, so collections move between ACF (as field groups) and NF in both directions |
 | Hooks: `acf/init`, `acf/load_field`, `acf/prepare_field`, `acf/load_value`, `acf/format_value`, `acf/update_value`, `acf/validate_value`, `acf/save_post` (with `/name=`, `/key=`, `/type=` variants) | Fired at the same points with the same arguments |
 | ACF Blocks: `acf_register_block_type()` and block.json `acf` config | Blocks registered from the same config, rendered by their `render_template` / `render_callback` with `get_field()` reading block context; editing in NF's React inspector panel. V3 inline editing is a later phase |
 | `acf_form()` / `acf_form_head()` front-end forms | Server-rendered form with a small script; later phase |
@@ -835,7 +837,7 @@ The goal is a constant number of queries per listing, however many items it show
 | Data | When it loads | Queries for the whole set |
 | --- | --- | --- |
 | Pivot-backed fields (dates, numbers, booleans, selects) | With the query itself | 0 extra |
-| Other scalar fields, text, WYSIWYG | First access to **any** field of that group on any item | 1 per typed table touched |
+| Other scalar fields, text, WYSIWYG | First access to **any** field of that collection on any item | 1 per typed table touched |
 | Repeaters and flexible content | First access to that field on any item | 1 (rows) + 1 per typed table of its sub-fields; packed repeaters 1 |
 | Relationship, post object, user, taxonomy | First access | 1 for the IDs + 1 to prime targets (`_prime_post_caches`, `cache_users`, `_prime_term_caches`) |
 | Image, file, gallery | First access | 1 for attachment posts + 1 for their metadata (`update_meta_cache`) |
@@ -993,8 +995,8 @@ The build uses `@wordpress/scripts`; its dependency extraction writes `index.ass
 
 | Screen | Built with | Notes |
 | --- | --- | --- |
-| Field groups list | DataViews (table/list layouts) | Search, filters by location and status, bulk actions: activate, duplicate, export JSON, delete |
-| Field group builder | `@wordpress/components` + DataForm for each field's settings | Field tree with add, nest, reorder, duplicate; location rules with `ComboboxControl`; conditional logic builder; live preview of the edit form |
+| Collections list | DataViews (table/list layouts) | Search, filters by location and status, bulk actions: activate, duplicate, export JSON, delete |
+| Collection builder | `@wordpress/components` + DataForm for each field's settings | Field tree with add, nest, reorder, duplicate; location rules with `ComboboxControl`; conditional logic builder; live preview of the edit form |
 | Post edit (block editor) | `registerPlugin` + `PluginDocumentSettingPanel` for small groups; a React app mounted in the meta-box area for large ones | Saves through `nf/v1` during the editor's save cycle so dirty state, autosave and preview stay consistent |
 | Post edit (classic), terms, users, comments | Same React form mounted into a container on the core screen | One form renderer for every location |
 | Options pages | DataForm in a regular admin page | Same renderer |
@@ -1017,23 +1019,23 @@ Add-on field types register a React `Edit` component through a JS hook plus a PH
 
 ## Migration and coexistence
 
-Switching is per field group and reversible at every step until the final cleanup, because `wp_postmeta` stays the source of truth until NF has been verified against it.
+Switching is per collection and reversible at every step until the final cleanup, because `wp_postmeta` stays the source of truth until NF has been verified against it.
 
-### Storage modes per field group
+### Storage modes per collection
 
-1. **Bridge, off** — NF installed next to ACF; nothing changes yet. The importer scans field groups (database and `acf-json`) into `nf_fields`.
+1. **Bridge, off** — NF installed next to ACF; nothing changes yet. The importer scans ACF field groups (database and `acf-json`) into NF collections in `nf_fields`.
 2. **Shadow** — ACF still renders the admin; NF hooks ACF's meta filters and writes to both `wp_postmeta` and its own tables. A backfill copies existing values in resumable batches, started from NF's Tools screen or WP-CLI.
 3. **Verify** — every object is loaded twice (ACF meta path, NF path) and the formatted values are diffed. Zero mismatches is the gate.
 4. **Read NF, write both** — front end and queries use NF; meta is still written, so switching back is instant.
 5. **Standalone** — ACF is deactivated. NF's own admin and ACF-compatible API take over; meta writes stop and existing meta rows are frozen. Rollback rewrites meta from NF and reactivates ACF.
-6. **Cleanup** — after an agreed soak period, the group's meta rows and `_` reference rows are deleted in batches.
+6. **Cleanup** — after an agreed soak period, the collection's meta rows and `_` reference rows are deleted in batches.
 
 ### Porting from ACF
 
 NF can be installed next to an active ACF (free or PRO) or SCF and port everything into its own tables from a guided **Import from ACF** screen. ACF's records are removed only if the admin chooses to, after verification, with a backup first.
 
-1. **Scan.** With ACF still active, NF enumerates every field group through ACF's own API, whether stored in the database, `acf-json` or registered in PHP. It also reads ACF-managed post types, taxonomies and options pages (ACF 6.1+), so the site keeps them after ACF is deactivated.
-2. **Report (dry run).** Shows per field group: objects and values to port, repeater rows, options and widget values, orphaned meta whose field no longer exists, third-party field types without an adapter, and code that reads `wp_postmeta` with raw SQL (from a theme/plugin scan). Nothing is written yet.
+1. **Scan.** With ACF still active, NF enumerates every ACF field group through ACF's own API, whether stored in the database, `acf-json` or registered in PHP. It also reads ACF-managed post types, taxonomies and options pages (ACF 6.1+), so the site keeps them after ACF is deactivated.
+2. **Report (dry run).** Shows per collection: objects and values to port, repeater rows, options and widget values, orphaned meta whose field no longer exists, third-party field types without an adapter, and code that reads `wp_postmeta` with raw SQL (from a theme/plugin scan). Nothing is written yet.
 3. **Port.** Values are read through ACF with formatting off (exact raw values) and written into the typed tables, row pivots and pivot, in resumable background batches with a progress bar. Field keys are kept, so existing JSON and code keep matching.
 4. **Verify.** Each object is loaded through both ACF and NF and the formatted values are compared. Mismatches are listed per object and field, with a re-port button.
 5. **Switch.** NF starts serving reads (read NF, write both). When the admin is ready, ACF is deactivated and NF moves to standalone mode.
@@ -1062,7 +1064,7 @@ NF reads and writes three formats, so a site can move between ACF, SCF and NF in
   "$schema": "https://example.org/nf/schema/1.0.json",
   "nf_schema_version": 1,
   "exported": "2026-10-30T18:00:00Z",
-  "field_groups": [
+  "collections": [
     {
       "key": "group_events",
       "title": "Event details",
@@ -1092,7 +1094,7 @@ NF reads and writes three formats, so a site can move between ACF, SCF and NF in
 
 - Everything outside `nf` keys is byte-compatible with ACF, so the same file still imports into ACF or SCF, which ignore unknown keys.
 - A published JSON Schema gives IDE autocomplete and validation in CI.
-- **Local JSON:** an `nf-json` folder in the theme or a plugin (paths filterable, like ACF's `acf/settings/load_json`) holds one file per field group. NF also reads an existing `acf-json` folder directly. A group whose file is newer, or whose `nf_hash` differs from the database, shows **Sync available** in the admin, as ACF does.
+- **Local JSON:** an `nf-json` folder in the theme or a plugin (paths filterable, like ACF's `acf/settings/load_json`) holds one file per collection. NF also reads an existing `acf-json` folder directly. A group whose file is newer, or whose `nf_hash` differs from the database, shows **Sync available** in the admin, as ACF does.
 
 #### Importing
 
@@ -1107,33 +1109,33 @@ NF reads and writes three formats, so a site can move between ACF, SCF and NF in
 Every import runs as **validate → diff → apply**:
 
 1. **Validate** against the JSON Schema. Unknown field types (third-party add-ons) are listed with their fallback: `json` storage with a read-only editor until an adapter exists.
-2. **Diff** against what the site has, per group: fields added, removed, renamed, settings changed, and type changes that move data between typed tables (with how many stored values each affects and which would fail conversion).
-3. **Choose** per group: create, update, replace or skip. Field keys are kept, since they link existing data; a key that collides with a field in a different group is offered a remap.
-4. **Apply** in one transaction for the field map, then background jobs for anything that touches data: pivot slot backfills, rollups, conversions. Nothing is dropped; removed fields are retired, as in field group changes.
+2. **Diff** against what the site has, per collection: fields added, removed, renamed, settings changed, and type changes that move data between typed tables (with how many stored values each affects and which would fail conversion).
+3. **Choose** per collection: create, update, replace or skip. Field keys are kept, since they link existing data; a key that collides with a field in a different collection is offered a remap.
+4. **Apply** in one transaction for the field map, then background jobs for anything that touches data: pivot slot backfills, rollups, conversions. Nothing is dropped; removed fields are retired, as in collection changes.
 
-The same flow runs from the Tools screen, from WP-CLI (`wp nf schema import file.json --dry-run`), and automatically for Local JSON when a group is opened or on deploy.
+The same flow runs from the Tools screen, from WP-CLI (`wp nf schema import file.json --dry-run`), and automatically for Local JSON when a collection is opened or on deploy.
 
 #### Exporting
 
 | Export | Contents | Use |
 | --- | --- | --- |
 | NF JSON | Selected groups, post types, taxonomies, options pages, all `nf` settings | Backups, moving between NF sites, version control |
-| ACF JSON | Same groups with `nf` keys removed; NF-only field types downgraded to the nearest ACF type with a warning | Moving back to ACF or SCF |
-| PHP | `nf_register_field_group()` calls, or `acf_add_local_field_group()` calls for ACF compatibility | Locking schema in code |
+| ACF JSON | Same collections as ACF field groups, with `nf` keys removed; NF-only field types downgraded to the nearest ACF type with a warning | Moving back to ACF or SCF |
+| PHP | `nf_register_collection()` calls, or `acf_add_local_field_group()` calls for ACF compatibility | Locking schema in code |
 | Content package (`.zip`) | `schema.json`, one NDJSON file per object type with field values by field name, and a manifest of GUIDs and slugs for remapping IDs | Moving content between sites without WXR |
 
-The export screen is a DataViews list of groups with checkboxes and a format picker; WP-CLI mirrors it (`wp nf schema export --format=acf`).
+The export screen is a DataViews list of collections with checkboxes and a format picker; WP-CLI mirrors it (`wp nf schema export --format=acf`).
 
 #### Content migration and IDs
 
 - **WXR (WordPress Importer):** NF adds its field values to WordPress exports as `wp:postmeta` in ACF's raw format, so the file imports into an ACF site as well. On import, NF catches meta writes for its own keys during the import and stores them in NF tables; it also runs the bulk-import path, so pivots and rollups are rebuilt once at the end rather than per post.
 - **ID remapping:** relationships, post objects, images and galleries hold IDs that differ between sites. NF reads the importer's old-to-new ID map at the end of the import (or the GUID and slug manifest in a content package) and rewrites references in `nf_int`, the pivots and the row pivots in one pass. Unresolved references are listed, not silently dropped.
-- **Cross-site migration from ACF, with no ACF on the target:** export field groups (ACF JSON) and content (WXR) from the old site, then on the new site import the JSON into NF, then the WXR. Data lands directly in NF tables.
+- **Cross-site migration from ACF, with no ACF on the target:** export ACF field groups (ACF JSON) and content (WXR) from the old site, then on the new site import the JSON into NF, then the WXR. Data lands directly in NF tables.
 - **Round-trip test:** CI imports a corpus of real ACF exports, exports them back as ACF JSON and diffs the result. Core ACF keys must survive unchanged.
 
-### Field group changes
+### Collection changes
 
-- Field group save (UI or Local JSON sync) only upserts rows in `nf_fields`; no table is ever altered.
+- Collection save (UI or Local JSON sync) only upserts rows in `nf_fields`; no table is ever altered.
 - Adding a field creates a new `field_id` and nothing else. Renaming a field is one `nf_fields` update. A deleted field is marked retired, and its values stay until `wp nf purge`.
 - A field type change that moves data to another typed table (text to number, say) runs with a dry-run report first; values that fail conversion are listed, never silently dropped.
 
@@ -1143,7 +1145,7 @@ The export screen is a DataViews list of groups with checkboxes and a format pic
 - **Background work:** backfill, verify and statistics run as small resumable batches through Action Scheduler (bundled, as WooCommerce does), with a WP-Cron fallback and an admin progress screen that drives batches over REST. WP-CLI commands exist but are optional.
 - **No hard dependencies:** no persistent object cache, CLI access or specific host is required; a persistent object cache is used when present.
 - **Install and upgrade:** tables are created with `dbDelta()` on activation and versioned upgrades; multisite creates them per site on network activation and for new sites. `uninstall.php` drops tables only if the admin opted in.
-- **Deploys:** field groups travel as ACF-format JSON files in the theme or plugin, so any pipeline (Git, FTP, a host's deploy tool) keeps environments in sync.
+- **Deploys:** collections travel as ACF-format JSON files in the theme or plugin, so any pipeline (Git, FTP, a host's deploy tool) keeps environments in sync.
 - **Distribution:** GPL, no calls to external services, ready for the WordPress.org directory.
 
 ## Risks, trade-offs, open questions
@@ -1155,12 +1157,12 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | Breadth of ACF's API (template functions, hooks, return formats, `$post_id` conventions) | Themes break in edge cases once ACF is deactivated | Compatibility test suite run against real themes; bridge mode keeps ACF available until it passes |
 | ACF Blocks and V3 inline editing | Block-heavy sites cannot switch | Support block.json `acf` blocks with server rendering first; inline editing later |
 | Third-party field types and add-ons (ACF Extended and others) | jQuery-based field UIs do not render in a React admin | `json` storage fallback, an adapter API, a published list of unsupported add-ons |
-| Raw SQL against `wp_postmeta` (themes, search, import/export, reporting) | Silent wrong results after cutover | Compatibility scanner finds them; selective write-only `wp_postmeta` mirror for the fields they read; keep affected groups in read-NF / write-both mode until rewritten |
+| Raw SQL against `wp_postmeta` (themes, search, import/export, reporting) | Silent wrong results after cutover | Compatibility scanner finds them; selective write-only `wp_postmeta` mirror for the fields they read; keep affected collections in read-NF / write-both mode until rewritten |
 | Plugins whose ACF integration is gated on ACF being active, or runs in the editor | SEO analysis, translation and faceting integrations silently switch off in standalone mode | ACF shim plus emulated internals and JS API; first-party adapters for the major plugins; per-plugin compatibility tests before Phase 4 |
 | Repeater/flexible row diffing bugs | Lost or reordered rows | Transactional writes, row-level verify, revision copies as a safety net |
 | DataViews/DataForm API changes between WordPress releases | Admin breakage | Bundle a pinned version; CI on the latest two WordPress releases plus nightly |
 | Host diversity (database versions, PHP timeouts, no CLI, no object cache) | Migrations stall or time out | Small resumable batches; test matrix across MySQL and MariaDB versions |
-| Duplicate data during shadow modes | Roughly 2× storage for migrated groups | Time-box modes 2–4; cleanup step |
+| Duplicate data during shadow modes | Roughly 2× storage for migrated collections | Time-box modes 2–4; cleanup step |
 | Multisite | Tables per site | Use `$wpdb->prefix`; network activation hooks |
 | Naming and positioning | ACF trademark; the WP Engine / WordPress.org dispute | Neutral name; GPL; compatibility described as "works with ACF code"; supports ACF and SCF equally |
 
@@ -1185,7 +1187,7 @@ Start with a spike on a large real-world dataset: if normalized storage does not
 
 ```mermaid
 flowchart TB
-  p1["Phase 1 · Spike<br/>one field group + repeater via acf/pre_*_metadata<br/>benchmark slow queries, meta vs NF"]
+  p1["Phase 1 · Spike<br/>one collection + repeater via acf/pre_*_metadata<br/>benchmark slow queries, meta vs NF"]
   p2["Phase 2 · Storage MVP<br/>typed tables, field map, all core field types<br/>bridge mode, meta API filters, backfill/verify/shadow"]
   p3["Phase 3 · Query layer and ACF API<br/>pivot, dictionary, archive and count tables<br/>standalone ACF API, Local JSON, Timber"]
   p4["Phase 4 · React admin and release<br/>builder and edit screens, ACF Blocks, options, revisions<br/>Import from ACF wizard, WordPress.org release"]
@@ -1201,8 +1203,8 @@ Phase 1 is the go/no-go; later phases only add coverage and safety.
 - [ ] Pick a large real-world dataset and record baseline timings and `EXPLAIN` plans for its 5 slowest field queries
 - [ ] Inventory the ACF API real themes use (grep for `get_field`, `have_rows`, `acf_*` functions and `acf/` hooks) to size the compatibility layer
 - [ ] Read the ACF 6.5+ meta instance code to design bridge mode
-- [ ] Build the Phase 1 spike for one field group with one repeater and one relationship
-- [ ] Prototype the field group builder and a repeater editor with `@wordpress/components` and DataForm to validate the UX
+- [ ] Build the Phase 1 spike for one collection with one repeater and one relationship
+- [ ] Prototype the collection builder and a repeater editor with `@wordpress/components` and DataForm to validate the UX
 - [ ] Decide the name, minimum WordPress/PHP/database versions, and the business model
 
 ## Sources

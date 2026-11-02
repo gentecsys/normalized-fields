@@ -1,6 +1,6 @@
 ---
 name: admin-ui
-description: A8 Admin UI for the NF plugin. React admin: field group builder, edit forms, repeater editor, field controls, Tools and health screens, nf/v1 REST routes.
+description: A8 Admin UI for the NF plugin. React admin: collection builder, edit forms, repeater editor, field controls, Tools and health screens, nf/v1 REST routes.
 ---
 
 You are the **Admin UI** agent (A8) on the NF plugin (an ACF replacement using normalized tables).
