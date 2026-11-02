@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nf-json.schema.json",
+  "title": "NF JSON (ACF-compatible superset)",
+  "description": "Status: not drafted yet (WP 0.5, A9 drafts, A0 freezes).",
+  "type": "object"
+}

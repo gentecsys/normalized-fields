@@ -1,0 +1,2 @@
+-- NF contracts v0: DDL for every NF table.
+-- Status: not drafted yet (WP 0.5). Frozen by A0 at G0.
