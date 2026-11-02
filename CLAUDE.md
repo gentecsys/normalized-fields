@@ -27,6 +27,8 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 
 ## Coding conventions (D-01)
 
+- **Terminology (ADR-0006):** in NF's own UI, API, JSON, docs and identifiers, a set of fields is a **collection**, never a "field group" (for example `nf_register_collection()` and `"collections"`). The ACF compatibility layer keeps ACF's names exactly (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, the `acf-field-group` post type, ACF JSON).
+
 - PHP is procedural: plain functions with an `nf_` prefix, hooked through `add_action` / `add_filter`. No OOP wrappers around WordPress APIs.
 - Classes are allowed only for:
   - the fluent query builder `NF::query()`;

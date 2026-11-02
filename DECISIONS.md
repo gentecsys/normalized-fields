@@ -11,7 +11,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 
 ### ADR-0002: Generic typed store (2026-10-29)
 - **Decision:** one table per data type, not per content type, so field changes never need DDL. Pivot, row pivot, dictionary, count and archive tables are derived and can be rebuilt.
-- **Alternatives:** a table per field group, rejected because every schema edit would need DDL.
+- **Alternatives:** a table per collection, rejected because every schema edit would need DDL.
 
 ### ADR-0003: Fluent query builder, not an ORM (2026-10-29)
 - **Decision:** `NF::query()` returns native `WP_Post` / `WP_Term` / `WP_User`, and `WP_Query` `meta_query` is translated transparently.
@@ -21,6 +21,11 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 
 ### ADR-0005: Multi-agent build against frozen contracts (2026-11-02)
 - **Decision:** specialised Claude Code agents (A0–A13), one WP per branch and PR, a fresh-context reviewer on every PR, and owner approval at each gate.
+
+### ADR-0006: "Collection" replaces "field group" in NF's own vocabulary (2026-11-02, owner)
+- **Decision:** a set of fields shown together is a **collection**. This applies to NF's admin UI (Collections list, Collection builder), NF's PHP API (`nf_register_collection()`), the NF JSON top-level key (`"collections"`), docs, plans and code identifiers inside `includes/` (no new `nf_*field_group*` names).
+- **Exception:** the ACF compatibility surface keeps ACF's names exactly: `acf_add_local_field_group()`, `acf_get_field_groups()`, `acf_get_field_group()`, `group_`-prefixed keys, the `acf-field-group` post type, ACF JSON files and ACF hooks. Themes and plugins call them, so renaming them would break compatibility. Where both appear, write "collection (ACF: field group)".
+- **Why:** owner preference for a clearer, product-neutral term.
 
 ## Owner decisions
 
