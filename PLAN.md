@@ -9,7 +9,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.1 | Repo and plugin skeleton | A1 | S | — | ready | | Activates cleanly on WP 7.0 and 7.1 |
+| 0.1 | Repo and plugin skeleton | A1 | S | — | in-review | wp/0.1-skeleton | Activates cleanly on WP 7.0 and 7.1 |
 | 0.2 | Dev environment and CI | A1 | M | 0.1 | todo | | Empty test suite green on the whole matrix |
 | 0.3 | Dataset generator | A12 | S | 0.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k) |
 | 0.4 | ACF API inventory | A5 | M | — | ready | | `contracts/api.md` lists the full surface, ranked by usage |
