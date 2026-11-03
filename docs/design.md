@@ -935,7 +935,7 @@ Estimate for 20 event cards showing title, date, venue name, featured image and 
 
 - Per-request hydrated arrays per object, loop priming on `the_posts`, and the persistent object cache when the site has one. Nothing depends on it being there.
 - `NF\Query` builder for what ACF cannot express: repeater sub-field filters, reverse relationships, faceted counts.
-- A REST namespace (`nf/v1`) that the admin uses and other plugins can call.
+- A public REST namespace (`nf/v1`) used by blocks, the admin and other plugins; see "Public REST API and blocks".
 - Optional WP-CLI commands mirroring the admin Tools screen: import, backfill, verify, rollback, fields sync.
 
 ### Timber compatibility
@@ -1013,6 +1013,84 @@ The Import from ACF screen (and the Tools screen afterwards) scans the site befo
 - Active plugins checked against a maintained list of known integrations, with the adapter or setting each needs.
 - Theme and plugin code searched for `$wpdb` queries on `postmeta`, `get_post_custom()`, and `class_exists( 'ACF' )` checks, with file and line.
 - A suggested configuration: shim on or off, adapters to enable, fields to mirror. The admin approves it before NF changes anything.
+
+## Public REST API and blocks
+
+Blocks need a public, stable way to read, filter and edit NF fields. Admin-only routes and per-site custom routes are not enough. NF provides three ways in, and all of them run on the same `nf_query()` compiler, loader and pagination rules, so a block, a template and a REST client see the same results (ADR-0012).
+
+### 1. Block Bindings: no custom block needed
+
+- **Server:** NF registers the binding source `nf/field` with `register_block_bindings_source()`.
+  - `get_value_callback` reads through the batched loader, so a page of bound blocks adds no queries beyond the set's single prime.
+  - Server rendering never calls REST.
+- **Editor:** `registerBlockBindingsSource()` registers `getValues` for the preview, and `setValues` so editors can change a bound field in place (decided for v1).
+  - Changes join the post's normal save, the same way NF's field panels do, so dirty state, autosave and preview stay consistent.
+  - Options are read-only through bindings.
+- **Blocks covered:** core Paragraph, Heading, Image and Button, and any custom block whose attributes are made bindable through core's supported-attributes filter. WP 0.4 confirms the filter name and the list of bindable attributes for 7.0.
+- **Binding arguments:** `{ "source": "nf/field", "args": { "key": "price", "object": "current" | "post:12" | "term:5" | "option" } }`, plus an optional `format`, and `row` / `sub` for a value inside a Series.
+- **ACF compatibility:** NF also registers ACF's own source name, `acf/field`, with ACF's argument shape, so content already bound to ACF fields keeps working once ACF is deactivated.
+- **Exposure:** only fields with `show_in_rest` can be bound in the editor UI. The server callback honours the same rule, so a bound block can never leak a private field.
+
+### 2. Query Loop integration
+
+- **Variations:** NF registers `core/query` variations per post type. Their inspector sets NF filters, sort, count mode and per-page.
+- **Storage:** these settings are saved as an `nf` attribute in the block's `query`.
+- **Front end:** `query_loop_block_query_vars` maps the `nf` attribute to the `nf` `WP_Query` argument. The query then takes the short-circuit, and pagination follows "Pagination parity": Query Pagination and `paginate_links()` behave as in core.
+- **Editor preview:** the preview fetches through `/wp/v2/{rest_base}`. `rest_{post_type}_query` applies the same translation, so the preview and the front end return the same IDs in the same order.
+- **Filter blocks** (facets, a price range, search) update the loop through the Interactivity API, using router regions and the `/nf/v1/query` and `/nf/v1/facets` routes below.
+
+### 3. Public `nf/v1` routes
+
+| Route | Method | Purpose | Permission |
+| --- | --- | --- | --- |
+| `/nf/v1/collections`, `/nf/v1/collections/{key}` | GET | Public field schema: keys, labels, types, return formats and choices, for `show_in_rest` fields only | Anyone |
+| `/nf/v1/{type}/{id}/fields` | GET | Values of one object. `type` is `post`, `term`, `user`, `comment` or `options`, and `?fields=` limits the keys | The object's own read permission, as in core |
+| `/nf/v1/{type}/{id}/fields` | PATCH | Update values; validated through `acf/validate_value` and saved through the normal write path (hooks fire) | `edit_post`, `edit_term`, `edit_user`, `edit_comment`, or the options page's capability |
+| `/nf/v1/query/{post_type}` | GET | `nf_query()` over HTTP, documented below | Anyone, for public post types and `show_in_rest` fields (decided) |
+| `/nf/v1/facets/{post_type}` | GET | Facet counts from the counting tier, with the same filters as `/query` | Anyone, as `/query` |
+
+The query parameters for `/query`:
+- **Filters:**
+  - `where[price][lt]=50`
+  - `any[category]=music,food`
+  - `related[artists]=123`
+  - `row[sessions][session_date][between]=2026-11-03,2026-11-04`
+  - `search=jazz`
+  - `tax[region]=varna`
+- **Sort:** `orderby=start_date,title` and `order=asc`.
+- **Paging:** `per_page`, `page` or `after` (a cursor), and `count=exact|capped|none`.
+- **Shape:** `fields=id,title,start_date,venue.title` sets the `->values()` projection, and `embed=venue` asks for related objects.
+
+Responses are typed JSON from `->values()`, with no `WP_Post` built. The headers are `X-WP-Total` and `X-WP-TotalPages`, plus `X-NF-Total-Capped`. A `Link` header gives `rel="next"` with the cursor.
+
+Core endpoints are extended as well:
+- `/wp/v2/{rest_base}` gains an `nf` field and `nf` query parameters, so `@wordpress/core-data` (`getEntityRecord`, `getEntityRecords`, `editEntityRecord`) works with NF data unchanged.
+- The ACF-compatible `acf` field stays alongside it, with ACF's shape.
+- Every route sets `allow_batch` for `/batch/v1`.
+
+### Rules for the public API
+
+- **Exposure is opt-in per field.**
+  - `show_in_rest` controls reading and binding, and is off by default, as in ACF.
+  - `rest_filterable` controls filtering, sorting and facets, and is also off by default.
+  - A field that is readable but not filterable cannot be used as a filter. Otherwise filters would work as an oracle: anyone could find out private values by trying them.
+- **Visibility matches core.**
+  - Anonymous requests see `publish` only. Other statuses need the same capabilities core checks, applied before the query, because status and author live in the pivot.
+  - Password-protected posts never return field values without the password, as with `content` in core.
+- **Limits on anonymous queries** (all filterable):
+  - at most 100 per page and at most 8 conditions;
+  - row conditions one level deep, and `embed` one level deep;
+  - `count` defaults to `capped`;
+  - page numbers above the cap fall back to cursors, so a URL like `?page=900000` cannot force a deep scan.
+- **Writes** need the capability and a REST nonce, or an application password. Values pass through the same validation and sanitisation as the admin form.
+- **Caching behind Pantheon and other edge caches.**
+  - Anonymous `GET` responses send `Cache-Control: public, max-age=…`, plus `Surrogate-Key` tags built from the post type's pivot write version and the object IDs. A save purges exactly the affected responses (through `pantheon_wp_clear_edge_keys()` when the Pantheon Advanced Page Cache plugin is present).
+  - Authenticated responses send `Cache-Control: private, no-store`. A response that depends on permissions is never stored under a public URL.
+  - The URL is the cache key: the parameters are normalised (sorted, defaults removed) so equivalent queries share one cache entry.
+- **Contract:** the routes, parameters, response shapes and error codes live in `contracts/rest.md`.
+  - The public part is frozen in Contracts v0 (WP 0.5) and versioned (`nf/v1`). A breaking change needs `nf/v2`.
+  - Routes used only by the admin are marked private and may change until the Phase 4 freeze.
+- **Backends and multisite** need nothing extra. Every route goes through `nf_query()` and `nf_db()`, so PostgreSQL and per-site tables apply automatically.
 
 ## Admin interface
 
@@ -1320,6 +1398,7 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | --- | --- | --- |
 | Breadth of ACF's API (template functions, hooks, return formats, `$post_id` conventions) | Themes break in edge cases once ACF is deactivated | Compatibility test suite run against real themes; bridge mode keeps ACF available until it passes |
 | ACF Blocks and V3 inline editing | Block-heavy sites cannot switch | Support block.json `acf` blocks with server rendering first; inline editing later |
+| Public anonymous `/nf/v1/query` endpoint | Expensive queries forced from outside, or private values inferred through filters | Opt-in `show_in_rest` and `rest_filterable` per field; per-page, condition and depth limits; capped counts by default; deep pages only through cursors; edge-cached public responses |
 | Third-party field types and add-ons (ACF Extended and others) | jQuery-based field UIs do not render in a React admin | `json` storage fallback, an adapter API, a published list of unsupported add-ons |
 | Raw SQL against `wp_postmeta` (themes, search, import/export, reporting) | Silent wrong results after cutover | Compatibility scanner finds them; selective write-only `wp_postmeta` mirror for the fields they read; keep affected collections in read-NF / write-both mode until rewritten |
 | Plugins whose ACF integration is gated on ACF being active, or runs in the editor | SEO analysis, translation and faceting integrations silently switch off in standalone mode | ACF shim plus emulated internals and JS API; first-party adapters for the major plugins; per-plugin compatibility tests before Phase 4 |
@@ -1357,8 +1436,8 @@ Start with a spike on a large real-world dataset: if normalized storage does not
 flowchart TB
   p1["Phase 1 · Spike<br/>one collection + repeater via acf/pre_*_metadata<br/>benchmark slow queries, meta vs NF"]
   p2["Phase 2 · Storage MVP<br/>typed tables, field map, all core field types<br/>bridge mode, meta API filters, backfill/verify/shadow"]
-  p3["Phase 3 · Query layer and ACF API<br/>pivot, dictionary, archive and count tables<br/>standalone ACF API, Local JSON, Timber"]
-  p4["Phase 4 · React admin and release<br/>builder and edit screens, ACF Blocks, options, revisions<br/>Import from ACF wizard, WordPress.org release"]
+  p3["Phase 3 · Query layer and ACF API<br/>pivot, dictionary, archive and count tables<br/>standalone ACF API, Local JSON, Timber<br/>public nf/v1 REST API"]
+  p4["Phase 4 · React admin and release<br/>builder and edit screens, ACF Blocks, Block Bindings and Query Loop, options, revisions<br/>Import from ACF wizard, WordPress.org release"]
   p5["Phase 5 · Remote PostgreSQL backend<br/>backend adapter, PostgreSQL dialect and migrations<br/>cross-database writes, Neon and RDS, three-way differential"]
   p1 -->|"Gate: identical get_field output; clear win on slow queries"| p2
   p2 -->|"Gate: verify reports zero mismatches on a staging copy"| p3

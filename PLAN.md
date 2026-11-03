@@ -14,7 +14,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 | 0.2b | Class-based structure and Composer autoloading | A1 | S | 0.2 | ready | | 0.1 code converted to `NF\` classes in `src/` (PSR-4), procedural public functions in `src/functions/`; release build zip with `vendor/`; Dependabot; plugin renamed per D-02 (header `Plugin Name: Normalized Fields`, main file `normalized-fields.php`, text domain `normalized-fields` in code, header and PHPCS); activation unchanged on WP 7.0 / 7.1; CI green |
 | 0.3 | Dataset generator | A12 | S | 0.2b | todo | | Same post IDs and values in ACF and NF stores (10k, 100k) |
 | 0.4 | ACF API inventory | A5 | M | — | ready | | `contracts/api.md` lists the full surface, ranked by usage |
-| 0.5 | Contracts v0 | A0 (+A2, A4, A5, A9) | M | 0.4 | todo | | Reviewed by A13; no open questions |
+| 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | todo | | Reviewed by A13; no open questions |
 | 0.6 | Differential test harness | A11 | L | 0.2, 0.3 | todo | | Zero diffs on an ACF-vs-ACF baseline |
 
 Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in parallel. After those, A0 runs 0.5 and A11 runs 0.6.
@@ -59,6 +59,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
 | 3.8 | Benchmark gates | A12 | M | 3.3, 3.4, 3.5 | todo | | CI fails on regression > 20% |
+| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; limit and oracle tests pass |
 
 XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
@@ -76,7 +77,8 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | 4.6 | Content migration | A9 | L | 4.5 | todo | | Cross-site ACF → NF-only migration |
 | 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF |
 | 4.8 | Third-party compatibility | A10 | XL | 3.6, 2.4 | todo | | Each listed plugin passes or is documented unsupported |
-| 4.9 | Hardening | A11 | L | 4.2–4.8 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
+| 4.9 | Hardening | A11 | L | 4.2–4.8, 4.11 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
+| 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass |
 | 4.10 | Docs and release | A0 | M | 4.9 | todo | | Plugin Check passes; RC tagged |
 
 **Gate G4 [owner]:** release decision.
