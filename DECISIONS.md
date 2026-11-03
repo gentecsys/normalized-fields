@@ -60,7 +60,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
   - **PostgreSQL:** one shared set of tables, with `site_id` as the first column of every key (user values use `site_id = 0`), partitioned by site. Deleting a site drops its partitions.
   - **Caches:** per-site cache groups, except user groups, which are global.
 - **Why:** ACF has no site ID column; separation comes from per-site tables. A per-site table set in one remote PostgreSQL database doesn't scale to large networks.
-- **Open:** D-16, shared tables or one schema per site on PostgreSQL.
+- **D-16 decided (2026-11-03):** shared tables, not a schema per site.
 
 ## Owner decisions
 
@@ -81,7 +81,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-13 | Providers tested in CI | Start of Phase 5 | Open | Neon and AWS RDS; Supabase, Cloud SQL and Azure documented |
 | D-14 | Minimum PostgreSQL version | Start of Phase 5 | Open | 15 |
 | D-15 | Query builder entry point | G0 (contracts v0) | **Decided by owner 2026-11-03** | `nf_query()` and `nf_options()`; `NF::query()` and `NF::options()` as aliases |
-| D-16 | PostgreSQL multisite layout | Start of Phase 5 | Open | Shared tables with `site_id` leading every key, partitioned by site |
+| D-16 | PostgreSQL multisite layout | Start of Phase 5 | **Decided by owner 2026-11-03** | Shared tables with `site_id` leading every key, partitioned by site |
 
 ## Gate approvals
 
