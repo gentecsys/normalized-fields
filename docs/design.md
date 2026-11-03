@@ -107,7 +107,7 @@ No existing product combines full ACF compatibility, normalized repeaters/relati
 
 ## Proposed architecture: a generic typed store
 
-ACF's storage is replaced by a fixed set of tables that never change shape, whatever post types, collections or repeaters a site defines. Speed comes from three things `wp_postmeta` lacks: integer field IDs instead of string keys, one table per **data type** (not per content type) so every value sits in a properly typed column, and composite indexes that lead with the field ID and end with the object ID. Working name: **Normalized Fields (NF)**.
+ACF's storage is replaced by a fixed set of tables that never change shape, whatever post types, collections or repeaters a site defines. Speed comes from three things `wp_postmeta` lacks: integer field IDs instead of string keys, one table per **data type** (not per content type) so every value sits in a properly typed column, and composite indexes that lead with the field ID and end with the object ID. Name: **Normalized Fields**; slug and text domain `normalized-fields`; NF for short in code (`NF\` namespace, `nf_` prefix).
 
 **Terminology:** NF calls a set of fields shown together a **collection**; ACF calls the same thing a *field group*. NF's own UI, API, JSON and docs say "collection". The ACF compatibility layer keeps ACF's names unchanged (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, ACF JSON), because themes and plugins call them. In the same way, the repeater field is called **Series** in NF's UI, and each entry is a row. This doc and the code keep "repeater" as the technical name, and ACF JSON keeps `type: "repeater"`. NF has **no flexible content field**: it is an old page-building pattern that blocks now cover.
 

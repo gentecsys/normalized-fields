@@ -67,9 +67,9 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | # | Decision | Needed by | Status | Value |
 | --- | --- | --- | --- | --- |
 | D-01 | Coding conventions | G0 | **Decided by owner 2026-11-03** | Class-based internals with Composer; procedural public API and ACF proxy (ADR-0010) |
-| D-02 | Plugin name | G0 | **Default, pending owner confirmation** | Keep "NF" internally until 4.10 |
+| D-02 | Plugin name | G0 | **Decided by owner 2026-11-03** | **Normalized Fields**; slug and text domain `normalized-fields`; `NF` stays the short name in code |
 | D-03 | Minimum WordPress | G0 | **Decided by owner 2026-11-02** | 7.0 (test 7.0, 7.1, nightly) |
-| D-04 | Minimum PHP | G0 | **Default, pending owner confirmation** | 8.1 |
+| D-04 | Minimum PHP | G0 | **Decided by owner 2026-11-03** | 8.1 |
 | D-05 | ACF PRO + SCF support | G0 | **Default, pending owner confirmation** | Both from day one (same public API) |
 | D-06 | Pilot site | G1 | Open | Default: one large client site copy |
 | D-07 | ACF shim default | G3 | Open | Default: off, enabled by the scanner's suggestion |

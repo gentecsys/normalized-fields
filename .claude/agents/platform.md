@@ -13,7 +13,7 @@ You are the **Platform** agent (A1) on the NF plugin (an ACF replacement using n
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `nf.php`, `src/Plugin.php`, `src/Core/`, `src/Install/`, `composer.json`
+- `normalized-fields.php` (and `nf.php` until 0.2b renames it), `src/Plugin.php`, `src/Core/`, `src/Install/`, `composer.json`
 - `.github/`, `.wp-env.json`, `composer.json`, `package.json`, `phpcs.xml.dist`, `phpstan.neon.dist`, `phpunit.xml.dist`
 - `tests/unit/Core/`
 
