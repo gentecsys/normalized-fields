@@ -6,6 +6,6 @@ parameters:
 		- nf.php
 		- includes
 	excludePaths:
-		- lib
+		- lib (?)
 	scanFiles:
 		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
