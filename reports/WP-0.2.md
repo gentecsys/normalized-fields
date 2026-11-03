@@ -21,3 +21,9 @@ None. Uses the WP test suite install script rather than wp-env for CI so MySQL/M
 ## Follow-ups
 - Commit `composer.lock` once generated.
 - Fix any phpcs/phpstan findings on first CI run.
+
+## Review round 1 (A13) fixes
+- Defined `WP_TESTS_PHPUNIT_POLYFILLS_PATH` in the test bootstrap; pinned PHPUnit to ^9.6 (WP core harness); added `PluginLoadsTest` (plugin loaded, `nf_bootstrap` exists, `nf_activate` runs, `nf_version` stored) so the 0.1 activation check is actually exercised on every matrix job.
+- PHPCS first CI run flagged short prefix `nf` (allowed, CLAUDE.md mandates it) and test doc comments: fixed.
+- Lint job pins PHP 8.3 only (PHPCompatibilityWP covers 8.1+).
+- Not addressed (non-blocking): WP 7.1 availability unverified; cache for composer/svn.

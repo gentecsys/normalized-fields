@@ -33,7 +33,7 @@ jobs:
         wp: [ '7.0', '7.1', 'nightly' ]
         db: [ 'mysql:5.7', 'mysql:8.0', 'mariadb:10.4', 'mariadb:10.11' ]
         # Full cross product is 48 jobs; keep every PHP, WP and DB covered at least
-        # twice by pairing them (see include/exclude below).
+        # twice by pairing them (see exclude below).
         exclude:
           - { php: '8.2', db: 'mysql:5.7' }
           - { php: '8.2', db: 'mariadb:10.4' }

@@ -15,6 +15,10 @@ if ( ! file_exists( $nf_tests_dir . '/includes/functions.php' ) ) {
 	exit( 1 );
 }
 
+if ( ! getenv( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH' ) && ! defined( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH' ) ) {
+	define( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH', dirname( __DIR__, 3 ) . '/vendor/yoast/phpunit-polyfills' );
+}
+
 require_once $nf_tests_dir . '/includes/functions.php';
 
 tests_add_filter(
