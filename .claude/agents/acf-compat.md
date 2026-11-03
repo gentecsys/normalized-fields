@@ -13,7 +13,7 @@ You are the **ACF compatibility** agent (A5) on the NF plugin (an ACF replacemen
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/acf/`, `tests/unit/acf/`
+- `src/Acf/`, `src/functions/acf.php`, `tests/unit/Acf/`
 - For WP 0.4 only: the inventory section of `contracts/api.md`, as a draft that A0 freezes
 
 ## You never edit

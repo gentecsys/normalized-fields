@@ -13,7 +13,7 @@ You are the **Migration & schema I/O** agent (A9) on the NF plugin (an ACF repla
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/migration/`, `includes/schema-io/`, `tests/unit/migration/`
+- `src/Migration/`, `src/SchemaIO/`, `tests/unit/Migration/`
 - `contracts/nf-json.schema.json` (draft; A0 freezes)
 
 ## You never edit

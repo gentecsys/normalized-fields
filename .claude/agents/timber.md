@@ -13,7 +13,7 @@ You are the **Timber** agent (A7) on the NF plugin (an ACF replacement using nor
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/timber/`, `tests/unit/timber/`
+- `src/Timber/`, `tests/unit/Timber/`
 
 ## You never edit
 Core storage.

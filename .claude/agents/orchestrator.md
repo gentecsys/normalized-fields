@@ -17,7 +17,7 @@ You are the **Orchestrator** agent (A0) on the NF plugin (an ACF replacement usi
 - the WordPress.org `readme.txt` and assets (WP 4.10)
 
 ## You never edit
-Feature code under `includes/`, `admin/`, `bench/` or `tests/`.
+Feature code under `src/`, `admin/`, `bench/` or `tests/`.
 
 If you need a change outside your paths, or a contract change, stop. Write it in `reports/WP-<id>.md` under **Contract change requested** or **Follow-ups**.
 

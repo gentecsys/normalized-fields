@@ -13,12 +13,12 @@ You are the **Platform** agent (A1) on the NF plugin (an ACF replacement using n
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `nf.php`, `includes/core/`, `includes/install/`, `lib/`
+- `nf.php`, `src/Plugin.php`, `src/Core/`, `src/Install/`, `composer.json`
 - `.github/`, `.wp-env.json`, `composer.json`, `package.json`, `phpcs.xml.dist`, `phpstan.neon.dist`, `phpunit.xml.dist`
-- `tests/unit/core/`
+- `tests/unit/Core/`
 
 ## You never edit
-Field logic (`includes/storage/`, `includes/query/`, `includes/acf/`, …).
+Field logic (`src/Storage/`, `src/Query/`, `src/Acf/`, …).
 
 If you need a change outside your paths, or a contract change, stop. Write it in `reports/WP-<id>.md` under **Contract change requested** or **Follow-ups**.
 

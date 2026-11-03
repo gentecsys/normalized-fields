@@ -31,13 +31,21 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 - **Series (ADR-0007):** the repeater field is called **Series** in the UI and in user-facing strings. Each entry is a **row**. Code, storage and docs keep "repeater" as the technical name, and ACF compatibility keeps `type: "repeater"`, `have_rows()`, `the_row()` and `get_sub_field()`.
 - **No flexible content (ADR-0008):** don't build a flexible content field, a layout picker, `layout_id` columns or `get_row_layout()`. The importer reports ACF flexible content fields and skips their collections.
 
-- PHP is procedural: plain functions with an `nf_` prefix, hooked through `add_action` / `add_filter`. No OOP wrappers around WordPress APIs.
-- Classes are allowed only for:
-  - the fluent query builder `NF::query()`;
-  - Timber's `IntegrationInterface`;
-  - the minimal `ACF` shim class;
-  - the field-type adapter contract for add-ons.
-- PHP follows the WordPress Coding Standards: tabs, PHPCS with `WordPress`, and PHPStan at level 6.
+- **Classes and Composer (D-01, ADR-0010):**
+  - The internals are class-based wherever possible: namespace `NF\` in `src/`, autoloaded by Composer PSR-4 (`"NF\\": "src/"`). Every file declares `strict_types=1` and holds one class, interface, enum or trait, named after the file.
+  - `nf.php` only boots: header, constants, requirement check, `vendor/autoload.php`, then `NF\Plugin::boot()`. A missing autoloader shows an admin notice, never a fatal error.
+  - `NF\Plugin` wires the services. Each service adds its hooks in a `register()` method. Constructors take dependencies and have no side effects.
+  - Use PHP 8.1: typed and `readonly` properties, enums for closed sets (object types, data types, storage modes), and interfaces for every contract (store, backend adapter, dialect, compiler, loader, field-type adapters).
+- **The user-facing API stays procedural:**
+  - Everything a theme or plugin developer calls is a plain global function: the ACF proxy (`get_field()`, `have_rows()`, `the_row()`, `get_sub_field()`, `update_field()`, `acf_add_local_field_group()`, `acf_get_field_groups()` and the rest, each guarded by `function_exists()`) and NF's own public functions (`nf_register_collection()`, `nf_register_row_sorter()`, `nf_db()` and the others in `contracts/api.md`).
+  - They live in `src/functions/<area>.php`, load through Composer's `files` autoload, and are thin wrappers that delegate to the classes. Don't put logic in them.
+  - The only public classes are the ones a dependency forces: the `ACF` shim class (themes check `class_exists( 'ACF' )`) and the Timber `IntegrationInterface` implementation. The query builder's entry point is D-15.
+- **Composer for the whole project:**
+  - Never commit `vendor/`. Release builds run `composer install --no-dev --optimize-autoloader --classmap-authoritative` and ship `vendor/` in the zip.
+  - Runtime dependencies are prefixed with Strauss into `NF\Vendor\`. Action Scheduler (`woocommerce/action-scheduler`) is the exception: it comes through Composer but loads through its own version registry.
+  - Schema upgrades are versioned migration classes in `NF\Install\Migrations\`, run on version change for both backends.
+  - Hook names and option keys keep the `nf/` and `nf_` prefixes.
+- PHP follows the WordPress Coding Standards (tabs, PHPCS `WordPress`), except that file names follow PSR-4 in `src/`. PHPStan runs at level 6.
 - Sanitize every input (`sanitize_text_field`, `absint`, …) and escape every output (`esc_html`, `esc_attr`, `wp_kses_post`). All SQL is parameterised (`$wpdb->prepare()` for core tables, bound parameters in `nf_db()` for NF tables). Table and column names come only from the contract, never from input.
 - **Backend seam (ADR-0009):** NF tables are read and written only through the backend adapter `nf_db()`, never through `$wpdb`. `$wpdb` is only for WordPress core tables. SQL for NF tables is built by the dialect layer (MySQL now, PostgreSQL in Phase 5). Don't rely on MySQL-only behaviour without writing it explicitly: no implicit casts, always `NULLS FIRST`/`NULLS LAST` when sorting nullable columns, no `FORCE INDEX` outside the MySQL dialect, and no joins between NF tables and core tables (a query resolves IDs on the NF side first).
 - Use `wp_cache_get` / `wp_cache_set` for caching.
@@ -61,23 +69,26 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 Directories are created by the WP that first needs them.
 
 ```
-nf.php                    # plugin bootstrap (A1)
-includes/
-  core/  install/         # A1: bootstrap, install/upgrade, dbDelta, jobs
-  storage/                # A2: field map, typed tables, rows, archive, sorting
-  pivot/                  # A3: pivots, row pivot, dictionary, bitmasks, rollups, counts
-  query/                  # A4: NF::query(), compiler, planner, WP_Query integration
-  loading/                # A6: result-set registry, batching, primers, with()
-  acf/                    # A5: ACF API, registration, Local JSON, hooks, shim, bridge, meta interception, blocks
-  timber/                 # A7: Timber integration
-  rest/                   # A8: nf/v1 routes
-  migration/  schema-io/  # A9: scan/port/verify/undo, NF JSON & ACF JSON, WXR
-  compat/                 # A10: third-party adapters, postmeta mirror, scanner
+nf.php                    # boot only (A1)
+composer.json             # A1: PSR-4 "NF\\" => src/, files autoload for src/functions/, Strauss
+src/
+  Plugin.php              # A1: service wiring
+  Core/  Install/         # A1: requirements, activation, migrations, jobs
+  Backend/                # A2: nf_db() adapter (MySQL; PostgreSQL in Phase 5)
+  Storage/                # A2: field map, typed tables, rows, archive, sorting
+  Pivot/                  # A3: pivots, row pivot, dictionary, bitmasks, rollups, counts
+  Query/                  # A4: builder, compiler, SQL dialects, planner, WP_Query integration
+  Loading/                # A6: result-set registry, batching, primers, with()
+  Acf/                    # A5: registration, Local JSON, hooks, shim, bridge, meta interception, blocks
+  Timber/                 # A7: Timber integration
+  Rest/                   # A8: nf/v1 routes
+  Migration/  SchemaIO/   # A9: scan/port/verify/undo, NF JSON and ACF JSON, WXR
+  Compat/                 # A10: third-party adapters, postmeta mirror, scanner
+  functions/              # procedural public API: acf.php (A5), nf.php and others, owned by the area's agent
 admin/src/                # A8: React admin
-lib/                      # A1: bundled Action Scheduler
 bench/                    # A12: dataset generator, benchmark suite
 tests/
-  unit/<area>/            # owned by the area's agent
+  unit/<Area>/            # owned by the area's agent
   differential/  e2e/  corpus/   # A11
 contracts/                # A0 (frozen per phase)
 docs/  reports/

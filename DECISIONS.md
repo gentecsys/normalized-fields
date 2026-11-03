@@ -44,11 +44,20 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Delivery:** Phase 5 (WPs 5.1 to 5.9, gate G5). Design: `docs/design.md`, "Remote PostgreSQL backend".
 - **Open:** D-10 to D-14 below.
 
+### ADR-0010: Class-based internals with Composer; procedural public API (2026-11-03, owner)
+- **Decision:** replaces the procedural convention in D-01.
+  - Internals are class-based wherever possible, under `NF\` in `src/`, autoloaded by Composer PSR-4.
+  - Composer handles bootstrapping, dependencies (Strauss-prefixed), release builds and future upgrades.
+  - **The user-facing API and the ACF proxy stay procedural:** plain global functions in `src/functions/` that delegate to the classes.
+- **Why:** classes make the backend adapter, dialects, field-type adapters and tests easier to structure. Composer gives one autoloader and a clean upgrade path. Procedural public functions keep ACF compatibility and match how WordPress developers call field APIs.
+- **Consequence:** WP 0.2b converts the 0.1 code (about 135 lines) before 0.3 starts.
+- **Open:** D-15, the query builder's entry point.
+
 ## Owner decisions
 
 | # | Decision | Needed by | Status | Value |
 | --- | --- | --- | --- | --- |
-| D-01 | Coding conventions | G0 | **Default, pending owner confirmation** | As in `CLAUDE.md` |
+| D-01 | Coding conventions | G0 | **Decided by owner 2026-11-03** | Class-based internals with Composer; procedural public API and ACF proxy (ADR-0010) |
 | D-02 | Plugin name | G0 | **Default, pending owner confirmation** | Keep "NF" internally until 4.10 |
 | D-03 | Minimum WordPress | G0 | **Decided by owner 2026-11-02** | 7.0 (test 7.0, 7.1, nightly) |
 | D-04 | Minimum PHP | G0 | **Default, pending owner confirmation** | 8.1 |
@@ -62,6 +71,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-12 | Uncached reads while PostgreSQL is unreachable | Start of Phase 5 | Open | Return empty and log, with an admin notice |
 | D-13 | Providers tested in CI | Start of Phase 5 | Open | Neon and AWS RDS; Supabase, Cloud SQL and Azure documented |
 | D-14 | Minimum PostgreSQL version | Start of Phase 5 | Open | 15 |
+| D-15 | Query builder entry point | G0 (contracts v0) | **Default, pending owner confirmation** | Procedural `nf_query()` returning the chainable builder; `NF::query()` kept as an alias |
 
 ## Gate approvals
 

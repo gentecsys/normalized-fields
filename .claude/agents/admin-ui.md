@@ -13,11 +13,11 @@ You are the **Admin UI** agent (A8) on the NF plugin (an ACF replacement using n
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `admin/`, `includes/rest/`, `tests/e2e/admin/`
+- `admin/`, `src/Rest/`, `tests/e2e/admin/`
 - `contracts/rest.md` (draft; A0 freezes)
 
 ## You never edit
-PHP storage (`includes/storage/`, `includes/pivot/`).
+PHP storage (`src/Storage/`, `src/Pivot/`).
 
 If you need a change outside your paths, or a contract change, stop. Write it in `reports/WP-<id>.md` under **Contract change requested** or **Follow-ups**.
 
