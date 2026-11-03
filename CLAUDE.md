@@ -39,7 +39,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 - **The user-facing API stays procedural:**
   - Everything a theme or plugin developer calls is a plain global function: the ACF proxy (`get_field()`, `have_rows()`, `the_row()`, `get_sub_field()`, `update_field()`, `acf_add_local_field_group()`, `acf_get_field_groups()` and the rest, each guarded by `function_exists()`) and NF's own public functions (`nf_register_collection()`, `nf_register_row_sorter()`, `nf_db()` and the others in `contracts/api.md`).
   - They live in `src/functions/<area>.php`, load through Composer's `files` autoload, and are thin wrappers that delegate to the classes. Don't put logic in them.
-  - The only public classes are the ones a dependency forces: the `ACF` shim class (themes check `class_exists( 'ACF' )`) and the Timber `IntegrationInterface` implementation. The query builder's entry point is D-15.
+  - The only public classes are the ones a dependency forces: the `ACF` shim class (themes check `class_exists( 'ACF' )`) and the Timber `IntegrationInterface` implementation. The query builder's entry points are `nf_query()` and `nf_options()` (D-15); `NF::query()` and `NF::options()` are only aliases.
 - **Composer for the whole project:**
   - Never commit `vendor/`. Release builds run `composer install --no-dev --optimize-autoloader --classmap-authoritative` and ship `vendor/` in the zip.
   - Runtime dependencies are prefixed with Strauss into `NF\Vendor\`. Action Scheduler (`woocommerce/action-scheduler`) is the exception: it comes through Composer but loads through its own version registry.
@@ -48,6 +48,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 - PHP follows the WordPress Coding Standards (tabs, PHPCS `WordPress`), except that file names follow PSR-4 in `src/`. PHPStan runs at level 6.
 - Sanitize every input (`sanitize_text_field`, `absint`, …) and escape every output (`esc_html`, `esc_attr`, `wp_kses_post`). All SQL is parameterised (`$wpdb->prepare()` for core tables, bound parameters in `nf_db()` for NF tables). Table and column names come only from the contract, never from input.
 - **Backend seam (ADR-0009):** NF tables are read and written only through the backend adapter `nf_db()`, never through `$wpdb`. `$wpdb` is only for WordPress core tables. SQL for NF tables is built by the dialect layer (MySQL now, PostgreSQL in Phase 5). Don't rely on MySQL-only behaviour without writing it explicitly: no implicit casts, always `NULLS FIRST`/`NULLS LAST` when sorting nullable columns, no `FORCE INDEX` outside the MySQL dialect, and no joins between NF tables and core tables (a query resolves IDs on the NF side first).
+- **Multisite (ADR-0011):** never add a stored `site_id` to MySQL tables. Per-site NF tables come from `$wpdb->prefix` through `nf_db()`, which re-resolves the prefix on `switch_blog`. User values are network-wide, as in ACF: they go to network-level tables on the base prefix, with a network field map keyed by ACF field key. On PostgreSQL, `site_id` is the first column of every key (user values use `site_id = 0`). NF cache groups are per site, except user groups, which are global groups.
 - Use `wp_cache_get` / `wp_cache_set` for caching.
 - Admin JavaScript is ES modules and functional React components, built with `@wordpress/scripts`. Core `@wordpress/*` packages stay external; only `@wordpress/dataviews` is bundled, at a pinned version. Use `@wordpress/data` for state and `@wordpress/api-fetch` for REST. No jQuery.
 - Lint JavaScript with ESLint and Prettier (the `@wordpress/scripts` configs).
@@ -77,7 +78,7 @@ src/
   Backend/                # A2: nf_db() adapter (MySQL; PostgreSQL in Phase 5)
   Storage/                # A2: field map, typed tables, rows, archive, sorting
   Pivot/                  # A3: pivots, row pivot, dictionary, bitmasks, rollups, counts
-  Query/                  # A4: builder, compiler, SQL dialects, planner, WP_Query integration
+  Query/                  # A4: nf_query() builder, compiler, SQL dialects, planner, WP_Query integration
   Loading/                # A6: result-set registry, batching, primers, with()
   Acf/                    # A5: registration, Local JSON, hooks, shim, bridge, meta interception, blocks
   Timber/                 # A7: Timber integration

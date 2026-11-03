@@ -581,12 +581,14 @@ NF ships its own implementation of ACF's public PHP API, hooks and JSON format, 
 
 NF should ship a fluent query builder, but not an ORM with its own model objects. The builder resolves fields against the pivot, row pivot and typed tables, then hands the matching IDs back to WordPress, so every result is a native `WP_Post`, `WP_Term` or `WP_User`, and `get_posts()`, `WP_Query`, the loop, template tags and Timber all keep working unchanged.
 
+The entry points are plain functions, like the rest of NF's public API: `nf_query()` returns the chainable builder and `nf_options()` reads options pages (D-15). `NF::query()` and `NF::options()` remain as aliases for code that prefers the static form.
+
 Why not a separate ORM: model objects that bypass `WP_Post` break template tags, Timber's class map, the `the_posts` filter, other plugins' hooks and core's post cache, and duplicate the hydration WordPress already does well. The slow part is only the field filtering and sorting; that is the one piece NF replaces.
 
 #### The builder
 
 ```php
-$events = NF::query( 'event' )                     // post type, taxonomy ('term:genre') or 'user'
+$events = nf_query( 'event' )                     // post type, taxonomy ('term:genre') or 'user'
     ->status( 'publish' )
     ->where( 'is_featured', true )
     ->where( 'start_date', '>=', '2026-11-01' )
@@ -659,7 +661,7 @@ Pseudo-code: method names show the intended shape of the API and may change duri
 ```php
 // archive-event.php
 $page   = max( 1, get_query_var( 'paged' ) );
-$events = NF::query( 'event' )
+$events = nf_query( 'event' )
     ->status( 'publish' )
     ->where( 'start_date', '>=', 'today' )
     ->orderBy( 'start_date' )
@@ -681,7 +683,7 @@ Timber::render( 'archive-event.twig', [ 'events' => $events ] );
 **2. Faceted search page built from the request**
 
 ```php
-$q = NF::query( 'event' )->status( 'publish' );
+$q = nf_query( 'event' )->status( 'publish' );
 
 if ( $cats = $request->get( 'category' ) ) $q->whereAny( 'category', $cats );
 if ( $max  = $request->get( 'max_price' ) ) $q->where( 'price', '<=', (float) $max );
@@ -701,7 +703,7 @@ $facets = $q->facets( [ 'category', 'venue', 'price' => [ 0, 25, 50, 100 ] ] );
 
 ```php
 // single-artist.php: every upcoming event that lists this artist
-$events = NF::query( 'event' )
+$events = nf_query( 'event' )
     ->whereRelated( 'artists', get_the_ID() )
     ->where( 'start_date', '>=', 'today' )
     ->orderBy( 'start_date' )
@@ -711,7 +713,7 @@ $events = NF::query( 'event' )
 **4. Repeater rows: sessions happening tonight, two conditions on the same row**
 
 ```php
-$tonight = NF::query( 'event' )
+$tonight = nf_query( 'event' )
     ->whereRow( 'sessions', fn( $row ) => $row
         ->where( 'session_date', 'between', [ 'today 18:00', 'tomorrow 00:00' ] )
         ->where( 'room', 'main-stage' ) )
@@ -723,7 +725,7 @@ $tonight = NF::query( 'event' )
 **5. Related events: same category, excluding the current one**
 
 ```php
-$related = NF::query( 'event' )
+$related = nf_query( 'event' )
     ->whereAny( 'category', get_field( 'category' ) )
     ->where( 'start_date', '>=', 'today' )
     ->exclude( get_the_ID() )
@@ -737,7 +739,7 @@ $related = NF::query( 'event' )
 
 ```php
 register_rest_route( 'site/v1', '/events', [
-    'callback' => fn( $req ) => NF::query( 'event' )
+    'callback' => fn( $req ) => nf_query( 'event' )
         ->status( 'publish' )
         ->where( 'start_date', '>=', 'today' )
         ->orderBy( 'start_date' )
@@ -750,15 +752,15 @@ register_rest_route( 'site/v1', '/events', [
 **7. Terms, users and options use the same builder**
 
 ```php
-$genres  = NF::query( 'term:genre' )->where( 'featured', true )->orderBy( 'sort_order' )->terms();   // WP_Term[]
-$editors = NF::query( 'user' )->where( 'team', 'editorial' )->whereAny( 'languages', [ 'en', 'bg' ] )->users(); // WP_User[]
-$banner  = NF::options( 'site-settings' )->get( 'banner' );                                              // like get_field( 'banner', 'option' )
+$genres  = nf_query( 'term:genre' )->where( 'featured', true )->orderBy( 'sort_order' )->terms();   // WP_Term[]
+$editors = nf_query( 'user' )->where( 'team', 'editorial' )->whereAny( 'languages', [ 'en', 'bg' ] )->users(); // WP_User[]
+$banner  = nf_options( 'site-settings' )->get( 'banner' );                                              // like get_field( 'banner', 'option' )
 ```
 
 **8. Large exports in chunks**
 
 ```php
-NF::query( 'event' )
+nf_query( 'event' )
     ->where( 'start_date', 'between', [ '2026-01-01', '2026-12-31' ] )
     ->orderBy( 'id' )
     ->chunk( 500, function ( array $rows ) use ( $csv ) {      // keyset pagination, constant memory
@@ -797,7 +799,7 @@ $posts = Timber::get_posts( [
 **10. Debugging: see what NF compiled**
 
 ```php
-$q = NF::query( 'event' )->where( 'is_featured', true )->where( 'start_date', '>=', '2026-11-01' )->orderBy( 'start_date' )->limit( 20 );
+$q = nf_query( 'event' )->where( 'is_featured', true )->where( 'start_date', '>=', '2026-11-01' )->orderBy( 'start_date' )->limit( 20 );
 
 $q->toSql();
 // SELECT object_id FROM wp_nf_pivot FORCE INDEX (i1)
@@ -1146,9 +1148,24 @@ The export screen is a DataViews list of collections with checkboxes and a forma
 - **Deploys:** collections travel as ACF-format JSON files in the theme or plugin, so any pipeline (Git, FTP, a host's deploy tool) keeps environments in sync.
 - **Distribution:** GPL, no calls to external services (a remote PostgreSQL database is used only when the site owner configures one), ready for the WordPress.org directory.
 
+### Multisite networks
+
+ACF has no site ID column: WordPress gives every site in a network its own tables, and ACF writes to them. NF does the same on MySQL, with one exception that ACF itself has.
+
+| Data | ACF in a network | NF on MySQL |
+| --- | --- | --- |
+| Post, term and comment fields | Per-site meta tables (`wp_2_postmeta`…) | Per-site NF tables (`wp_2_nf_*`) through `$wpdb->prefix` |
+| Options page fields | Per-site `wp_2_options` | Per-site NF tables, object type option |
+| Collections | Per-site `acf-field-group` posts or the theme's `acf-json` | Per-site `nf_fields` |
+| User fields | The network-wide `wp_usermeta`, so a user's value is the same on every site | Network-level NF tables on the base prefix (`wp_nf_user_*`), with a network field map keyed by ACF field key, so a field registered on two sites shares one value |
+
+- **Site lifecycle.** Tables are created on network activation and on `wp_initialize_site`. They are dropped on `wp_uninitialize_site` only when the network admin opted in.
+- **`switch_to_blog()`.** The backend adapter re-resolves its table prefix (or `site_id`) on `switch_blog`. NF's cache groups are per site, except the user groups, which are registered as global groups.
+- **WordPress tooling.** Site deletion, export and clone tools keep working, because NF's per-site data lives in that site's prefixed tables, like core's.
+
 ## Remote PostgreSQL backend
 
-NF can keep its own tables in a remote PostgreSQL database instead of the WordPress MySQL database, for sites whose field data outgrows MySQL: tens of millions of objects and billions of values. WordPress core (posts, terms, users, options) stays in MySQL. The output does not change: `get_field()`, `have_rows()`, `NF::query()` and translated `WP_Query` calls return the same values, IDs and order on either backend. The backend is opt-in, set per site, and MySQL remains the default.
+NF can keep its own tables in a remote PostgreSQL database instead of the WordPress MySQL database, for sites whose field data outgrows MySQL: tens of millions of objects and billions of values. WordPress core (posts, terms, users, options) stays in MySQL. The output does not change: `get_field()`, `have_rows()`, `nf_query()` and translated `WP_Query` calls return the same values, IDs and order on either backend. The backend is opt-in, set per site, and MySQL remains the default.
 
 ### What lives where
 
@@ -1198,7 +1215,7 @@ Queries can't join `wp_posts` to NF tables that live in another database, so:
 
 1. The pivot carries every post column that listings filter or sort on: type, status, date, modified date, author, parent, menu order. On PostgreSQL these columns are required and kept in sync from `save_post`, `transition_post_status` and `deleted_post`.
 2. `nf_terms` mirrors term relationships for the taxonomies used in filters, so `tax_query` runs on the PostgreSQL side.
-3. A query resolves the ordered page of IDs, plus its total, in PostgreSQL in one round trip. WordPress then loads those posts by ID from MySQL, keeping the order. This is the same two-step path `NF::query()->ids()` already uses.
+3. A query resolves the ordered page of IDs, plus its total, in PostgreSQL in one round trip. WordPress then loads those posts by ID from MySQL, keeping the order. This is the same two-step path `nf_query()->ids()` already uses.
 4. A condition that can't be resolved in PostgreSQL makes the whole query pass through to MySQL `WP_Query`, and the N+1 detector reports it in debug mode.
 
 ### Writes across two databases
@@ -1235,6 +1252,18 @@ There is no transaction that spans MySQL and PostgreSQL. A save:
 - NF stamps each PostgreSQL database in `nf_meta` with the site URL and environment it belongs to, and refuses to write when the stamp doesn't match. A dev site configured with the live connection string therefore can't change live data.
 - On Pantheon, the connection string comes from per-environment secrets. Whether `pdo_pgsql` is available there still has to be checked.
 
+### Multisite on PostgreSQL
+
+A network shares one PostgreSQL database. A full set of NF tables per site would mean thousands of tables in a large network, so:
+
+- Every NF table has a `site_id` column (the WordPress blog ID) as the first column of its primary key and of every index. User values use `site_id = 0`, which matches ACF's network-wide user meta.
+- Large tables are partitioned by `site_id` (list or hash), so a site's queries touch only its own partition.
+- Deleting a site drops or detaches its partitions; it never runs row-by-row deletes across the network.
+- The environment stamp in `nf_meta` covers the whole network.
+- The alternative, one PostgreSQL schema per site, is decision D-16.
+
+The logical schema keeps `site_id` on both backends. On MySQL it is implied by the table prefix and not stored, so the MySQL tables match what ACF and WordPress tooling expect.
+
 ### Built for scale
 
 - Typed tables and `nf_rows` are partitioned by hash of `field_id` once they pass a size threshold, so a growing site doesn't need a migration later.
@@ -1259,7 +1288,7 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | DataViews/DataForm API changes between WordPress releases | Admin breakage | Bundle a pinned version; CI on the latest two WordPress releases plus nightly |
 | Host diversity (database versions, PHP timeouts, no CLI, no object cache) | Migrations stall or time out | Small resumable batches; test matrix across MySQL and MariaDB versions |
 | Duplicate data during shadow modes | Roughly 2× storage for migrated collections | Time-box modes 2–4; cleanup step |
-| Multisite | Tables per site | Use `$wpdb->prefix`; network activation hooks |
+| Multisite | Site data mixing, or user values differing per site (ACF keeps user fields network-wide) | MySQL: per-site tables through `$wpdb->prefix` plus network-level user tables; PostgreSQL: `site_id` leading every key, partitioned by site; per-site cache groups; network tests in hardening |
 | Remote PostgreSQL latency or outage | Slow pages, or fields missing during an outage | Same-region requirement, pooler, object cache in front, circuit breaker, `nf_outbox` replay for writes |
 | PostgreSQL results differing from MySQL (collation, NULL order, casting) | Different matches or order than ACF on MySQL | ICU collation matched to the site's MySQL collation, explicit `NULLS` and casts, a three-way differential suite |
 | A cloned environment writing into another environment's PostgreSQL data | Dev or staging edits corrupt live data | Environment stamp in `nf_meta`; NF refuses writes on a mismatch; one database or Neon branch per environment |

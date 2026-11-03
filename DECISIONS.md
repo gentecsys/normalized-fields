@@ -53,6 +53,15 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Consequence:** WP 0.2b converts the 0.1 code (about 135 lines) before 0.3 starts.
 - **Open:** D-15, the query builder's entry point.
 
+### ADR-0011: Multisite storage (2026-11-03, owner)
+- **Decision:**
+  - **MySQL:** follow ACF and WordPress, with per-site NF tables through `$wpdb->prefix` and no stored `site_id`. Site deletion, export and clone tools keep working.
+  - **User values are network-wide,** because ACF stores user fields in the shared `wp_usermeta`. NF keeps them in network-level tables on the base prefix, with a network field map keyed by ACF field key.
+  - **PostgreSQL:** one shared set of tables, with `site_id` as the first column of every key (user values use `site_id = 0`), partitioned by site. Deleting a site drops its partitions.
+  - **Caches:** per-site cache groups, except user groups, which are global.
+- **Why:** ACF has no site ID column; separation comes from per-site tables. A per-site table set in one remote PostgreSQL database doesn't scale to large networks.
+- **Open:** D-16, shared tables or one schema per site on PostgreSQL.
+
 ## Owner decisions
 
 | # | Decision | Needed by | Status | Value |
@@ -71,7 +80,8 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-12 | Uncached reads while PostgreSQL is unreachable | Start of Phase 5 | Open | Return empty and log, with an admin notice |
 | D-13 | Providers tested in CI | Start of Phase 5 | Open | Neon and AWS RDS; Supabase, Cloud SQL and Azure documented |
 | D-14 | Minimum PostgreSQL version | Start of Phase 5 | Open | 15 |
-| D-15 | Query builder entry point | G0 (contracts v0) | **Default, pending owner confirmation** | Procedural `nf_query()` returning the chainable builder; `NF::query()` kept as an alias |
+| D-15 | Query builder entry point | G0 (contracts v0) | **Decided by owner 2026-11-03** | `nf_query()` and `nf_options()`; `NF::query()` and `NF::options()` as aliases |
+| D-16 | PostgreSQL multisite layout | Start of Phase 5 | Open | Shared tables with `site_id` leading every key, partitioned by site |
 
 ## Gate approvals
 
