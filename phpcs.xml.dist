@@ -20,6 +20,8 @@
 		</properties>
 	</rule>
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<!-- "nf" is the project prefix mandated by CLAUDE.md. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.ShortPrefixPassed"/>
 		<properties>
 			<property name="prefixes" type="array"><element value="nf"/><element value="NF"/></property>
 		</properties>
