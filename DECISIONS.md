@@ -62,6 +62,18 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Why:** ACF has no site ID column; separation comes from per-site tables. A per-site table set in one remote PostgreSQL database doesn't scale to large networks.
 - **D-16 decided (2026-11-03):** shared tables, not a schema per site.
 
+### ADR-0012: Public REST API and block integration (2026-11-03, owner)
+- **Decision:** NF exposes its fields to blocks in three ways, all on top of the `nf_query()` compiler, the loader and the pagination parity rules:
+  - **Block Bindings:** the sources `nf/field` and ACF's `acf/field`, on the server and in the editor. `setValues` editing is in v1; options are read-only.
+  - **Query Loop:** `core/query` variations with an `nf` attribute, translated on the front end and in the editor preview.
+  - **Public `nf/v1` routes:** collections, fields GET/PATCH, query and facets. Core `/wp/v2/*` endpoints also gain an `nf` field and `nf` query parameters.
+- **Exposure:** opt-in per field. `show_in_rest` controls read and bind; `rest_filterable` controls filter, sort and facet. Both are off by default.
+- **Anonymous access:** anonymous `/nf/v1/query` and `/facets` are allowed for public post types and `show_in_rest` fields, within these limits: at most 100 per page, at most 8 conditions, one level of depth, capped counts by default, and cursors for deep pages.
+- **Caching:** public responses are edge-cacheable, with `Surrogate-Key` tags from the pivot write version. Authenticated responses send `private, no-store`.
+- **Contract:** the public part of `contracts/rest.md` freezes in contracts v0 (WP 0.5) and is versioned (`nf/v1`). Admin-private routes freeze before Phase 4.
+- **D-17 decided (2026-11-03):** anonymous query allowed; `setValues` in v1; register `acf/field`.
+- **Why:** blocks are how sites are built now, and Block Bindings let core blocks show NF fields with no custom code. Registering `acf/field` keeps sites already bound to ACF working.
+
 ## Owner decisions
 
 | # | Decision | Needed by | Status | Value |
@@ -82,6 +94,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-14 | Minimum PostgreSQL version | Start of Phase 5 | Open | 15 |
 | D-15 | Query builder entry point | G0 (contracts v0) | **Decided by owner 2026-11-03** | `nf_query()` and `nf_options()`; `NF::query()` and `NF::options()` as aliases |
 | D-16 | PostgreSQL multisite layout | Start of Phase 5 | **Decided by owner 2026-11-03** | Shared tables with `site_id` leading every key, partitioned by site |
+| D-17 | Public REST API for blocks | G0 (contracts v0) | **Decided by owner 2026-11-03** | Anonymous `/nf/v1/query` within limits; Block Bindings `setValues` in v1 (options read-only); register `acf/field` too (ADR-0012) |
 
 ## Gate approvals
 
