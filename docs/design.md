@@ -1260,7 +1260,7 @@ A network shares one PostgreSQL database. A full set of NF tables per site would
 - Large tables are partitioned by `site_id` (list or hash), so a site's queries touch only its own partition.
 - Deleting a site drops or detaches its partitions; it never runs row-by-row deletes across the network.
 - The environment stamp in `nf_meta` covers the whole network.
-- The alternative, one PostgreSQL schema per site, is decision D-16.
+- One schema per site was considered and rejected (D-16): shared tables keep migrations, pooling and cross-site maintenance to one set of tables.
 
 The logical schema keeps `site_id` on both backends. On MySQL it is implied by the table prefix and not stored, so the MySQL tables match what ACF and WordPress tooling expect.
 
