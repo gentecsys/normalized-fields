@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="NF">
+	<description>NF coding standards (WordPress).</description>
+	<file>nf.php</file>
+	<file>uninstall.php</file>
+	<file>includes</file>
+	<file>tests</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/lib/*</exclude-pattern>
+	<arg name="extensions" value="php"/>
+	<arg value="ps"/>
+	<config name="testVersion" value="8.1-"/>
+	<rule ref="WordPress"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<config name="minimum_wp_version" value="7.0"/>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array"><element value="nf"/></property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<!-- "nf" is the project prefix mandated by CLAUDE.md. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.ShortPrefixPassed"/>
+		<properties>
+			<property name="prefixes" type="array"><element value="nf"/><element value="NF"/></property>
+		</properties>
+	</rule>
+	<!-- Test files follow PHPUnit naming, not WP file naming. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+</ruleset>
