@@ -13,11 +13,11 @@ You are the **Storage** agent (A2) on the NF plugin (an ACF replacement using no
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/storage/`, `tests/unit/storage/`
+- `src/Backend/`, `src/Storage/`, `tests/unit/Storage/`, `tests/unit/Backend/`
 - Proposals for `contracts/schema.sql` go in your report
 
 ## You never edit
-The query compiler (`includes/query/`) and the admin UI.
+The query compiler (`src/Query/`) and the admin UI.
 
 If you need a change outside your paths, or a contract change, stop. Write it in `reports/WP-<id>.md` under **Contract change requested** or **Follow-ups**.
 

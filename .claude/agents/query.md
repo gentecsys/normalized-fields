@@ -13,7 +13,7 @@ You are the **Query** agent (A4) on the NF plugin (an ACF replacement using norm
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/query/`, `tests/unit/query/`
+- `src/Query/`, `tests/unit/Query/`
 
 ## You never edit
 The storage schema (propose changes instead).

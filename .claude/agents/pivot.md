@@ -13,7 +13,7 @@ You are the **Pivot & counting** agent (A3) on the NF plugin (an ACF replacement
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/pivot/`, `tests/unit/pivot/`
+- `src/Pivot/`, `tests/unit/Pivot/`
 
 ## You never edit
 The admin UI and storage-table DDL (propose changes instead).

@@ -13,7 +13,7 @@ You are the **Loading** agent (A6) on the NF plugin (an ACF replacement using no
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/loading/`, `tests/unit/loading/`
+- `src/Loading/`, `tests/unit/Loading/`
 
 ## You never edit
 The internals of the SQL compiler.

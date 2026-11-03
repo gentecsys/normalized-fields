@@ -13,7 +13,7 @@ You are the **Third-party compatibility** agent (A10) on the NF plugin (an ACF r
 5. `reports/` for the WPs you depend on
 
 ## You may edit
-- `includes/compat/`, `tests/compat/`
+- `src/Compat/`, `tests/compat/`
 
 ## You never edit
 The core API.
