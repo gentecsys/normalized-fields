@@ -50,6 +50,11 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 - Sanitize every input (`sanitize_text_field`, `absint`, …) and escape every output (`esc_html`, `esc_attr`, `wp_kses_post`). All SQL is parameterised (`$wpdb->prepare()` for core tables, bound parameters in `nf_db()` for NF tables). Table and column names come only from the contract, never from input.
 - **Backend seam (ADR-0009):** NF tables are read and written only through the backend adapter `nf_db()`, never through `$wpdb`. `$wpdb` is only for WordPress core tables. SQL for NF tables is built by the dialect layer (MySQL now, PostgreSQL in Phase 5). Don't rely on MySQL-only behaviour without writing it explicitly: no implicit casts, always `NULLS FIRST`/`NULLS LAST` when sorting nullable columns, no `FORCE INDEX` outside the MySQL dialect, and no joins between NF tables and core tables (a query resolves IDs on the NF side first).
 - **Multisite (ADR-0011):** never add a stored `site_id` to MySQL tables. Per-site NF tables come from `$wpdb->prefix` through `nf_db()`, which re-resolves the prefix on `switch_blog`. User values are network-wide, as in ACF: they go to network-level tables on the base prefix, with a network field map keyed by ACF field key. On PostgreSQL, `site_id` is the first column of every key (user values use `site_id = 0`). NF cache groups are per site, except user groups, which are global groups.
+- **Public REST and blocks (ADR-0012):**
+  - Every public route and binding source reads through `nf_query()` and the loader, never through its own SQL.
+  - A field is exposed only with `show_in_rest`, and is filterable, sortable or facetable only with `rest_filterable`.
+  - Anonymous requests see `publish` only and stay within the limits in `contracts/rest.md`.
+  - Authenticated responses send `Cache-Control: private, no-store`.
 - Use `wp_cache_get` / `wp_cache_set` for caching.
 - Admin JavaScript is ES modules and functional React components, built with `@wordpress/scripts`. Core `@wordpress/*` packages stay external; only `@wordpress/dataviews` is bundled, at a pinned version. Use `@wordpress/data` for state and `@wordpress/api-fetch` for REST. No jQuery.
 - Lint JavaScript with ESLint and Prettier (the `@wordpress/scripts` configs).
