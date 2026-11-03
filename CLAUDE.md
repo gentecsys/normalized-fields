@@ -27,13 +27,14 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 
 ## Coding conventions (D-01)
 
+- **Name (D-02):** the plugin is **Normalized Fields**. The slug and text domain are `normalized-fields`; every translatable string uses `'normalized-fields'`. `NF` is only the short name in code: the `NF\` namespace, the `nf_` prefix and `nf/` hooks.
 - **Terminology (ADR-0006):** in NF's own UI, API, JSON, docs and identifiers, a set of fields is a **collection**, never a "field group" (for example `nf_register_collection()` and `"collections"`). The ACF compatibility layer keeps ACF's names exactly (`acf_add_local_field_group()`, `acf_get_field_groups()`, `group_` keys, the `acf-field-group` post type, ACF JSON).
 - **Series (ADR-0007):** the repeater field is called **Series** in the UI and in user-facing strings. Each entry is a **row**. Code, storage and docs keep "repeater" as the technical name, and ACF compatibility keeps `type: "repeater"`, `have_rows()`, `the_row()` and `get_sub_field()`.
 - **No flexible content (ADR-0008):** don't build a flexible content field, a layout picker, `layout_id` columns or `get_row_layout()`. The importer reports ACF flexible content fields and skips their collections.
 
 - **Classes and Composer (D-01, ADR-0010):**
   - The internals are class-based wherever possible: namespace `NF\` in `src/`, autoloaded by Composer PSR-4 (`"NF\\": "src/"`). Every file declares `strict_types=1` and holds one class, interface, enum or trait, named after the file.
-  - `nf.php` only boots: header, constants, requirement check, `vendor/autoload.php`, then `NF\Plugin::boot()`. A missing autoloader shows an admin notice, never a fatal error.
+  - The main plugin file (`normalized-fields.php`) only boots: header, constants, requirement check, `vendor/autoload.php`, then `NF\Plugin::boot()`. A missing autoloader shows an admin notice, never a fatal error.
   - `NF\Plugin` wires the services. Each service adds its hooks in a `register()` method. Constructors take dependencies and have no side effects.
   - Use PHP 8.1: typed and `readonly` properties, enums for closed sets (object types, data types, storage modes), and interfaces for every contract (store, backend adapter, dialect, compiler, loader, field-type adapters).
 - **The user-facing API stays procedural:**
@@ -70,7 +71,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
 Directories are created by the WP that first needs them.
 
 ```
-nf.php                    # boot only (A1)
+normalized-fields.php     # main plugin file, boot only (A1; renamed from nf.php in WP 0.2b)
 composer.json             # A1: PSR-4 "NF\\" => src/, files autoload for src/functions/, Strauss
 src/
   Plugin.php              # A1: service wiring

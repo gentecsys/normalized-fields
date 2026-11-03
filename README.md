@@ -1,4 +1,4 @@
-# NF: Normalized Fields
+# Normalized Fields
 
 A standalone, ACF-compatible WordPress plugin that stores field data in typed, pivot and lookup tables instead of `wp_postmeta`.
 
