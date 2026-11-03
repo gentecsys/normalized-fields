@@ -27,7 +27,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1.1 | Store: scalar, repeater, relationship | A2 | M | G0 | todo | | Write/read/update/delete round-trip tests |
 | 1.2 | Bridge mode | A5 | M | 1.1 | todo | | ACF admin saves land in NF tables |
-| 1.3 | Minimal pivot + two translated queries | A3 + A4 | M | 1.1 | todo | | Same IDs as `WP_Query` on `wp_postmeta` |
+| 1.3 | Minimal pivot + two translated queries | A3 + A4 | M | 1.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` as `WP_Query` on `wp_postmeta`, incl. the design doc's pagination cases (`paged`, `offset`, `-1`) |
 | 1.4 | Differential check | A11 | S | 1.2 | todo | | Zero diffs |
 | 1.5 | Spike benchmark | A12 | S | 1.3 | todo | | Report in `reports/` |
 
@@ -53,7 +53,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 3.1 | Compiler and planner | A4 | XL | G2 | todo | | Compiler corpus green; `explain()` matches |
 | 3.2 | `NF::query()` builder | A4 | L | 3.1 | todo | | Every design-doc example runs as a test |
-| 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs and order on `WP_Query` args |
+| 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` on `WP_Query` args; every "Pagination parity" case in `docs/design.md` passes |
 | 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests |
 | 3.5 | Loading | A6 | L | 3.2 | todo | | 20-card listing in ≤ 15 queries |
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |

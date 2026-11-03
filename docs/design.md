@@ -652,6 +652,46 @@ In Twig, `{% for event in posts %}` then works as with any Timber collection, an
 - `toSql()` and the Query Monitor panel show which mode ran (short-circuit, single join, pass-through), so slow queries are easy to trace.
 - The builder's public surface is versioned and documented as NF's main developer API; it compiles to the same SQL as the `WP_Query` translation, so both paths are tested together.
 
+#### Pagination parity
+
+Pagination behaves exactly as core's. NF changes how the page of IDs and the total are computed, never what they mean. The rules:
+
+1. **Same arguments, same meaning.**
+   - `paged`, `page` (static front page), `posts_per_page`, `posts_per_archive_page`, `offset`, `nopaging` and `posts_per_page => -1` work as in core.
+   - `offset` overrides `paged`, as it does in core.
+   - `-1` and `nopaging` mean no `LIMIT` and no count query.
+   - Sticky posts are left to core: it adds them to page 1 of the home query after NF returns its IDs.
+2. **The total goes through core's path.**
+   - In short-circuit mode, NF short-circuits `found_posts_query` and supplies the count through the `found_posts` filter at an early priority. It does not overwrite the property.
+   - Core then computes `max_num_pages`, and other `found_posts` filters (including the usual "subtract the offset" fix) run as they always have.
+   - `no_found_rows` skips the count entirely.
+3. **Past the last page means 404, as in core.** A `/page/N/` beyond `max_num_pages` returns no posts, so `WP::handle_404()` behaves as it would without NF. The page of IDs and the total are read at the same pivot write version, so they can never disagree.
+4. **Capped counts in templates.**
+   - With `count: 'capped'`, `found_posts` is the cap plus one (1,001 by default), and the query carries `$query->nf_count_capped = true`.
+   - `paginate_links()` shows pages up to the cap, plus "next".
+   - If a request asks for a page beyond the cap, NF runs an exact count for that request only, so a deep link never gets a false 404.
+   - Timber's pagination and the REST headers get the same flag.
+5. **Deep pages stay cheap.**
+   - Past a threshold (default: offset over 1,000 rows), the planner uses a deferred join: it reads only IDs from the covering slot index up to the offset, then loads the page.
+   - Infinite scroll, "load more" and REST clients can use seek pagination instead: `->after( $cursor )`, with an opaque cursor built from the sort key and the ID.
+   - `->chunk()` already uses this.
+6. **REST collections report totals as core does:** `X-WP-Total` and `X-WP-TotalPages`, plus `X-NF-Total-Capped: 1` when the count is capped.
+
+**Differential cases (WP 1.3 for the spike queries, WP 3.3 in full):**
+- `paged` 1, 2 and the last page;
+- the page after the last page (expects a 404);
+- `offset` with and without `paged`;
+- `posts_per_page => -1` and `nopaging`;
+- `no_found_rows`;
+- sticky posts on the home page;
+- `posts_per_archive_page`;
+- a static front page using `page`;
+- capped counts below, at and above the cap;
+- a deep offset (page 5,000);
+- a cursor walk that matches the offset walk ID for ID.
+
+Every case must return the same IDs, order, `found_posts` and `max_num_pages` as core on `wp_postmeta`.
+
 #### Examples
 
 Pseudo-code: method names show the intended shape of the API and may change during the build.
