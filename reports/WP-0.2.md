@@ -27,3 +27,6 @@ None. Uses the WP test suite install script rather than wp-env for CI so MySQL/M
 - PHPCS first CI run flagged short prefix `nf` (allowed, CLAUDE.md mandates it) and test doc comments: fixed.
 - Lint job pins PHP 8.3 only (PHPCompatibilityWP covers 8.1+).
 - Not addressed (non-blocking): WP 7.1 availability unverified; cache for composer/svn.
+
+## Resume from
+State `in-review`. PR #2 (head def61e5). Reviewer round 2: no blocking issues. First CI run was still pending at stop time (earlier run only flagged PHPCS, fixed). Next run: check PR #2 check-runs; fix any red (likely WP 7.1 availability, svn export URLs, phpstan stubs), then merge via REST and set 0.2 to merged in PLAN.md on main.
