@@ -28,5 +28,8 @@ None. Uses the WP test suite install script rather than wp-env for CI so MySQL/M
 - Lint job pins PHP 8.3 only (PHPCompatibilityWP covers 8.1+).
 - Not addressed (non-blocking): WP 7.1 availability unverified; cache for composer/svn.
 
-## Resume from
+## Resume from (obsolete: merged)
 State `in-review`. PR #2 (head def61e5). Reviewer round 2: no blocking issues. First CI run was still pending at stop time (earlier run only flagged PHPCS, fixed). Next run: check PR #2 check-runs; fix any red (likely WP 7.1 availability, svn export URLs, phpstan stubs), then merge via REST and set 0.2 to merged in PLAN.md on main.
+
+## CI result
+All 25 checks green on head 28ac4f2 (lint + 24-job matrix, incl. WP 7.1). Extra fixes after review: phpstan lib exclude optional, treatPhpDocTypesAsCertain false.
