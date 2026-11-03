@@ -80,6 +80,24 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
 **Gate G4 [owner]:** release decision.
 
+## Phase 5: Remote PostgreSQL backend (ADR-0009)
+
+Runs after G3, in parallel with Phase 4 (D-11). Design: `docs/design.md`, section "Remote PostgreSQL backend".
+
+| WP | Title | Agent | Size | Depends on | State | Branch | Done when |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 5.1 | Backend adapter and dialect seam | A2 + A4 | L | G3 | todo | | MySQL suite and benchmarks unchanged; no `$wpdb` on NF tables |
+| 5.2 | PostgreSQL schema and migrations | A1 | M | 5.1 | todo | | Fresh install and every upgrade pass on PostgreSQL 15–18 |
+| 5.3 | Connection layer | A1 | M | 5.1 | todo | | Neon pooled endpoint, PgBouncer, RDS Proxy; outage and timeout drills pass |
+| 5.4 | PostgreSQL store | A2 | L | 5.2, 5.3 | todo | | Store round-trips byte-identical on both backends |
+| 5.5 | PostgreSQL dialect for the compiler | A4 | XL | 5.4 | todo | | Three-way differential (ACF, NF-MySQL, NF-PostgreSQL): zero diffs |
+| 5.6 | Cross-database writes | A2 + A1 | L | 5.4 | todo | | No lost write in outage tests; reconcile reports zero drift |
+| 5.7 | Move data between backends | A9 | L | 5.5, 5.6 | todo | | Real site copy moves both ways, zero mismatches |
+| 5.8 | Scale and provider tests | A11 + A12 | L | 5.5 | todo | | 10M-object benchmarks on Neon and RDS; no regression over 20% |
+| 5.9 | Backend settings and health screen | A8 | M | 5.3 | todo | | Playwright tests; build and ADA audit pass |
+
+**Gate G5 [owner]:** three-way suite at zero diffs, 10M-object benchmarks on Neon and RDS, outage and environment-stamp drills passed, and one pilot site on PostgreSQL in shadow mode.
+
 ## Blockers
 
 _None._

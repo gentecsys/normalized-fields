@@ -38,8 +38,9 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
   - the minimal `ACF` shim class;
   - the field-type adapter contract for add-ons.
 - PHP follows the WordPress Coding Standards: tabs, PHPCS with `WordPress`, and PHPStan at level 6.
-- Sanitize every input (`sanitize_text_field`, `absint`, …) and escape every output (`esc_html`, `esc_attr`, `wp_kses_post`). All SQL goes through `$wpdb->prepare()`. Table and column names come only from the contract, never from input.
-- Use `$wpdb` directly for storage and queries, and `wp_cache_get` / `wp_cache_set` for caching.
+- Sanitize every input (`sanitize_text_field`, `absint`, …) and escape every output (`esc_html`, `esc_attr`, `wp_kses_post`). All SQL is parameterised (`$wpdb->prepare()` for core tables, bound parameters in `nf_db()` for NF tables). Table and column names come only from the contract, never from input.
+- **Backend seam (ADR-0009):** NF tables are read and written only through the backend adapter `nf_db()`, never through `$wpdb`. `$wpdb` is only for WordPress core tables. SQL for NF tables is built by the dialect layer (MySQL now, PostgreSQL in Phase 5). Don't rely on MySQL-only behaviour without writing it explicitly: no implicit casts, always `NULLS FIRST`/`NULLS LAST` when sorting nullable columns, no `FORCE INDEX` outside the MySQL dialect, and no joins between NF tables and core tables (a query resolves IDs on the NF side first).
+- Use `wp_cache_get` / `wp_cache_set` for caching.
 - Admin JavaScript is ES modules and functional React components, built with `@wordpress/scripts`. Core `@wordpress/*` packages stay external; only `@wordpress/dataviews` is bundled, at a pinned version. Use `@wordpress/data` for state and `@wordpress/api-fetch` for REST. No jQuery.
 - Lint JavaScript with ESLint and Prettier (the `@wordpress/scripts` configs).
 - Minimum WordPress 7.0 (D-03) and PHP 8.1 (D-04). Test against WordPress 7.0, 7.1 and nightly, PHP 8.1–8.4, MySQL 5.7 / 8.0 and MariaDB 10.4 / 10.11.

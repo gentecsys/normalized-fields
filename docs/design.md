@@ -1139,12 +1139,109 @@ The export screen is a DataViews list of collections with checkboxes and a forma
 
 ### Runs on any host
 
-- **Database:** MySQL 5.7+ or MariaDB 10.4+, InnoDB, utf8mb4. Indexed strings stay at `VARCHAR(191)` to fit index prefix limits; `nf_json` is unindexed, so MariaDB storing `JSON` as `LONGTEXT` does not matter.
+- **Database:** MySQL 5.7+ or MariaDB 10.4+, InnoDB, utf8mb4. Indexed strings stay at `VARCHAR(191)` to fit index prefix limits; `nf_json` is unindexed, so MariaDB storing `JSON` as `LONGTEXT` does not matter. Optionally, NF's tables live in a remote PostgreSQL database instead (see Remote PostgreSQL backend).
 - **Background work:** backfill, verify and statistics run as small resumable batches through Action Scheduler (bundled, as WooCommerce does), with a WP-Cron fallback and an admin progress screen that drives batches over REST. WP-CLI commands exist but are optional.
 - **No hard dependencies:** no persistent object cache, CLI access or specific host is required; a persistent object cache is used when present.
 - **Install and upgrade:** tables are created with `dbDelta()` on activation and versioned upgrades; multisite creates them per site on network activation and for new sites. `uninstall.php` drops tables only if the admin opted in.
 - **Deploys:** collections travel as ACF-format JSON files in the theme or plugin, so any pipeline (Git, FTP, a host's deploy tool) keeps environments in sync.
-- **Distribution:** GPL, no calls to external services, ready for the WordPress.org directory.
+- **Distribution:** GPL, no calls to external services (a remote PostgreSQL database is used only when the site owner configures one), ready for the WordPress.org directory.
+
+## Remote PostgreSQL backend
+
+NF can keep its own tables in a remote PostgreSQL database instead of the WordPress MySQL database, for sites whose field data outgrows MySQL: tens of millions of objects and billions of values. WordPress core (posts, terms, users, options) stays in MySQL. The output does not change: `get_field()`, `have_rows()`, `NF::query()` and translated `WP_Query` calls return the same values, IDs and order on either backend. The backend is opt-in, set per site, and MySQL remains the default.
+
+### What lives where
+
+| Data | MySQL backend (default) | PostgreSQL backend |
+| --- | --- | --- |
+| WordPress core tables | MySQL | MySQL, unchanged |
+| Field map (`nf_fields`) | MySQL | PostgreSQL, cached in the object cache |
+| Typed tables, `nf_rows`, `nf_archive` | MySQL | PostgreSQL |
+| Pivots, row pivot, dictionary, counts | MySQL | PostgreSQL |
+| Term relationships used in filters (`nf_terms`) | not needed | PostgreSQL mirror of `object_id → term_taxonomy_id` for filterable taxonomies |
+| Pending writes (`nf_outbox`) | not needed | MySQL |
+| Connection settings | n/a | `wp-config.php` constants or environment variables; never stored in `wp_options` |
+
+All NF table access goes through one backend adapter (`nf_db()`) with a MySQL and a PostgreSQL implementation. `$wpdb` is used only for WordPress core tables, so the PostgreSQL backend is an added dialect, not a rewrite.
+
+### One logical schema, two dialects
+
+`contracts/schema.sql` becomes one logical definition that generates `schema.mysql.sql` and `schema.pgsql.sql`. Table names, columns, keys and meaning are identical; only types and DDL syntax differ. MySQL tables are still created with `dbDelta()`; PostgreSQL tables use NF's own versioned migrations, recorded in an `nf_meta` table.
+
+| MySQL | PostgreSQL | Note |
+| --- | --- | --- |
+| `BIGINT UNSIGNED` IDs | `bigint` with `CHECK (id >= 0)` | WordPress IDs fit in 63 bits |
+| `TINYINT` / `SMALLINT UNSIGNED` | `smallint` / `integer` | Widened where unsigned would overflow |
+| `AUTO_INCREMENT` | `bigint GENERATED ALWAYS AS IDENTITY` | New row IDs come back through `RETURNING` |
+| `DATETIME` | `timestamp` (no time zone) | WordPress stores local time; values round-trip as the same strings |
+| `DECIMAL(20,6)` | `numeric(20,6)` | Same precision |
+| `VARCHAR(191)` with prefix rule | `text`, full-length btree | 191 was a MySQL index limit; the `str` contract keeps it so both backends behave alike |
+| `LONGTEXT` | `text` | |
+| `nf_json` (`JSON` / `LONGTEXT`) | `jsonb` | GIN index available for filterable JSON paths |
+| Bitmask `BIGINT UNSIGNED` | `bigint` | Same 64 bits; bit 63 is the sign bit, mapped by the adapter |
+
+### Same results as MySQL
+
+These behaviours differ between the engines, so the compiler pins each one explicitly on both dialects:
+
+- **String comparison and sorting.** WordPress tables use case- and accent-insensitive MySQL collations (`utf8mb4_unicode_520_ci`, `utf8mb4_0900_ai_ci`); PostgreSQL compares case-sensitively by default. NF creates its text columns with an ICU collation chosen to match the site's MySQL collation.
+- **NULL ordering.** MySQL sorts NULLs first in ascending order; PostgreSQL sorts them last. The compiler always writes `NULLS FIRST` or `NULLS LAST`.
+- **Casting.** MySQL casts silently in comparisons; the compiler casts explicitly from the field's declared type.
+- **Upserts.** `ON DUPLICATE KEY UPDATE` becomes `ON CONFLICT … DO UPDATE`.
+- **Index hints.** PostgreSQL has no `FORCE INDEX`. The benchmark suite checks the planner's choices with `EXPLAIN`, and statistics targets are raised on the pivot columns.
+
+The differential suite gets a third leg: ACF, NF on MySQL and NF on PostgreSQL must agree, with test data that includes accented, mixed-case and NULL values.
+
+### No joins across databases
+
+Queries can't join `wp_posts` to NF tables that live in another database, so:
+
+1. The pivot carries every post column that listings filter or sort on: type, status, date, modified date, author, parent, menu order. On PostgreSQL these columns are required and kept in sync from `save_post`, `transition_post_status` and `deleted_post`.
+2. `nf_terms` mirrors term relationships for the taxonomies used in filters, so `tax_query` runs on the PostgreSQL side.
+3. A query resolves the ordered page of IDs, plus its total, in PostgreSQL in one round trip. WordPress then loads those posts by ID from MySQL, keeping the order. This is the same two-step path `NF::query()->ids()` already uses.
+4. A condition that can't be resolved in PostgreSQL makes the whole query pass through to MySQL `WP_Query`, and the N+1 detector reports it in debug mode.
+
+### Writes across two databases
+
+There is no transaction that spans MySQL and PostgreSQL. A save:
+
+1. Writes WordPress core rows in MySQL, as usual.
+2. Writes NF values to PostgreSQL in one transaction, as idempotent upserts keyed by object, field and row, so a retry never duplicates.
+3. If PostgreSQL fails or times out, records the payload in `nf_outbox` in MySQL, shows an admin notice, and a background job replays it in order.
+4. A reconcile job compares objects per collection across the two databases, removes values left behind by deleted objects, and reports any drift on the health screen.
+
+### Working with a remote database
+
+- **Latency.** A round trip costs about 1–5 ms within one cloud region and 20–80 ms across regions (estimates; the Phase 5 benchmark measures them). Batched loading already keeps a page to a handful of queries; on PostgreSQL a listing page budget is about 5 round trips. A persistent object cache (Redis or Memcached) is strongly recommended, and the docs require the database and the web servers to be in the same region.
+- **Connections.** PHP opens a connection per request, and TLS setup costs several round trips. NF connects through the provider's pooler (Neon's pooled endpoint, PgBouncer, RDS Proxy, Supavisor) and uses persistent PDO connections where the host allows. Transaction-mode poolers drop session state, so NF keeps no session settings or server-side prepared statements across transactions.
+- **Timeouts and outages.** Short connect and statement timeouts. A circuit breaker stops retrying a database that is down. Reads fall back to cached values; how uncached reads behave during an outage is decision D-12.
+- **Requirements.** PHP's `pdo_pgsql` extension and PostgreSQL 15 or newer (D-14). The health screen checks both and shows round-trip latency.
+- **Security.** TLS with certificate verification (`sslmode=verify-full`) is required. NF uses its own role with rights only on its own schema, and connection strings never appear in the admin or in exports.
+
+### Providers
+
+| Provider | Notes for NF |
+| --- | --- |
+| Neon | Serverless. Scale-to-zero makes the first request after idle wait for compute to start, so production should keep a minimum compute running. Branching gives each WordPress environment its own copy-on-write database. Use the pooled endpoint. |
+| Supabase | Pooled through Supavisor; the same transaction-mode caveats apply. |
+| AWS RDS / Aurora PostgreSQL | RDS Proxy for pooling; TLS with the RDS CA bundle; IAM auth tokens optional. |
+| Google Cloud SQL | Private IP or the Cloud SQL Auth Proxy. |
+| Azure Database for PostgreSQL (Flexible Server) | Built-in PgBouncer. |
+| Self-managed, DigitalOcean, Crunchy Bridge and others | Standard TLS plus PgBouncer. |
+
+### Environments
+
+- Cloning a WordPress environment copies MySQL only (for example Pantheon's clone-content or a staging push). Each WordPress environment needs its own PostgreSQL database or Neon branch.
+- NF stamps each PostgreSQL database in `nf_meta` with the site URL and environment it belongs to, and refuses to write when the stamp doesn't match. A dev site configured with the live connection string therefore can't change live data.
+- On Pantheon, the connection string comes from per-environment secrets. Whether `pdo_pgsql` is available there still has to be checked.
+
+### Built for scale
+
+- Typed tables and `nf_rows` are partitioned by hash of `field_id` once they pass a size threshold, so a growing site doesn't need a migration later.
+- BRIN indexes on date columns of append-heavy tables, partial indexes on hot pivot slots, and covering indexes with `INCLUDE`.
+- `COPY` for porting and rebuilds, which is much faster than batched inserts.
+- Parallel query for counts and facets over large result sets.
+- Derived tables (pivots, counts) are rebuilt into a new table and swapped in, so readers never see a half-built pivot.
 
 ## Risks, trade-offs, open questions
 
@@ -1163,6 +1260,9 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | Host diversity (database versions, PHP timeouts, no CLI, no object cache) | Migrations stall or time out | Small resumable batches; test matrix across MySQL and MariaDB versions |
 | Duplicate data during shadow modes | Roughly 2× storage for migrated collections | Time-box modes 2–4; cleanup step |
 | Multisite | Tables per site | Use `$wpdb->prefix`; network activation hooks |
+| Remote PostgreSQL latency or outage | Slow pages, or fields missing during an outage | Same-region requirement, pooler, object cache in front, circuit breaker, `nf_outbox` replay for writes |
+| PostgreSQL results differing from MySQL (collation, NULL order, casting) | Different matches or order than ACF on MySQL | ICU collation matched to the site's MySQL collation, explicit `NULLS` and casts, a three-way differential suite |
+| A cloned environment writing into another environment's PostgreSQL data | Dev or staging edits corrupt live data | Environment stamp in `nf_meta`; NF refuses writes on a mismatch; one database or Neon branch per environment |
 | Naming and positioning | ACF trademark; the WP Engine / WordPress.org dispute | Neutral name; GPL; compatibility described as "works with ACF code"; supports ACF and SCF equally |
 
 ### Trade-offs to accept
@@ -1190,9 +1290,11 @@ flowchart TB
   p2["Phase 2 · Storage MVP<br/>typed tables, field map, all core field types<br/>bridge mode, meta API filters, backfill/verify/shadow"]
   p3["Phase 3 · Query layer and ACF API<br/>pivot, dictionary, archive and count tables<br/>standalone ACF API, Local JSON, Timber"]
   p4["Phase 4 · React admin and release<br/>builder and edit screens, ACF Blocks, options, revisions<br/>Import from ACF wizard, WordPress.org release"]
+  p5["Phase 5 · Remote PostgreSQL backend<br/>backend adapter, PostgreSQL dialect and migrations<br/>cross-database writes, Neon and RDS, three-way differential"]
   p1 -->|"Gate: identical get_field output; clear win on slow queries"| p2
   p2 -->|"Gate: verify reports zero mismatches on a staging copy"| p3
   p3 -->|"Gate: production soak with no regressions; rollback rehearsed"| p4
+  p3 -->|"in parallel with Phase 4"| p5
 ```
 
 Phase 1 is the go/no-go; later phases only add coverage and safety.
