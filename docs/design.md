@@ -1026,7 +1026,28 @@ Blocks need a public, stable way to read, filter and edit NF fields. Admin-only 
 - **Editor:** `registerBlockBindingsSource()` registers `getValues` for the preview, and `setValues` so editors can change a bound field in place (decided for v1).
   - Changes join the post's normal save, the same way NF's field panels do, so dirty state, autosave and preview stay consistent.
   - Options are read-only through bindings.
-- **Blocks covered:** core Paragraph, Heading, Image and Button, and any custom block whose attributes are made bindable through core's supported-attributes filter. WP 0.4 confirms the filter name and the list of bindable attributes for 7.0.
+- **Core blocks covered:** core's `get_block_bindings_supported_attributes()` (WordPress 6.9+) already makes these attributes bindable:
+  - Paragraph and Heading: `content`;
+  - List Item (7.1+): `content`;
+  - Image: `id`, `url`, `title`, `alt`, `caption`;
+  - Button: `url`, `text`, `linkTarget`, `rel`;
+  - Post Date: `datetime`;
+  - Navigation Link and Navigation Submenu: `url`.
+- **Custom blocks: `nf_register_bindable_attributes()`.** Block authors make a custom block bindable with one call, or with one block.json key that NF reads when the block is registered:
+
+  ```php
+  // src/functions/bindings.php: thin wrapper; NF\Bindings\Registry adds the core filters
+  nf_register_bindable_attributes( 'my/event-card', [ 'title', 'price', 'ticketUrl' ] );
+  ```
+
+  ```json
+  { "name": "my/event-card", "nf": { "bindable": [ "title", "price", "ticketUrl" ] } }
+  ```
+
+  - **How it works:** NF adds the attributes through core's `block_bindings_supported_attributes_{$block_type}` filter. NF code never calls that filter directly, so a rename in core is a one-line change in `NF\Bindings\Registry`.
+  - **Checks at registration:** each attribute must exist on the block. Under `WP_DEBUG`, unknown attributes trigger `_doing_it_wrong()`.
+  - **Matching attributes to fields:** NF filters the attributes by the bound field's type, so the bindings UI offers only those that fit. An image field offers `url`, `id` and `alt`; a text field offers string attributes.
+  - **Filter `nf/bindings/attributes`** `( string[] $attributes, string $block_type, array $field )`: adjusts the attributes offered for one field. It runs only for blocks NF binds.
 - **Binding arguments:** `{ "source": "nf/field", "args": { "key": "price", "object": "current" | "post:12" | "term:5" | "option" } }`, plus an optional `format`, and `row` / `sub` for a value inside a Series.
 - **ACF compatibility:** NF also registers ACF's own source name, `acf/field`, with ACF's argument shape, so content already bound to ACF fields keeps working once ACF is deactivated.
 - **Exposure:** only fields with `show_in_rest` can be bound in the editor UI. The server callback honours the same rule, so a bound block can never leak a private field.
