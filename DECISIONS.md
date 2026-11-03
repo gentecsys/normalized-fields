@@ -38,6 +38,12 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Consequences:** the scanner and the port dry-run list ACF flexible content fields. Collections that contain one aren't ported: they stay on ACF in bridge mode or get rebuilt, for example as blocks. Templates that call `get_row_layout()` won't work once ACF is deactivated. This is listed in the design doc's risks.
 - **Alternatives:** read-only import of flexible content as JSON. Not chosen for now; it can be revisited if a pilot site needs it.
 
+### ADR-0009: Optional remote PostgreSQL backend for NF tables (2026-11-03, owner)
+- **Decision:** NF can keep its tables in a remote PostgreSQL database (Neon, Supabase, RDS/Aurora, Cloud SQL, Azure or self-managed) instead of MySQL, for much larger data. It must return exactly what the MySQL backend returns. WordPress core stays in MySQL. MySQL remains the default; PostgreSQL is opt-in per site.
+- **Consequence now (Phase 0 onwards):** every NF table access goes through `nf_db()` and a SQL dialect layer, never `$wpdb`, and no NF query joins core tables. Contracts v0 (WP 0.5) define that seam.
+- **Delivery:** Phase 5 (WPs 5.1 to 5.9, gate G5). Design: `docs/design.md`, "Remote PostgreSQL backend".
+- **Open:** D-10 to D-14 below.
+
 ## Owner decisions
 
 | # | Decision | Needed by | Status | Value |
@@ -51,6 +57,11 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-07 | ACF shim default | G3 | Open | Default: off, enabled by the scanner's suggestion |
 | D-08 | Business model | 4.10 | Open | Undecided; doesn't block the build |
 | D-09 | Third-party adapters in 4.8 | Start of Phase 4 | Open | Default: the scanner's top hits on client sites |
+| D-10 | PostgreSQL backend scope | G0 (shapes contracts v0) | **Default, pending owner confirmation** | NF tables only; WordPress core stays in MySQL |
+| D-11 | When Phase 5 runs | G3 | Open | After G3, in parallel with Phase 4 |
+| D-12 | Uncached reads while PostgreSQL is unreachable | Start of Phase 5 | Open | Return empty and log, with an admin notice |
+| D-13 | Providers tested in CI | Start of Phase 5 | Open | Neon and AWS RDS; Supabase, Cloud SQL and Azure documented |
+| D-14 | Minimum PostgreSQL version | Start of Phase 5 | Open | 15 |
 
 ## Gate approvals
 
