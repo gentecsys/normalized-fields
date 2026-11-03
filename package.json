@@ -1,0 +1,16 @@
+{
+	"name": "normalized-fields",
+	"version": "0.1.0",
+	"private": true,
+	"description": "NF (Normalized Fields): dev tooling.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"env:start": "wp-env start",
+		"env:stop": "wp-env stop",
+		"lint:php": "composer lint",
+		"test:php": "composer test"
+	},
+	"devDependencies": {
+		"@wordpress/env": "^10.0.0"
+	}
+}

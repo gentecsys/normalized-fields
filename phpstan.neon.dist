@@ -1,0 +1,13 @@
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+parameters:
+	level: 6
+	# Runtime guards (PHP/WP version checks) are legitimate even when stubs say otherwise.
+	treatPhpDocTypesAsCertain: false
+	paths:
+		- nf.php
+		- includes
+	excludePaths:
+		- lib (?)
+	scanFiles:
+		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
