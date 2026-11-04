@@ -15,6 +15,10 @@ rsync -a --exclude-from=- "$ROOT/" "$STAGE/" <<'LIST'
 /build
 /node_modules
 /tests
+/bench
+/.gitignore
+/.wp-env.override.json
+/.phpunit.result.cache
 /reports
 /docs
 /contracts

@@ -90,8 +90,8 @@ final class AcfStore implements StoreWriter {
 	/**
 	 * Insert and empty the buffers.
 	 *
-	 * @param array $posts   Prepared wp_posts value tuples.
-	 * @param array $meta    Prepared wp_postmeta value tuples.
+	 * @param string[] $posts Prepared wp_posts value tuples.
+	 * @param string[] $meta  Prepared wp_postmeta value tuples.
 	 */
 	private function flush( array &$posts, array &$meta ): void {
 		if ( $posts ) {

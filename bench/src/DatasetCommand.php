@@ -48,8 +48,8 @@ final class DatasetCommand {
 	 * [--force]
 	 * : Replace data already in the ID range.
 	 *
-	 * @param array $args  Positional args.
-	 * @param array $assoc Named args.
+	 * @param string[]              $args  Positional args.
+	 * @param array<string, string> $assoc Named args.
 	 */
 	public function generate( array $args, array $assoc ): void {
 		unset( $args );
@@ -64,6 +64,7 @@ final class DatasetCommand {
 		}
 		$start = microtime( true );
 		$store->write( $dataset );
+		wp_cache_flush(); // Rows were written with raw SQL; drop any cached posts and meta.
 		\WP_CLI::success( sprintf( 'Wrote %d events in %.1fs.', $dataset->posts, microtime( true ) - $start ) );
 	}
 
@@ -77,8 +78,8 @@ final class DatasetCommand {
 	 * [--start-id=<id>]
 	 * [--store=<store>]
 	 *
-	 * @param array $args  Positional args.
-	 * @param array $assoc Named args.
+	 * @param string[]              $args  Positional args.
+	 * @param array<string, string> $assoc Named args.
 	 */
 	public function verify( array $args, array $assoc ): void {
 		unset( $args );
@@ -99,8 +100,8 @@ final class DatasetCommand {
 	 * [--seed=<n>]
 	 * [--start-id=<id>]
 	 *
-	 * @param array $args  Positional args.
-	 * @param array $assoc Named args.
+	 * @param string[]              $args  Positional args.
+	 * @param array<string, string> $assoc Named args.
 	 */
 	public function fingerprint( array $args, array $assoc ): void {
 		unset( $args );
@@ -110,7 +111,7 @@ final class DatasetCommand {
 	/**
 	 * Build the dataset from CLI arguments.
 	 *
-	 * @param array $assoc Named args.
+	 * @param array<string, string> $assoc Named args.
 	 */
 	private static function dataset( array $assoc ): Dataset {
 		try {
@@ -127,7 +128,7 @@ final class DatasetCommand {
 	/**
 	 * Resolve the target store.
 	 *
-	 * @param array $assoc Named args.
+	 * @param array<string, string> $assoc Named args.
 	 */
 	private static function store( array $assoc ): StoreWriter {
 		global $wpdb;
