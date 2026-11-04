@@ -27,3 +27,6 @@ WP 0.3 was split: `contracts/schema.sql` is still a stub (WP 0.5) and the NF sto
 
 ## Resume from
 Nothing pending unless review finds issues.
+
+## Status
+CI green, reviewer clean. Merge via REST was denied by the auto-mode classifier; owner (or next run) to merge PR #8, then set 0.3a to merged in PLAN.md.
