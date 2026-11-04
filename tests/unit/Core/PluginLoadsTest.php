@@ -6,16 +6,17 @@
  */
 
 /**
- * Proves NF loads and activates under the WP test bootstrap.
+ * Proves NF loads, autoloads its classes and activates under the WP test bootstrap.
  */
 class PluginLoadsTest extends WP_UnitTestCase {
 
 	/**
-	 * Constants and bootstrap function exist.
+	 * Constants exist and the autoloader resolves NF classes.
 	 */
 	public function test_plugin_loaded() {
 		$this->assertTrue( defined( 'NF_VERSION' ) );
-		$this->assertTrue( function_exists( 'nf_bootstrap' ) );
+		$this->assertTrue( class_exists( 'NF\Plugin' ) );
+		$this->assertTrue( class_exists( 'NF\Install\Activator' ) );
 	}
 
 	/**
@@ -23,7 +24,7 @@ class PluginLoadsTest extends WP_UnitTestCase {
 	 */
 	public function test_activation_stores_version() {
 		delete_option( 'nf_version' );
-		nf_activate();
+		NF\Install\Activator::activate();
 		$this->assertSame( NF_VERSION, get_option( 'nf_version' ) );
 	}
 }

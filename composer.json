@@ -26,5 +26,13 @@
 		"lint": "phpcs",
 		"stan": "phpstan analyse --memory-limit=1G",
 		"test": "phpunit"
+	},
+	"autoload": {
+		"psr-4": {
+			"NF\\": "src/"
+		},
+		"files": [
+			"src/functions/nf.php"
+		]
 	}
 }

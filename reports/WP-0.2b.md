@@ -1,0 +1,20 @@
+# WP 0.2b: Class-based structure and Composer autoloading
+
+## What changed
+- `nf.php` renamed to `normalized-fields.php` (header `Plugin Name: Normalized Fields`, text domain `normalized-fields`). It only boots: constants, requirement check, autoloader check, `NF\Plugin::boot()`.
+- `includes/` replaced by PSR-4 classes in `src/`: `NF\Plugin`, `NF\Core\Requirements` (PHP 7-safe syntax, loaded before the autoloader so old PHP gets a notice, not a fatal), `NF\Install\Activator`. A missing `vendor/autoload.php` shows an admin notice.
+- `composer.json`: PSR-4 `NF\` => `src/`, `files` autoload `src/functions/nf.php` (empty placeholder for the procedural API).
+- `bin/build-release.sh`: production install with `--optimize-autoloader --classmap-authoritative`, zip with `vendor/`; a `release-build` CI job runs it and checks the zip.
+- `.github/dependabot.yml` (composer, npm, actions). PHPCS/PHPStan/PHPUnit configs and tests moved to the new paths (`tests/unit/Core/`); text domain `normalized-fields`.
+
+## Tests / checks that ran
+- `php -l` on all PHP, `bash -n` on the release script: pass.
+- NOT run: composer install (dist downloads timed out via the proxy, once), phpcs, phpstan, phpunit, release script. CI is authoritative.
+
+## Deviations
+- Strauss is not configured: there are no runtime dependencies yet. Add it with the first one (Action Scheduler loads via its own registry anyway).
+- `composer.lock` not generated; CI resolves.
+
+## Follow-ups
+- `.claude/agents/platform.md` still mentions `nf.php`; orchestrator to tidy.
+- Release zip excludes `contracts/`, `docs/`: confirm owner agrees.

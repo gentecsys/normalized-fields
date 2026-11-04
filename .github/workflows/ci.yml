@@ -64,3 +64,18 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 ${{ matrix.wp }}
       - run: vendor/bin/phpunit
+
+  release-build:
+    name: Release zip builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+      - run: bin/build-release.sh
+      - name: Zip ships vendor/ and no dev files
+        run: |
+          unzip -l build/normalized-fields-*.zip | grep -q 'normalized-fields/vendor/autoload.php'
+          ! unzip -l build/normalized-fields-*.zip | grep -qE 'normalized-fields/(tests|\.github)/'
