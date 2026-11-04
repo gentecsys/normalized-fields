@@ -49,6 +49,21 @@ final class Requirements {
 	}
 
 	/**
+	 * Activation callback; works without the autoloader. Refuses unsupported environments,
+	 * otherwise records the version.
+	 *
+	 * @return void
+	 */
+	public static function activate(): void {
+		$errors = self::errors();
+		if ( $errors ) {
+			deactivate_plugins( plugin_basename( NF_FILE ) );
+			wp_die( esc_html( implode( ' ', $errors ) ), '', array( 'back_link' => true ) );
+		}
+		update_option( 'nf_version', NF_VERSION, false );
+	}
+
+	/**
 	 * Show an admin notice listing unmet requirements.
 	 *
 	 * @return void
