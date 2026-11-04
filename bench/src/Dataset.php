@@ -127,10 +127,13 @@ final class Dataset {
 		$cat_count  = $this->between( $index, 'cat_n', 1, 4 );
 		$categories = array();
 		$i          = 0;
-		while ( $cat_count > count( $categories ) ) {
-			$slug = self::CATEGORIES[ $this->between( $index, 'cat_' . $i++, 0, 11 ) ];
+		$found      = 0;
+		while ( $found < $cat_count ) {
+			$slug = self::CATEGORIES[ $this->between( $index, 'cat_' . $i, 0, 11 ) ];
+			++$i;
 			if ( ! in_array( $slug, $categories, true ) ) {
 				$categories[] = $slug;
+				++$found;
 			}
 		}
 		sort( $categories );
@@ -138,10 +141,13 @@ final class Dataset {
 		$artist_count = $this->between( $index, 'artist_n', 1, 4 );
 		$artists      = array();
 		$i            = 0;
-		while ( $artist_count > count( $artists ) ) {
-			$artist = $this->between( $index, 'artist_' . $i++, 1, self::ARTIST_POOL_SIZE );
+		$found        = 0;
+		while ( $found < $artist_count ) {
+			$artist = $this->between( $index, 'artist_' . $i, 1, self::ARTIST_POOL_SIZE );
+			++$i;
 			if ( ! in_array( $artist, $artists, true ) ) {
 				$artists[] = $artist;
+				++$found;
 			}
 		}
 		sort( $artists );
