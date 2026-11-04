@@ -24,7 +24,7 @@ require_once $nf_tests_dir . '/includes/functions.php';
 tests_add_filter(
 	'muplugins_loaded',
 	static function () {
-		require dirname( __DIR__, 3 ) . '/nf.php';
+		require dirname( __DIR__, 3 ) . '/normalized-fields.php';
 	}
 );
 
