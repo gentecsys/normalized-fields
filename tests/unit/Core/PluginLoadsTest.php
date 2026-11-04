@@ -24,7 +24,7 @@ class PluginLoadsTest extends WP_UnitTestCase {
 	 */
 	public function test_activation_stores_version() {
 		delete_option( 'nf_version' );
-		NF\Install\Activator::activate();
+		NF\Core\Requirements::activate();
 		$this->assertSame( NF_VERSION, get_option( 'nf_version' ) );
 	}
 }

@@ -7,26 +7,26 @@ OUT="${1:-$ROOT/build}"
 STAGE="$(mktemp -d)/normalized-fields"
 mkdir -p "$STAGE" "$OUT"
 rsync -a --exclude-from=- "$ROOT/" "$STAGE/" <<'LIST'
-.git
-.github
-.claude
-.wp-env.json
-bin
-build
-node_modules
-tests
-reports
-docs
-contracts
-PLAN.md
-DECISIONS.md
-CLAUDE.md
-phpcs.xml.dist
-phpstan.neon.dist
-phpunit.xml.dist
-package.json
-package-lock.json
-vendor
+/.git
+/.github
+/.claude
+/.wp-env.json
+/bin
+/build
+/node_modules
+/tests
+/reports
+/docs
+/contracts
+/PLAN.md
+/DECISIONS.md
+/CLAUDE.md
+/phpcs.xml.dist
+/phpstan.neon.dist
+/phpunit.xml.dist
+/package.json
+/package-lock.json
+/vendor
 LIST
 ( cd "$STAGE" && composer install --no-dev --no-interaction --optimize-autoloader --classmap-authoritative )
 VERSION="$(sed -n 's/^ \* Version: *//p' "$ROOT/normalized-fields.php")"

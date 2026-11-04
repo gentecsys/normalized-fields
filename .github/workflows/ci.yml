@@ -78,4 +78,6 @@ jobs:
       - name: Zip ships vendor/ and no dev files
         run: |
           unzip -l build/normalized-fields-*.zip | grep -q 'normalized-fields/vendor/autoload.php'
+          unzip -l build/normalized-fields-*.zip | grep -q 'normalized-fields/src/Plugin.php'
+          unzip -l build/normalized-fields-*.zip | grep -q 'normalized-fields/normalized-fields.php'
           ! unzip -l build/normalized-fields-*.zip | grep -qE 'normalized-fields/(tests|\.github)/'

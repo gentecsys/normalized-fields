@@ -23,6 +23,9 @@ define( 'NF_URL', plugin_dir_url( __FILE__ ) );
 // Requirements is kept free of PHP 8.1 syntax so it loads on old PHP and can report the problem.
 require_once NF_PATH . 'src/Core/Requirements.php';
 
+// Registered before any early return so activation still refuses unsupported environments.
+register_activation_hook( __FILE__, array( 'NF\Core\Requirements', 'activate' ) );
+
 if ( ! NF\Core\Requirements::met() ) {
 	add_action( 'admin_notices', array( 'NF\Core\Requirements', 'notice' ) );
 	return;
@@ -35,7 +38,6 @@ if ( ! is_readable( NF_PATH . 'vendor/autoload.php' ) ) {
 
 require_once NF_PATH . 'vendor/autoload.php';
 
-register_activation_hook( __FILE__, array( 'NF\Install\Activator', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'NF\Install\Activator', 'deactivate' ) );
 
 NF\Plugin::boot();

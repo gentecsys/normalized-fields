@@ -8,4 +8,4 @@
 
 declare(strict_types=1);
 
-defined( 'ABSPATH' ) || exit;
+// No ABSPATH guard: Composer CLI tools load this file outside WordPress, and it only declares guarded functions.
