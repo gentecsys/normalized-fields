@@ -1,12 +1,12 @@
 <?php
 /**
- * Skeleton sanity tests.
+ * Requirements and boot tests.
  *
  * @package NF
  */
 
 /**
- * Checks the plugin loads under the WP test bootstrap.
+ * Checks requirements and that boot fires nf_loaded.
  */
 class RequirementsTest extends WP_UnitTestCase {
 
@@ -14,7 +14,7 @@ class RequirementsTest extends WP_UnitTestCase {
 	 * The environment satisfies NF's minimums.
 	 */
 	public function test_requirements_met() {
-		$this->assertTrue( nf_requirements_met() );
+		$this->assertTrue( NF\Core\Requirements::met() );
 	}
 
 	/**
