@@ -5,6 +5,7 @@
 	<file>uninstall.php</file>
 	<file>src</file>
 	<file>tests</file>
+	<file>bench</file>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/lib/*</exclude-pattern>
@@ -29,6 +30,7 @@
 	<!-- src/ files follow PSR-4 (named after the class, CLAUDE.md); tests follow PHPUnit naming. -->
 	<rule ref="WordPress.Files.FileName">
 		<exclude-pattern>src/*</exclude-pattern>
+		<exclude-pattern>bench/*</exclude-pattern>
 		<exclude-pattern>tests/*</exclude-pattern>
 	</rule>
 </ruleset>
