@@ -48,15 +48,15 @@ final class DatasetCommand {
 	 * [--force]
 	 * : Replace data already in the ID range.
 	 *
-	 * @param list<string>        $args  Positional args.
-	 * @param array<string,mixed> $assoc Named args.
+	 * @param array                $args  Positional args.
+	 * @param array                $assoc Named args.
 	 */
 	public function generate( array $args, array $assoc ): void {
 		unset( $args );
 		$dataset = self::dataset( $assoc );
 		$store   = self::store( $assoc );
 		$found   = $store->existing( $dataset );
-		if ( $found > 0 ) {
+		if ( 0 < $found ) {
 			if ( empty( $assoc['force'] ) ) {
 				\WP_CLI::error( "{$found} posts already exist in the ID range; pass --force to replace them." );
 			}
@@ -77,14 +77,14 @@ final class DatasetCommand {
 	 * [--start-id=<id>]
 	 * [--store=<store>]
 	 *
-	 * @param list<string>        $args  Positional args.
-	 * @param array<string,mixed> $assoc Named args.
+	 * @param array                $args  Positional args.
+	 * @param array                $assoc Named args.
 	 */
 	public function verify( array $args, array $assoc ): void {
 		unset( $args );
 		$dataset = self::dataset( $assoc );
 		$bad     = self::store( $assoc )->verify( $dataset );
-		if ( $bad > 0 ) {
+		if ( 0 < $bad ) {
 			\WP_CLI::error( "{$bad} of {$dataset->posts} posts differ from the dataset." );
 		}
 		\WP_CLI::success( "All {$dataset->posts} posts match." );
@@ -99,8 +99,8 @@ final class DatasetCommand {
 	 * [--seed=<n>]
 	 * [--start-id=<id>]
 	 *
-	 * @param list<string>        $args  Positional args.
-	 * @param array<string,mixed> $assoc Named args.
+	 * @param array                $args  Positional args.
+	 * @param array                $assoc Named args.
 	 */
 	public function fingerprint( array $args, array $assoc ): void {
 		unset( $args );
@@ -110,20 +110,24 @@ final class DatasetCommand {
 	/**
 	 * Build the dataset from CLI arguments.
 	 *
-	 * @param array<string,mixed> $assoc Named args.
+	 * @param array                $assoc Named args.
 	 */
 	private static function dataset( array $assoc ): Dataset {
-		return new Dataset(
-			absint( $assoc['posts'] ?? 10000 ),
-			absint( $assoc['seed'] ?? 1 ),
-			absint( $assoc['start-id'] ?? 1000000 )
-		);
+		try {
+			return new Dataset(
+				absint( $assoc['posts'] ?? 10000 ),
+				absint( $assoc['seed'] ?? 1 ),
+				absint( $assoc['start-id'] ?? 1000000 )
+			);
+		} catch ( \InvalidArgumentException $e ) {
+			\WP_CLI::error( $e->getMessage() );
+		}
 	}
 
 	/**
 	 * Resolve the target store.
 	 *
-	 * @param array<string,mixed> $assoc Named args.
+	 * @param array                $assoc Named args.
 	 */
 	private static function store( array $assoc ): StoreWriter {
 		global $wpdb;

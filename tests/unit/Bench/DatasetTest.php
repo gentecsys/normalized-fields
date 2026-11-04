@@ -15,11 +15,16 @@ require_once dirname( __DIR__, 3 ) . '/bench/src/Dataset.php';
 require_once dirname( __DIR__, 3 ) . '/bench/src/AcfMeta.php';
 
 /**
+ * Dataset determinism, shape and ACF row format.
+ *
  * @covers \NF\Bench\Dataset
  * @covers \NF\Bench\AcfMeta
  */
 final class DatasetTest extends TestCase {
 
+	/**
+	 * Test records are deterministic and order independent.
+	 */
 	public function test_records_are_deterministic_and_order_independent(): void {
 		$a = new Dataset( 50, 7, 500 );
 		$b = new Dataset( 50, 7, 500 );
@@ -28,11 +33,17 @@ final class DatasetTest extends TestCase {
 		$this->assertNotSame( $a->record( 3 ), ( new Dataset( 50, 8, 500 ) )->record( 3 ) );
 	}
 
+	/**
+	 * Test ids are sequential from start id.
+	 */
 	public function test_ids_are_sequential_from_start_id(): void {
 		$ids = array_column( iterator_to_array( ( new Dataset( 5, 1, 900 ) )->records() ), 'id' );
 		$this->assertSame( array( 900, 901, 902, 903, 904 ), $ids );
 	}
 
+	/**
+	 * Test record shape matches design benchmark.
+	 */
 	public function test_record_shape_matches_design_benchmark(): void {
 		$dataset = new Dataset( 200, 1 );
 		foreach ( $dataset->records() as $record ) {
@@ -46,6 +57,9 @@ final class DatasetTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Test acf rows use acf storage format.
+	 */
 	public function test_acf_rows_use_acf_storage_format(): void {
 		$record = ( new Dataset( 3, 1 ) )->record( 1 );
 		$rows   = AcfMeta::rows( $record );
@@ -59,8 +73,22 @@ final class DatasetTest extends TestCase {
 		$this->assertSame( array_map( 'strval', $record['fields']['artists'] ), unserialize( $map['artists'] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize,WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- Test of ACF format.
 	}
 
+	/**
+	 * Test out of range index throws.
+	 */
 	public function test_out_of_range_index_throws(): void {
 		$this->expectException( OutOfRangeException::class );
 		( new Dataset( 2 ) )->record( 2 );
+	}
+
+	/**
+	 * Test fingerprint is stable and seed-sensitive.
+	 */
+	public function test_fingerprint_is_stable_and_seed_sensitive(): void {
+		if ( ! function_exists( 'wp_json_encode' ) ) {
+			$this->markTestSkipped( 'Needs WordPress.' );
+		}
+		$this->assertSame( ( new Dataset( 20, 1 ) )->fingerprint(), ( new Dataset( 20, 1 ) )->fingerprint() );
+		$this->assertNotSame( ( new Dataset( 20, 1 ) )->fingerprint(), ( new Dataset( 20, 2 ) )->fingerprint() );
 	}
 }

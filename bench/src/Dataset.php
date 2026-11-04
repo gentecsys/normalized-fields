@@ -37,22 +37,22 @@ final class Dataset {
 
 	/** Scalar fields in storage order: name => ACF field type. */
 	public const FIELDS = array(
-		'event_date'   => 'date_picker',
-		'price'        => 'number',
-		'capacity'     => 'number',
-		'featured'     => 'true_false',
-		'venue'        => 'text',
-		'categories'   => 'checkbox',
-		'artists'      => 'relationship',
-		'text_1'       => 'text',
-		'text_2'       => 'text',
-		'text_3'       => 'text',
-		'text_4'       => 'text',
-		'text_5'       => 'text',
-		'text_6'       => 'text',
-		'text_7'       => 'text',
-		'text_8'       => 'text',
-		'text_9'       => 'text',
+		'event_date' => 'date_picker',
+		'price'      => 'number',
+		'capacity'   => 'number',
+		'featured'   => 'true_false',
+		'venue'      => 'text',
+		'categories' => 'checkbox',
+		'artists'    => 'relationship',
+		'text_1'     => 'text',
+		'text_2'     => 'text',
+		'text_3'     => 'text',
+		'text_4'     => 'text',
+		'text_5'     => 'text',
+		'text_6'     => 'text',
+		'text_7'     => 'text',
+		'text_8'     => 'text',
+		'text_9'     => 'text',
 	);
 
 	public const SESSION_ROWS     = 5;
@@ -62,6 +62,10 @@ final class Dataset {
 	private const WORDS = array( 'alpha', 'bravo', 'cedar', 'delta', 'ember', 'fjord', 'garnet', 'harbor', 'iris', 'juniper', 'kelp', 'lumen', 'mosaic', 'nectar', 'onyx', 'prism' );
 
 	/**
+	 * Create a dataset definition.
+	 *
+	 * @throws \InvalidArgumentException When posts or start_id is not positive.
+	 *
 	 * @param int $posts    Number of events.
 	 * @param int $seed     Seed; same seed gives the same data.
 	 * @param int $start_id Post ID of event 0; event i has ID start_id + i.
@@ -110,6 +114,8 @@ final class Dataset {
 	/**
 	 * Build the canonical record for event `$index`.
 	 *
+	 * @throws \OutOfRangeException When the index is outside the dataset.
+	 *
 	 * @param int $index Zero-based event index.
 	 * @return array<string,mixed>
 	 */
@@ -120,8 +126,9 @@ final class Dataset {
 
 		$cat_count  = $this->between( $index, 'cat_n', 1, 4 );
 		$categories = array();
-		for ( $i = 0; count( $categories ) < $cat_count; $i++ ) {
-			$slug = self::CATEGORIES[ $this->between( $index, 'cat_' . $i, 0, 11 ) ];
+		$i          = 0;
+		while ( $cat_count > count( $categories ) ) {
+			$slug = self::CATEGORIES[ $this->between( $index, 'cat_' . $i++, 0, 11 ) ];
 			if ( ! in_array( $slug, $categories, true ) ) {
 				$categories[] = $slug;
 			}
@@ -130,8 +137,9 @@ final class Dataset {
 
 		$artist_count = $this->between( $index, 'artist_n', 1, 4 );
 		$artists      = array();
-		for ( $i = 0; count( $artists ) < $artist_count; $i++ ) {
-			$artist = $this->between( $index, 'artist_' . $i, 1, self::ARTIST_POOL_SIZE );
+		$i            = 0;
+		while ( $artist_count > count( $artists ) ) {
+			$artist = $this->between( $index, 'artist_' . $i++, 1, self::ARTIST_POOL_SIZE );
 			if ( ! in_array( $artist, $artists, true ) ) {
 				$artists[] = $artist;
 			}

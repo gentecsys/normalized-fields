@@ -14,33 +14,49 @@ namespace NF\Bench;
  */
 final class AcfStore implements StoreWriter {
 
-	private const CHUNK = 500;
+	private const CHUNK = 200;
 
 	/**
+	 * Create the store writer.
+	 *
 	 * @param \wpdb $db WordPress database object.
 	 */
 	public function __construct( private readonly \wpdb $db ) {}
 
-	/** {@inheritDoc} */
+	/**
+	 * Number of dataset posts already present.
+	 *
+	 * @param Dataset $dataset Dataset.
+	 * @return int Count.
+	 */
 	public function existing( Dataset $dataset ): int {
 		return (int) $this->db->get_var(
 			$this->db->prepare(
-				"SELECT COUNT(*) FROM {$this->db->posts} WHERE ID BETWEEN %d AND %d",
+				"SELECT COUNT(*) FROM {$this->db->posts} WHERE post_type = %s AND ID BETWEEN %d AND %d",
+				Dataset::POST_TYPE,
 				$dataset->start_id,
 				$dataset->start_id + $dataset->posts - 1
 			)
 		);
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * Remove the dataset posts and their meta.
+	 *
+	 * @param Dataset $dataset Dataset.
+	 */
 	public function clear( Dataset $dataset ): void {
 		$low  = $dataset->start_id;
 		$high = $dataset->start_id + $dataset->posts - 1;
-		$this->db->query( $this->db->prepare( "DELETE FROM {$this->db->postmeta} WHERE post_id BETWEEN %d AND %d", $low, $high ) );
-		$this->db->query( $this->db->prepare( "DELETE FROM {$this->db->posts} WHERE ID BETWEEN %d AND %d", $low, $high ) );
+		$this->db->query( $this->db->prepare( "DELETE m FROM {$this->db->postmeta} m INNER JOIN {$this->db->posts} p ON p.ID = m.post_id WHERE p.post_type = %s AND p.ID BETWEEN %d AND %d", Dataset::POST_TYPE, $low, $high ) );
+		$this->db->query( $this->db->prepare( "DELETE FROM {$this->db->posts} WHERE post_type = %s AND ID BETWEEN %d AND %d", Dataset::POST_TYPE, $low, $high ) );
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * Write the whole dataset.
+	 *
+	 * @param Dataset $dataset Dataset.
+	 */
 	public function write( Dataset $dataset ): void {
 		$posts = array();
 		$meta  = array();
@@ -74,9 +90,9 @@ final class AcfStore implements StoreWriter {
 	/**
 	 * Insert and empty the buffers.
 	 *
-	 * @param list<string> $posts   Prepared wp_posts value tuples.
-	 * @param list<string> $meta    Prepared wp_postmeta value tuples.
-	 * 	 */
+	 * @param array $posts   Prepared wp_posts value tuples.
+	 * @param array $meta    Prepared wp_postmeta value tuples.
+	 */
 	private function flush( array &$posts, array &$meta ): void {
 		if ( $posts ) {
 			$sql = "INSERT INTO {$this->db->posts} (ID,post_author,post_date,post_date_gmt,post_content,post_title,post_excerpt,post_status,comment_status,ping_status,post_name,post_modified,post_modified_gmt,post_type) VALUES " . implode( ',', $posts ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tuples are prepared.
@@ -89,7 +105,12 @@ final class AcfStore implements StoreWriter {
 		$meta  = array();
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * Compare the store with the dataset; returns mismatching posts.
+	 *
+	 * @param Dataset $dataset Dataset.
+	 * @return int
+	 */
 	public function verify( Dataset $dataset ): int {
 		$bad = 0;
 		foreach ( $dataset->records() as $record ) {
@@ -98,7 +119,7 @@ final class AcfStore implements StoreWriter {
 				ARRAY_N
 			);
 			$title  = $this->db->get_var( $this->db->prepare( "SELECT post_title FROM {$this->db->posts} WHERE ID = %d AND post_type = %s", $record['id'], Dataset::POST_TYPE ) );
-			if ( $title !== $record['title'] || $actual !== AcfMeta::rows( $record ) ) {
+			if ( $record['title'] !== $title || AcfMeta::rows( $record ) !== $actual ) {
 				++$bad;
 			}
 		}
