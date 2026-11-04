@@ -9,6 +9,7 @@
 	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/lib/*</exclude-pattern>
+	<exclude-pattern>tests/stubs/*</exclude-pattern>
 	<arg name="extensions" value="php"/>
 	<arg value="ps"/>
 	<config name="testVersion" value="8.1-"/>

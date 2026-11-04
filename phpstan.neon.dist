@@ -6,8 +6,11 @@ parameters:
 	treatPhpDocTypesAsCertain: false
 	paths:
 		- normalized-fields.php
+		- uninstall.php
 		- src
+		- bench
 	excludePaths:
 		- lib (?)
 	scanFiles:
 		- vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+		- tests/stubs/wp-cli.php
