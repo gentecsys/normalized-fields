@@ -48,8 +48,8 @@ final class DatasetCommand {
 	 * [--force]
 	 * : Replace data already in the ID range.
 	 *
-	 * @param array                $args  Positional args.
-	 * @param array                $assoc Named args.
+	 * @param array $args  Positional args.
+	 * @param array $assoc Named args.
 	 */
 	public function generate( array $args, array $assoc ): void {
 		unset( $args );
@@ -77,8 +77,8 @@ final class DatasetCommand {
 	 * [--start-id=<id>]
 	 * [--store=<store>]
 	 *
-	 * @param array                $args  Positional args.
-	 * @param array                $assoc Named args.
+	 * @param array $args  Positional args.
+	 * @param array $assoc Named args.
 	 */
 	public function verify( array $args, array $assoc ): void {
 		unset( $args );
@@ -99,8 +99,8 @@ final class DatasetCommand {
 	 * [--seed=<n>]
 	 * [--start-id=<id>]
 	 *
-	 * @param array                $args  Positional args.
-	 * @param array                $assoc Named args.
+	 * @param array $args  Positional args.
+	 * @param array $assoc Named args.
 	 */
 	public function fingerprint( array $args, array $assoc ): void {
 		unset( $args );
@@ -110,7 +110,7 @@ final class DatasetCommand {
 	/**
 	 * Build the dataset from CLI arguments.
 	 *
-	 * @param array                $assoc Named args.
+	 * @param array $assoc Named args.
 	 */
 	private static function dataset( array $assoc ): Dataset {
 		try {
@@ -127,7 +127,7 @@ final class DatasetCommand {
 	/**
 	 * Resolve the target store.
 	 *
-	 * @param array                $assoc Named args.
+	 * @param array $assoc Named args.
 	 */
 	private static function store( array $assoc ): StoreWriter {
 		global $wpdb;
