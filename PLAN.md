@@ -12,7 +12,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 | 0.1 | Repo and plugin skeleton | A1 | S | — | merged | wp/0.1-skeleton | Activates cleanly on WP 7.0 and 7.1 (activation check deferred to 0.2 CI) |
 | 0.2 | Dev environment and CI | A1 | M | 0.1 | merged | wp/0.2-ci-env | Empty test suite green on the whole matrix |
 | 0.2b | Class-based structure and Composer autoloading | A1 | S | 0.2 | merged | | 0.1 code converted to `NF\` classes in `src/` (PSR-4), procedural public functions in `src/functions/`; release build zip with `vendor/`; Dependabot; plugin renamed per D-02 (header `Plugin Name: Normalized Fields`, main file `normalized-fields.php`, text domain `normalized-fields` in code, header and PHPCS); activation unchanged on WP 7.0 / 7.1; CI green |
-| 0.3a | Dataset generator: model, ACF store, WP-CLI | A12 | S | 0.2b | in-review | wp/0.3a-dataset-generator | Deterministic 10k/100k dataset written to `wp_posts`/`wp_postmeta` in ACF format; `wp nf-bench generate/verify/fingerprint`; unit tests |
+| 0.3a | Dataset generator: model, ACF store, WP-CLI | A12 | S | 0.2b | merged | wp/0.3a-dataset-generator | Deterministic 10k/100k dataset written to `wp_posts`/`wp_postmeta` in ACF format; `wp nf-bench generate/verify/fingerprint`; unit tests |
 | 0.3b | Dataset generator: NF store writer | A12 | S | 0.3a, 1.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k); `nf` store verifies against the same fingerprint |
 | 0.4 | ACF API inventory | A5 | M | — | ready | | `contracts/api.md` lists the full surface, ranked by usage |
 | 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | todo | | Reviewed by A13; no open questions |
