@@ -1,0 +1,76 @@
+# Merges work-package PRs once the daily build agent has approved them and CI is green.
+#
+# A PR is merged only when ALL of these hold:
+#   - its branch is wp/* in this repository (no forks, no Dependabot)
+#   - it carries the label `nf:ready` (added by the daily agent after a clean review)
+#   - every check run on the head commit has finished with success, skipped or neutral
+#   - the head commit is the one that was checked (no newer push since)
+#
+# Remove the label to stop a merge. No PR code is checked out or run here.
+name: NF auto-merge
+
+on:
+  workflow_run:
+    workflows: [ CI ]
+    types: [ completed ]
+  pull_request_target:
+    types: [ labeled ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: nf-auto-merge-${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.event == 'pull_request'
+        && github.event.workflow_run.conclusion == 'success'
+        && startsWith(github.event.workflow_run.head_branch, 'wp/')
+        && github.event.workflow_run.head_repository.full_name == github.repository)
+      || (github.event_name == 'pull_request_target'
+        && github.event.label.name == 'nf:ready'
+        && startsWith(github.event.pull_request.head.ref, 'wp/')
+        && github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - name: Merge if labelled and green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          pr_json=$(gh api "repos/$REPO/pulls?state=open&head=$OWNER:$BRANCH" --jq '.[0] // empty')
+          if [ -z "$pr_json" ]; then echo "No open PR for $BRANCH."; exit 0; fi
+
+          number=$(jq -r '.number' <<<"$pr_json")
+          sha=$(jq -r '.head.sha' <<<"$pr_json")
+          labelled=$(jq -r '[.labels[].name] | index("nf:ready") != null' <<<"$pr_json")
+          echo "PR #$number, head $sha, nf:ready=$labelled"
+          if [ "$labelled" != "true" ]; then echo "Not labelled nf:ready; leaving it."; exit 0; fi
+
+          checks=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.name != "merge")]')
+          total=$(jq 'length' <<<"$checks")
+          pending=$(jq '[.[] | select(.status != "completed")] | length' <<<"$checks")
+          failed=$(jq '[.[] | select(.status == "completed" and (.conclusion | IN("success","skipped","neutral") | not))] | length' <<<"$checks")
+          lint=$(jq '[.[] | select(.name == "PHPCS + PHPStan" and .conclusion == "success")] | length' <<<"$checks")
+          echo "checks: $total total, $pending pending, $failed failed, lint ok: $lint"
+
+          if [ "$total" -eq 0 ] || [ "$lint" -eq 0 ]; then echo "CI has not reported on $sha yet."; exit 0; fi
+          if [ "$pending" -gt 0 ]; then echo "Checks still running; the CI completion event will retry."; exit 0; fi
+          if [ "$failed" -gt 0 ]; then echo "::warning::PR #$number has failing checks; not merging."; exit 0; fi
+
+          # sha= makes GitHub refuse the merge if anything was pushed after these checks ran.
+          gh api -X PUT "repos/$REPO/pulls/$number/merge" \
+            -f merge_method=merge -f sha="$sha" \
+            -f commit_title="Merge pull request #$number from $OWNER/$BRANCH"
+          echo "Merged PR #$number."
