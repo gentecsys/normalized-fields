@@ -5,8 +5,8 @@ parameters:
 	# Runtime guards (PHP/WP version checks) are legitimate even when stubs say otherwise.
 	treatPhpDocTypesAsCertain: false
 	paths:
-		- nf.php
-		- includes
+		- normalized-fields.php
+		- src
 	excludePaths:
 		- lib (?)
 	scanFiles:
