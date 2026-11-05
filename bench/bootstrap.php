@@ -18,29 +18,25 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/src/DatasetCommand.php';
 	WP_CLI::add_command( 'nf-bench', NF\Bench\DatasetCommand::class );
 
-	// Registered once WordPress has loaded, so `get_field()` returns ACF-formatted values.
-	WP_CLI::add_hook(
-		'after_wp_load',
+	// WP-CLI queues these into $wp_filter before WordPress loads, so they are in place
+	// before `init` and before ACF reads Local JSON on `acf/init`.
+	WP_CLI::add_wp_hook(
+		'init',
 		static function (): void {
-			add_action(
-				'init',
-				static function (): void {
-					register_post_type(
-						NF\Bench\Dataset::POST_TYPE,
-						array(
-							'label'  => 'NF Bench Events',
-							'public' => true,
-						)
-					);
-				}
+			register_post_type(
+				NF\Bench\Dataset::POST_TYPE,
+				array(
+					'label'  => 'NF Bench Events',
+					'public' => true,
+				)
 			);
-			add_filter(
-				'acf/settings/load_json',
-				static function ( array $paths ): array {
-					$paths[] = __DIR__ . '/acf-json';
-					return $paths;
-				}
-			);
+		}
+	);
+	WP_CLI::add_wp_hook(
+		'acf/settings/load_json',
+		static function ( array $paths ): array {
+			$paths[] = __DIR__ . '/acf-json';
+			return $paths;
 		}
 	);
 }
