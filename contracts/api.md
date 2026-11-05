@@ -15,7 +15,7 @@ There is no theme corpus yet (WP 0.6 / A11 builds it), so ranking is by *role* a
 - **P2, helpers.** `acf_*` utility functions that third-party code calls occasionally. Implement on demand: only when the corpus or the compat scanner shows a caller. Until then, the function is not defined.
 - **P3, out of scope or admin-only.** Admin UI, upgrade routines, internal post-type (`acf-post-type`, `acf-taxonomy`, `acf-ui-options-page`) management, and flexible content (ADR-0008). Not implemented; the compat scanner reports callers.
 
-### P0: implement (52 functions)
+### P0: implement (51 functions)
 
 | Function | Source (ACF 6.8.11) |
 | --- | --- |
@@ -56,7 +56,6 @@ There is no theme corpus yet (WP 0.6 / A11 builds it), so ranking is by *role* a
 | `get_fields` | `api/api-template.php` |
 | `get_row` | `api/api-template.php` |
 | `get_row_index` | `api/api-template.php` |
-| `get_row_layout` | `api/api-template.php` |
 | `get_sub_field` | `api/api-template.php` |
 | `get_sub_field_object` | `api/api-template.php` |
 | `has_sub_field` | `api/api-template.php` |
@@ -73,7 +72,6 @@ There is no theme corpus yet (WP 0.6 / A11 builds it), so ranking is by *role* a
 | `update_sub_row` | `api/api-template.php` |
 
 Notes:
-- `get_row_layout()` is in the P0 list only so the importer and scanner know about it; per ADR-0008 NF does not implement it.
 - Signatures are copied verbatim from ACF: `get_field( $selector, $post_id = false, $format_value = true, $escape_html = false )`, `the_field( $selector, $post_id = false, $format_value = true )`, `get_field_object( $selector, $post_id = false, $format_value = true, $load_value = true, $escape_html = false )`, `get_fields( $post_id = false, $format_value = true, $escape_html = false )`, `have_rows( $selector, $post_id = false )`, `the_row( $format = false )`, `get_sub_field( $selector = '', $format_value = true, $escape_html = false )`, `update_field( $selector, $value, $post_id = false )`, `add_row( $selector, $row = false, $post_id = false )`, `update_row( $selector, $i = 1, $row = false, $post_id = false )`, `delete_row( $selector, $i = 1, $post_id = false )`. The `$escape_html` parameter and the `_acf_log_escaped_html` behaviour (6.2.5+) must be matched.
 - `$post_id` conventions to support: `false` (current post), int, `'option'`/`'options'`, `'options_<lang>'`, `'term_<id>'`, `'user_<id>'`, `'comment_<id>'`, `'widget_<id>'`, `'block_<id>'`, WP object instances (`WP_Post`, `WP_Term`, `WP_User`, `WP_Comment`).
 - The loop state (`have_rows` / `the_row` / `reset_rows`) is global, nested and keyed by field and post ID (`includes/loop.php`); NF must reproduce nesting and `get_row_index()` 1-based indexing.
@@ -475,9 +473,9 @@ Listed in full below; implement only when a caller is found.
 | `acf_version_compare` | `api/api-helpers.php` |
 | `acf_with_default` | `acf-helper-functions.php` |
 
-### P3: not implemented (148 functions)
+### P3: not implemented (149 functions)
 
-Admin, upgrade, internal post-type and flexible-content helpers. Full list:
+Admin, upgrade, internal post-type and flexible-content helpers (including `get_row_layout`, ADR-0008: the importer and scanner know it, NF never defines it). Full list:
 
 | Function | Source (ACF 6.8.11) |
 | --- | --- |
@@ -629,6 +627,29 @@ Admin, upgrade, internal post-type and flexible-content helpers. Full list:
 | `reset_the_repeater_field` | `api/api-template.php` |
 | `the_flexible_field` | `api/api-template.php` |
 | `the_repeater_field` | `api/api-template.php` |
+
+### PRO / SCF surface the design relies on (source not available in the sandbox)
+
+The free plugin does not contain these; they are required by `docs/design.md` (*Surface NF implements*). Owner to confirm signatures against ACF PRO and SCF on a local site. Tier P0 unless noted.
+
+| Function / feature | Notes |
+| --- | --- |
+| `acf_add_options_page`, `acf_add_options_sub_page` (also `acf_add_options_page` array form) | Options pages; `$post_id = 'option'` / `'options_<lang>'` depends on them |
+| `acf_register_block_type`, block.json `acf` config | ACF Blocks (A5, later phase) |
+| Repeater field internals (`type: "repeater"`, `<name>_<i>_<sub>` meta, `<name>` row count) | Storage is the Series store; format must be preserved |
+| Clone, gallery, `acf_form` PRO behaviours | P1; confirm on PRO |
+
+### Hooks missing from the literal scan
+
+Found outside `includes/`: `acf/init`, `acf/include_fields`, `acf/init_internal_post_types` (actions); `acf/settings/{{$name}}` is built dynamically in `acf_get_setting()` (P0 family: `acf/settings/save_json`, `load_json`, `default_language`, `current_language`, `show_admin`, `rest_api_format`, etc.). All are P0.
+
+### Open items for A0 (WP 0.5)
+
+1. Ranking is by role, not measured usage, because no theme corpus exists yet. This deviates from the WP's "ranked by usage" criterion: A0 or the owner must accept it or hold the freeze until WP 0.6 provides usage data.
+2. PRO and SCF delta (table above) not inventoried.
+3. P1/P2 boundary is by source file and coarse; per-function signatures and return shapes exist only for P0.
+4. Tier doubts: `acf_get_post_templates`, `acf_is_pro`, `acf_get_image_sizes`, `acf_get_attachment` (P0, may be P2); `acf_maybe_get_field`, `acf_maybe_get_sub_field` (P3, may be P2).
+5. Inventory command: list functions with `grep -rhE '^function [a-z]' includes/` and hooks with `grep -rhoE "(do_action|apply_filters)\( *['\"]acf/[^'\"]+" .` on the unzipped ACF 6.8.11 plugin.
 
 ### Hooks
 

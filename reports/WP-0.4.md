@@ -20,3 +20,6 @@ None beyond the inventory section A5 may draft.
 
 ## Follow-ups
 - Re-rank after WP 0.6 corpus; add PRO/SCF delta.
+
+## Review round 1 (A13) fixes
+Moved `get_row_layout` to P3 (ADR-0008); added PRO/SCF surface table, missing hooks (`acf/init`, `acf/include_fields`, `acf/settings/*`) and an "Open items for A0" list in `contracts/api.md`. The usage-ranking deviation is flagged there for A0/owner sign-off; it cannot be resolved before WP 0.6.
