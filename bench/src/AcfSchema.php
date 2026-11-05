@@ -163,6 +163,6 @@ final class AcfSchema {
 	 * Encode as the ACF JSON file contents.
 	 */
 	public static function json(): string {
-		return json_encode( self::group(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
+		return json_encode( self::group(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n"; // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Must work without WordPress.
 	}
 }
