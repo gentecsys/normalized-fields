@@ -4,3 +4,4 @@
 2026-11-04 | WP 0.2b | merged | Converted 0.1 code to NF\ PSR-4 classes, renamed to normalized-fields.php, release build + Dependabot; reviewer clean after one fix round, CI green (26 checks) | PR #3 (wp/0.2b-classes)
 2026-11-04 | WP 0.3a | in-review | Dataset model, ACF writer and wp nf-bench CLI done; reviewer no blockers, CI green (26/26); merge of PR #8 was blocked by the permission classifier, awaiting owner merge | PR #8 (wp/0.3a-dataset-generator)
 2026-11-04 | WP 0.3a | merged | PR #8 merged on GitHub after my run (not by me); PLAN.md synced, 0.3b waits on 1.1 | PR #8
+2026-11-05 | WP 0.3c | labelled nf:ready | ACF field group + Local JSON, 66 meta rows/post, batched verify; reviewer clean after one fix round, CI green (26/26) | PR #9 (wp/0.3c-dataset-parity)
