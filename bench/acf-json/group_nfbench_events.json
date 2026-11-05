@@ -1,0 +1,206 @@
+{
+    "key": "group_nfbench_events",
+    "title": "NF Bench Event",
+    "fields": [
+        {
+            "key": "field_nfbench_event_date",
+            "label": "Event date",
+            "name": "event_date",
+            "type": "date_picker",
+            "display_format": "d/m/Y",
+            "return_format": "Ymd",
+            "first_day": 1
+        },
+        {
+            "key": "field_nfbench_price",
+            "label": "Price",
+            "name": "price",
+            "type": "number",
+            "min": 0,
+            "step": 1
+        },
+        {
+            "key": "field_nfbench_capacity",
+            "label": "Capacity",
+            "name": "capacity",
+            "type": "number",
+            "min": 0,
+            "step": 1
+        },
+        {
+            "key": "field_nfbench_featured",
+            "label": "Featured",
+            "name": "featured",
+            "type": "true_false",
+            "default_value": 0,
+            "ui": 1
+        },
+        {
+            "key": "field_nfbench_venue",
+            "label": "Venue",
+            "name": "venue",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_categories",
+            "label": "Categories",
+            "name": "categories",
+            "type": "checkbox",
+            "choices": {
+                "music": "Music",
+                "theatre": "Theatre",
+                "comedy": "Comedy",
+                "dance": "Dance",
+                "film": "Film",
+                "sport": "Sport",
+                "talk": "Talk",
+                "workshop": "Workshop",
+                "festival": "Festival",
+                "family": "Family",
+                "food": "Food",
+                "art": "Art"
+            },
+            "layout": "vertical",
+            "return_format": "value",
+            "allow_custom": 0,
+            "toggle": 0
+        },
+        {
+            "key": "field_nfbench_artists",
+            "label": "Artists",
+            "name": "artists",
+            "type": "relationship",
+            "post_type": [
+                "post"
+            ],
+            "filters": [
+                "search"
+            ],
+            "return_format": "id",
+            "min": 1,
+            "max": 4
+        },
+        {
+            "key": "field_nfbench_text_1",
+            "label": "Text 1",
+            "name": "text_1",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_2",
+            "label": "Text 2",
+            "name": "text_2",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_3",
+            "label": "Text 3",
+            "name": "text_3",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_4",
+            "label": "Text 4",
+            "name": "text_4",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_5",
+            "label": "Text 5",
+            "name": "text_5",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_6",
+            "label": "Text 6",
+            "name": "text_6",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_7",
+            "label": "Text 7",
+            "name": "text_7",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_8",
+            "label": "Text 8",
+            "name": "text_8",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_9",
+            "label": "Text 9",
+            "name": "text_9",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_text_10",
+            "label": "Text 10",
+            "name": "text_10",
+            "type": "text",
+            "maxlength": 255
+        },
+        {
+            "key": "field_nfbench_sessions",
+            "label": "Sessions",
+            "name": "sessions",
+            "type": "repeater",
+            "layout": "table",
+            "min": 0,
+            "max": 0,
+            "button_label": "Add row",
+            "sub_fields": [
+                {
+                    "key": "field_nfbench_sessions_date",
+                    "label": "Date",
+                    "name": "date",
+                    "type": "date_picker",
+                    "display_format": "d/m/Y",
+                    "return_format": "Ymd",
+                    "first_day": 1
+                },
+                {
+                    "key": "field_nfbench_sessions_time",
+                    "label": "Time",
+                    "name": "time",
+                    "type": "time_picker",
+                    "display_format": "H:i",
+                    "return_format": "H:i"
+                },
+                {
+                    "key": "field_nfbench_sessions_room",
+                    "label": "Room",
+                    "name": "room",
+                    "type": "text",
+                    "maxlength": 255
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "nf_bench_event"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "active": true
+}
