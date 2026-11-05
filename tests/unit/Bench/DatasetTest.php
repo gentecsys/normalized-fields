@@ -8,17 +8,20 @@
 declare(strict_types=1);
 
 use NF\Bench\AcfMeta;
+use NF\Bench\AcfSchema;
 use NF\Bench\Dataset;
 use PHPUnit\Framework\TestCase;
 
 require_once dirname( __DIR__, 3 ) . '/bench/src/Dataset.php';
 require_once dirname( __DIR__, 3 ) . '/bench/src/AcfMeta.php';
+require_once dirname( __DIR__, 3 ) . '/bench/src/AcfSchema.php';
 
 /**
  * Dataset determinism, shape and ACF row format.
  *
  * @covers \NF\Bench\Dataset
  * @covers \NF\Bench\AcfMeta
+ * @covers \NF\Bench\AcfSchema
  */
 final class DatasetTest extends TestCase {
 
@@ -47,7 +50,7 @@ final class DatasetTest extends TestCase {
 	public function test_record_shape_matches_design_benchmark(): void {
 		$dataset = new Dataset( 200, 1 );
 		foreach ( $dataset->records() as $record ) {
-			$this->assertCount( 16, $record['fields'] );
+			$this->assertCount( 17, $record['fields'] );
 			$this->assertCount( 5, $record['sessions'] );
 			$this->assertGreaterThanOrEqual( 1, count( $record['fields']['categories'] ) );
 			$this->assertLessThanOrEqual( 4, count( $record['fields']['artists'] ) );
@@ -64,8 +67,8 @@ final class DatasetTest extends TestCase {
 		$record = ( new Dataset( 3, 1 ) )->record( 1 );
 		$rows   = AcfMeta::rows( $record );
 		$map    = array_column( $rows, 1, 0 );
-		// 16 fields x2 + repeater count x2 + 5 rows x 3 subs x2.
-		$this->assertCount( 64, $rows );
+		// 17 fields x2 + repeater count x2 + 5 rows x 3 subs x2 = 66, as in the design benchmark.
+		$this->assertCount( 66, $rows );
 		$this->assertSame( '5', $map['sessions'] );
 		$this->assertSame( 'field_nfbench_sessions', $map['_sessions'] );
 		$this->assertSame( 'field_nfbench_sessions_room', $map['_sessions_4_room'] );
@@ -90,5 +93,38 @@ final class DatasetTest extends TestCase {
 		}
 		$this->assertSame( ( new Dataset( 20, 1 ) )->fingerprint(), ( new Dataset( 20, 1 ) )->fingerprint() );
 		$this->assertNotSame( ( new Dataset( 20, 1 ) )->fingerprint(), ( new Dataset( 20, 2 ) )->fingerprint() );
+	}
+
+	/**
+	 * Test the ACF group covers every dataset field with matching keys and 10 text fields.
+	 */
+	public function test_acf_group_matches_dataset_fields(): void {
+		$group = AcfSchema::group();
+		$names = array_column( $group['fields'], 'name' );
+		$this->assertSame( array_merge( array_keys( Dataset::FIELDS ), array( 'sessions' ) ), $names );
+		$this->assertCount( 10, array_filter( array_keys( Dataset::FIELDS ), static fn( $n ) => 0 === strpos( $n, 'text_' ) ) );
+
+		$keys = array_column( $group['fields'], 'key', 'name' );
+		foreach ( AcfMeta::rows( ( new Dataset( 1 ) )->record( 0 ) ) as $row ) {
+			if ( 0 === strpos( $row[0], '_' ) && 0 !== strpos( $row[0], '_sessions_' ) ) {
+				$this->assertSame( $keys[ substr( $row[0], 1 ) ], $row[1] );
+			}
+		}
+
+		$sessions = $group['fields'][ count( $group['fields'] ) - 1 ];
+		$this->assertSame( 'repeater', $sessions['type'] );
+		$this->assertSame( array( 'field_nfbench_sessions_date', 'field_nfbench_sessions_time', 'field_nfbench_sessions_room' ), array_column( $sessions['sub_fields'], 'key' ) );
+
+		$checkbox = $group['fields'][ array_search( 'categories', $names, true ) ];
+		$this->assertCount( 12, $checkbox['choices'] );
+		$this->assertSame( 'id', $group['fields'][ array_search( 'artists', $names, true ) ]['return_format'] );
+	}
+
+	/**
+	 * Test the committed Local JSON equals the generated group.
+	 */
+	public function test_local_json_is_in_sync(): void {
+		$file = dirname( __DIR__, 3 ) . '/bench/acf-json/group_nfbench_events.json';
+		$this->assertSame( AcfSchema::json(), file_get_contents( $file ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}
 }

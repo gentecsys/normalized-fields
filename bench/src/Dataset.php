@@ -12,8 +12,8 @@ namespace NF\Bench;
 /**
  * Generates the same event records for a given (seed, posts, start_id), in any order.
  *
- * The shape follows docs/design.md "Benchmark: query speed, ACF vs NF": 16 top-level
- * fields (including a 12-value category checkbox and a 1-4 artist relationship) and a
+ * The shape follows docs/design.md "Benchmark: query speed, ACF vs NF": 17 top-level
+ * fields (5 scalars, a 12-value category checkbox and a 1-4 artist relationship, 10 text fields) and a
  * 5-row x 3-sub-field `sessions` repeater.
  */
 final class Dataset {
@@ -53,6 +53,7 @@ final class Dataset {
 		'text_7'     => 'text',
 		'text_8'     => 'text',
 		'text_9'     => 'text',
+		'text_10'    => 'text',
 	);
 
 	public const SESSION_ROWS     = 5;
@@ -162,7 +163,7 @@ final class Dataset {
 			'categories' => $categories,
 			'artists'    => $artists,
 		);
-		for ( $t = 1; $t <= 9; $t++ ) {
+		for ( $t = 1; $t <= 10; $t++ ) {
 			$words = array();
 			for ( $w = 0; $w < 6; $w++ ) {
 				$words[] = self::WORDS[ $this->between( $index, "t{$t}_{$w}", 0, 15 ) ];

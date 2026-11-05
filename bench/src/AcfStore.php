@@ -108,18 +108,51 @@ final class AcfStore implements StoreWriter {
 	/**
 	 * Compare the store with the dataset; returns mismatching posts.
 	 *
+	 * Two queries per chunk of posts, never one per post.
+	 *
 	 * @param Dataset $dataset Dataset.
 	 * @return int
 	 */
 	public function verify( Dataset $dataset ): int {
-		$bad = 0;
+		$bad     = 0;
+		$records = array();
 		foreach ( $dataset->records() as $record ) {
-			$actual = $this->db->get_results(
-				$this->db->prepare( "SELECT meta_key, meta_value FROM {$this->db->postmeta} WHERE post_id = %d ORDER BY meta_id", $record['id'] ),
-				ARRAY_N
-			);
-			$title  = $this->db->get_var( $this->db->prepare( "SELECT post_title FROM {$this->db->posts} WHERE ID = %d AND post_type = %s", $record['id'], Dataset::POST_TYPE ) );
-			if ( $record['title'] !== $title || AcfMeta::rows( $record ) !== $actual ) {
+			$records[ $record['id'] ] = $record;
+			if ( count( $records ) >= self::CHUNK ) {
+				$bad    += $this->verify_chunk( $records );
+				$records = array();
+			}
+		}
+		return $bad + $this->verify_chunk( $records );
+	}
+
+	/**
+	 * Verify one chunk of records keyed by post ID.
+	 *
+	 * @param array<int,array<string,mixed>> $records Records.
+	 * @return int Mismatching posts.
+	 */
+	private function verify_chunk( array $records ): int {
+		if ( ! $records ) {
+			return 0;
+		}
+		$ids = array_map( 'intval', array_keys( $records ) );
+		$in  = implode( ',', $ids ); // Integers only.
+
+		$meta = array_fill_keys( $ids, array() );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Integer ID list.
+		foreach ( $this->db->get_results( "SELECT post_id, meta_key, meta_value FROM {$this->db->postmeta} WHERE post_id IN ({$in}) ORDER BY post_id, meta_id", ARRAY_N ) as $row ) {
+			$meta[ (int) $row[0] ][] = array( $row[1], $row[2] );
+		}
+		$titles = array();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Integer ID list.
+		foreach ( $this->db->get_results( $this->db->prepare( "SELECT ID, post_title FROM {$this->db->posts} WHERE post_type = %s AND ID IN ({$in})", Dataset::POST_TYPE ), ARRAY_N ) as $row ) {
+			$titles[ (int) $row[0] ] = $row[1];
+		}
+
+		$bad = 0;
+		foreach ( $records as $id => $record ) {
+			if ( ( $titles[ $id ] ?? null ) !== $record['title'] || AcfMeta::rows( $record ) !== $meta[ $id ] ) {
 				++$bad;
 			}
 		}
