@@ -4,7 +4,7 @@
 - `bench/src/Dataset.php`: 10 text fields (was 9) so a post has 17 scalar fields + `sessions` = **66 `wp_postmeta` rows**, as in the design doc (0.3a had 64). Fingerprints change vs 0.3a; regenerate any existing dataset.
 - `bench/src/AcfSchema.php`: ACF field group `group_nfbench_events` (keys `field_nfbench_*`) with return formats: date (`Ymd`), number, true/false, 12-choice checkbox (array of values), relationship (IDs), `sessions` Series with date/time/room sub-fields.
 - `bench/acf-json/group_nfbench_events.json`: Local JSON generated from `AcfSchema::json()`; a unit test keeps them identical.
-- `bench/bootstrap.php`: after WP loads, hooks (via `WP_CLI::add_wp_hook`, before `init`) the `nf_bench_event` post type and `bench/acf-json` on `acf/settings/load_json`.
+- `bench/bootstrap.php`: hooks (via `WP_CLI::add_wp_hook`, before `init`) the `nf_bench_event` post type and `bench/acf-json` on `acf/settings/load_json`.
 - `bench/src/AcfStore.php`: `verify()` batched (2 queries per 200 posts instead of 2 per post).
 - `tests/unit/Bench/DatasetTest.php`: shape (17 fields, 66 rows), schema/key parity, JSON sync.
 
