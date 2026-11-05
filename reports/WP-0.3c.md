@@ -14,6 +14,10 @@
 - NOT run: phpcs, phpstan, `wp nf-bench` or `get_field()` against a real WP + ACF (no WP install here). CI is authoritative.
 
 ## Deviations
+- PLAN/design doc say "16 top-level fields incl. 10 text fields" and "66 rows"; these only agree with 17 scalar fields + `sessions` (17x2 + 2 + 30 = 66). I kept 66 rows (the quantity the benchmark cites). A0 to fix the wording.
+- Post type is `nf_bench_event` (from 0.3a), not `event`.
+- Review fix: post type and Local JSON path are hooked with `WP_CLI::add_wp_hook` (queued before WP loads), not `after_wp_load`, which fires after `init`/`acf/init`. `add_wp_hook` added to `tests/stubs/wp-cli.php` for PHPStan.
+- UNVERIFIED (no WP + ACF here): `get_field()` output, and whether ACF's relationship formatter keeps IDs that have no post. If it drops them, create stub artist posts in a follow-up.
 - Relationship `post_type` is `post`; artist IDs are reference values without real posts, so the editor UI would show none. `get_field()` with `return_format: id` still returns the IDs.
 
 ## Follow-ups
