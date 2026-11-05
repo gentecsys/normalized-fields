@@ -5,3 +5,4 @@
 2026-11-04 | WP 0.3a | in-review | Dataset model, ACF writer and wp nf-bench CLI done; reviewer no blockers, CI green (26/26); merge of PR #8 was blocked by the permission classifier, awaiting owner merge | PR #8 (wp/0.3a-dataset-generator)
 2026-11-04 | WP 0.3a | merged | PR #8 merged on GitHub after my run (not by me); PLAN.md synced, 0.3b waits on 1.1 | PR #8
 2026-11-05 | WP 0.3c | labelled nf:ready | ACF field group + Local JSON, 66 meta rows/post, batched verify; reviewer clean after one fix round, CI green (26/26) | PR #9 (wp/0.3c-dataset-parity)
+2026-11-05 | WP 0.4 | labelled nf:ready | ACF 6.8.11 API inventory (tiered P0-P3, hooks, PRO gaps) in contracts/api.md; reviewer clean after one fix round; CI pending; ranking-by-usage deviation flagged for A0 | PR #10 (wp/0.4-acf-api-inventory)
