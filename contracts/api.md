@@ -473,7 +473,7 @@ Listed in full below; implement only when a caller is found.
 | `acf_version_compare` | `api/api-helpers.php` |
 | `acf_with_default` | `acf-helper-functions.php` |
 
-### P3: not implemented (149 functions)
+### P3: not implemented (148 functions)
 
 Admin, upgrade, internal post-type and flexible-content helpers (including `get_row_layout`, ADR-0008: the importer and scanner know it, NF never defines it). Full list:
 
