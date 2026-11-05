@@ -10,6 +10,14 @@
 
 class WP_CLI {
 	/**
+	 * @param string   $tag      Hook name.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @param int      $args     Accepted arguments.
+	 */
+	public static function add_wp_hook( $tag, $callback, $priority = 10, $args = 1 ): void {}
+
+	/**
 	 * @param string          $name     Command name.
 	 * @param callable|string $callable Command class or callable.
 	 * @param array<string, mixed> $args Registration args.
