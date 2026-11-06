@@ -29,7 +29,10 @@
 		</properties>
 	</rule>
 	<!-- The differential harness is test tooling: no per-method doc blocks, camelCase API, a `function` property. -->
-	<rule ref="Squiz.Commenting">
+	<rule ref="Squiz.Commenting.ClassComment">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment">
 		<exclude-pattern>tests/differential/*</exclude-pattern>
 	</rule>
 	<rule ref="Generic.Commenting.DocComment">
