@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <phpunit bootstrap="tests/unit/Core/bootstrap.php" colors="true" convertDeprecationsToExceptions="false">
 	<testsuites>
+		<testsuite name="differential-harness">
+			<directory suffix="Test.php">tests/differential/tests</directory>
+		</testsuite>
 		<testsuite name="unit">
 			<directory suffix="Test.php">tests/unit</directory>
 		</testsuite>
