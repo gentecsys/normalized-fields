@@ -77,6 +77,9 @@ final class AcfWriteBaselineTest extends TestCase {
 			)
 		);
 		$this->assertCount( 1, $rows['formatted'], 'Series write must come back as one row.' );
+		update_field( \NF\Bench\AcfMeta::key( 'sessions' ), $rows['raw'], $id );
+		$this->assertSame( 'field_nfbench_sessions', get_post_meta( $id, '_sessions', true ), 'Write must store the field reference (typed).' );
+		$this->assertSame( 'A', get_post_meta( $id, 'sessions_0_room', true ), 'Series must be stored as row meta, not serialized.' );
 		$this->assertSame( 'A', $rows['formatted'][0]['room'] );
 	}
 
