@@ -8,3 +8,4 @@
 2026-11-05 | WP 0.4 | labelled nf:ready | ACF 6.8.11 API inventory (tiered P0-P3, hooks, PRO gaps) in contracts/api.md; reviewer clean after one fix round; CI pending; ranking-by-usage deviation flagged for A0 | PR #10 (wp/0.4-acf-api-inventory)
 2026-11-06 | WP 0.5 | labelled nf:ready | Contracts v0 (schema.sql, backend.md, public rest.md, NF JSON schema); reviewer clean after one fix round; CI running | PR #11 (wp/0.5-contracts-v0)
 2026-11-06 | WP 0.6a | in-review | Differential harness core (runner, comparator, baseline tests); 0.6 split into 0.6a/b/c; lint green after PHPCS fixes; label nf:ready was denied by the permission classifier, owner needs to label or merge | PR #12 (wp/0.6a-diff-harness-core)
+2026-11-06 | WP 0.6b | labelled nf:ready | Differential ACF-vs-ACF baseline against real SCF on bench data with a CI job; reviewer issues fixed; PHPCS and differential checks green | PR #13 (wp/0.6b-diff-real-acf)
