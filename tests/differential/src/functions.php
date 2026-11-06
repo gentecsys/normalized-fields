@@ -3,6 +3,9 @@
  * Composite probes for differential scenarios. Each probe resets its own state first (delete_field), so it gives the same
  * answer on every target even though both targets share one database in the ACF-vs-ACF baseline.
  *
+ * Writes address fields by ACF key (Local JSON has no DB field post to find by name), which also stores the `_name`
+ * reference so the value is typed. Any runner using these probes must require this file.
+ *
  * @package NormalizedFields
  */
 
@@ -19,12 +22,12 @@ namespace NF\Tests\Differential;
  * @return array<string,mixed>
  */
 function write_read_delete( string $field, int $post_id, mixed $value ): array {
-	delete_field( $field, $post_id );
+	delete_field( \NF\Bench\AcfMeta::key( $field ), $post_id );
 	$result                = array();
-	$result['updated']     = (bool) update_field( $field, $value, $post_id );
+	$result['updated']     = (bool) update_field( \NF\Bench\AcfMeta::key( $field ), $value, $post_id );
 	$result['formatted']   = get_field( $field, $post_id );
 	$result['raw']         = get_field( $field, $post_id, false );
-	$result['deleted']     = (bool) delete_field( $field, $post_id );
+	$result['deleted']     = (bool) delete_field( \NF\Bench\AcfMeta::key( $field ), $post_id );
 	$result['after_empty'] = get_field( $field, $post_id );
 	return $result;
 }
@@ -39,11 +42,11 @@ function write_read_delete( string $field, int $post_id, mixed $value ): array {
  * @return array<string,mixed>
  */
 function overwrite_read( string $field, int $post_id, mixed $first, mixed $second ): array {
-	delete_field( $field, $post_id );
-	update_field( $field, $first, $post_id );
+	delete_field( \NF\Bench\AcfMeta::key( $field ), $post_id );
+	update_field( \NF\Bench\AcfMeta::key( $field ), $first, $post_id );
 	$result              = array();
-	$result['updated']   = (bool) update_field( $field, $second, $post_id );
-	$result['unchanged'] = (bool) update_field( $field, $second, $post_id );
+	$result['updated']   = (bool) update_field( \NF\Bench\AcfMeta::key( $field ), $second, $post_id );
+	$result['unchanged'] = (bool) update_field( \NF\Bench\AcfMeta::key( $field ), $second, $post_id );
 	$result['formatted'] = get_field( $field, $post_id );
 	$result['raw']       = get_field( $field, $post_id, false );
 	return $result;
