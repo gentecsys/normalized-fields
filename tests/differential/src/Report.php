@@ -22,7 +22,7 @@ final class Report {
 		public readonly array $diffs,
 	) {}
 
-	public function isClean(): bool {
+	public function is_clean(): bool {
 		return array() === $this->diffs;
 	}
 
