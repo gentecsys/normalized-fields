@@ -2,7 +2,7 @@
 /**
  * ACF-vs-ACF baseline on the bench dataset, against real SCF/ACF. Zero diffs required.
  *
- * Both targets call the real global ACF functions. The right target resets with a full cache flush, so
+ * Both targets call the real global ACF functions. The right target resets with a full cache flush, before every call, so
  * it re-reads from the database, which catches non-determinism in ACF's own formatting.
  *
  * @package NormalizedFields
@@ -49,6 +49,11 @@ final class AcfBaselineTest extends TestCase {
 		$this->assertSame( self::$dataset->record( 0 )['fields']['venue'], get_field( 'venue', $id ) );
 		$sessions = get_field( 'sessions', $id );
 		$this->assertCount( Dataset::SESSION_ROWS, $sessions );
+		foreach ( array( 'event_date', 'price', 'capacity', 'venue', 'categories', 'text_1', 'text_10' ) as $name ) {
+			$this->assertNotEmpty( get_field( $name, $id ), "{$name} must be readable, or the baseline compares nothing." );
+		}
+		$this->assertNotEmpty( $sessions[4]['date'] );
+		$this->assertNotEmpty( $sessions[4]['time'] );
 		$this->assertSame( self::$dataset->record( 0 )['sessions'][0]['room'], $sessions[0]['room'] );
 	}
 
@@ -60,7 +65,7 @@ final class AcfBaselineTest extends TestCase {
 		$fields   = array_merge( array_keys( Dataset::FIELDS ), array( 'sessions' ) );
 		$scenario = new BenchReadScenario( $ids, $fields );
 		$left     = new GlobalFunctionTarget( 'acf' );
-		$right    = new GlobalFunctionTarget( 'acf-reread', static fn() => wp_cache_flush() );
+		$right    = new GlobalFunctionTarget( 'acf-reread', static fn() => wp_cache_flush(), true );
 
 		$report = ( new Runner() )->run( array( $scenario ), $left, $right );
 
