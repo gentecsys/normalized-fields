@@ -68,7 +68,7 @@ Same filters as `/query`. Parameter `facets=field,field` (each must be `rest_fil
 
 ## Local and outside calls
 Applies to anonymous `/query`, `/facets` and `nf` query parameters on core routes.
-- **Local:** PHP calls never go over HTTP and have no limit. A browser call is local with a valid `X-NF-Local` token and `Sec-Fetch-Site: same-origin`. The token is an HMAC of the site salt and a time window, valid 24 hours (`nf/rest/local_token_ttl`); it writes nothing.
+- **Local:** PHP calls never go over HTTP and have no limit. A browser call is local when it comes from the same host: `Sec-Fetch-Site: same-origin`, or, if that header is missing, a `Referer` host matching `home_url()`. Extra hosts go through `nf/rest/local_hosts`. Compare against `home_url()`, never the request's `Host` header.
 - **Outside:** everything else. 403 `nf_rest_outside_disabled` unless `nf_rest_public_query` is on (default off). When on: 60 a minute per IP (`nf/rest/outside_rate_limit`), then 429 `nf_rest_rate_limited`.
 - **Counter:** object cache only, never a table. With no object cache, outside calls stay refused.
 - **Client IP:** `REMOTE_ADDR`, or the host's trusted header through `nf/rest/client_ip`. Never `X-Forwarded-For` by default.
