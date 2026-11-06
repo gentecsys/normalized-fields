@@ -4,6 +4,7 @@
   "title": "NF JSON (ACF-compatible superset)",
   "description": "NF export format v1. Everything outside `nf` keys is ACF JSON, so the file still imports into ACF/SCF, which ignore unknown keys. NF's own vocabulary says `collections`; ACF's single-file format is a group object and is read as-is.",
   "type": "object",
+  "$comment": "A Local JSON file holds ONE collection and validates against #/$defs/collection; the export bundle validates against this root.",
   "required": ["nf_schema_version", "collections"],
   "properties": {
     "$schema": { "type": "string" },
@@ -79,7 +80,7 @@
       "properties": {
         "filterable": { "type": "boolean" },
         "rest_filterable": { "type": "boolean" },
-        "slot": { "type": "string", "pattern": "^[intsm][1-8]$" },
+        "slot": { "type": "string", "pattern": "^(i[1-8]|n[1-4]|t[1-6]|s[1-8]|m[1-4])$" },
         "count": { "type": "boolean" },
         "count_date": { "type": "boolean" },
         "storage": { "enum": ["normalized", "acf"] },

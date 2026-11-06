@@ -13,6 +13,7 @@ State: in-review. Agent: A0 (run by the daily build agent).
 None runnable: documentation and schema only. The JSON Schema was parsed with Python's `json` module. The SQL was not executed against a database; WP 1.1 will run it through dbDelta in CI.
 
 ## Contract change requested / open questions
+- Reviewer round 1 (blocking: user table DDL, dbDelta one-per-line, binding visibility) fixed; several non-blocking items folded in (status enum, mask(), slot pattern, REST rules).
 - None blocking. Owner to review the additions listed in the DECISIONS entry (pivot `parent_id`/`modified`, `nf_json` as LONGTEXT) at G0.
 - `contracts/api.md` ranking-by-usage deviation from WP 0.4 is still open.
 
