@@ -117,3 +117,4 @@ Only the owner edits this section. To approve a gate, add a line in the form `- 
 - **Rule:** a GET or HEAD from a logged-out visitor never writes to any NF table, directly or by queuing a job.
 - **Exceptions:** guest `acf_form()` submissions and comment fields, which pass NF's own validation and nonce checks, with or without ACF active.
 - **Count cache:** filled only by logged-in requests and a background job for collection-declared filter combinations (WP 3.4). Other anonymous combinations pay the live count on sites with no object cache.
+- **Tightened (owner, same day):** anonymous writes follow WordPress's own settings. No REST route saves field values anonymously. Comment fields save only after WordPress accepts the comment. WordPress has no guest-form setting, so NF adds `nf_allow_guest_forms`, off by default, with a signed field list and a per-IP limit. This changes ACF behaviour for themes with guest forms, and the import wizard reports them.

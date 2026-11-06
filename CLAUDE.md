@@ -54,7 +54,10 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
   - Every public route and binding source reads through `nf_query()` and the loader, never through its own SQL.
   - A field is exposed only with `show_in_rest`, and is filterable, sortable or facetable only with `rest_filterable`.
   - Anonymous requests see `publish` only and stay within the limits in `contracts/rest.md`.
-  - **Anonymous reads never write:** a GET or HEAD from a logged-out visitor never writes to any NF table, directly or by queuing a job. The only anonymous writes are guest `acf_form()` submissions and comment fields, which pass NF's own validation and nonce checks, with or without ACF active.
+  - **Anonymous reads never write:** a GET or HEAD from a logged-out visitor never writes to any NF table, directly or by queuing a job. The only anonymous writes are:
+    - Comment fields, saved from `comment_post` only after WordPress accepted the comment through `wp-comments-post.php`; nothing for spam or rejected comments.
+    - Guest `acf_form()` submissions, refused unless `nf_allow_guest_forms` is on (default off), limited to the form's signed field list, passed through NF's own validation and nonce check, and rate limited per IP.
+  - **No anonymous field writes over REST,** on any route, even with `rest_allow_anonymous_comments` on.
   - Authenticated responses send `Cache-Control: private, no-store`.
 - Use `wp_cache_get` / `wp_cache_set` for caching.
 - Admin JavaScript is ES modules and functional React components, built with `@wordpress/scripts`. Core `@wordpress/*` packages stay external; only `@wordpress/dataviews` is bundled, at a pinned version. Use `@wordpress/data` for state and `@wordpress/api-fetch` for REST. No jQuery.

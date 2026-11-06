@@ -65,7 +65,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
 | 3.8 | Benchmark gates | A12 | M | 3.3, 3.4, 3.5 | todo | | CI fails on regression > 20% |
-| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; limit and oracle tests pass |
+| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |
 
 XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
@@ -81,7 +81,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | 4.4 | Tools, import wizard, health screens | A8 + A9 | L | 4.1, 2.6 | todo | | Wizard ports a real site end to end |
 | 4.5 | Schema import and export | A9 | L | 3.6 | todo | | Round-trip on corpus of real ACF exports |
 | 4.6 | Content migration | A9 | L | 4.5 | todo | | Cross-site ACF → NF-only migration |
-| 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF; guest submissions pass NF's own validation and nonce checks with ACF deactivated |
+| 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF; with ACF deactivated, guest submissions are refused unless `nf_allow_guest_forms` is on, and otherwise pass the signed field list, NF's own validation and nonce check, and the per-IP limit; comment fields save only for comments WordPress accepted |
 | 4.8 | Third-party compatibility | A10 | XL | 3.6, 2.4 | todo | | Each listed plugin passes or is documented unsupported |
 | 4.9 | Hardening | A11 | L | 4.2–4.8, 4.11 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
 | 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf_register_bindable_attributes()` and block.json `nf.bindable` work for custom blocks; `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass |
