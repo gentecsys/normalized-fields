@@ -65,7 +65,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
 | 3.8 | Benchmark gates | A12 | M | 3.3, 3.4, 3.5 | todo | | CI fails on regression > 20% |
-| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; local calls are unlimited; outside calls are refused by default and limited per IP when enabled, refused with no object cache, and 403/429 are never cached; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |
+| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6, D-18 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; local calls are unlimited; outside calls are refused by default and limited per IP when enabled, refused with no object cache, and 403/429 are never cached; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |
 
 XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
