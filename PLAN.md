@@ -16,7 +16,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 | 0.3c | Dataset parity with the design benchmark | A12 | S | 0.3a | merged | wp/0.3c-dataset-parity | `bench/bootstrap.php` registers the `nf_bench_event` post type and an ACF field group (keys `field_nfbench_*`, Local JSON in `bench/acf-json/`), so `get_field()` returns formatted values: date, checkbox array, relationship, Series rows; field set matches the design doc benchmark (17 top-level fields incl. 10 text fields, plus `sessions`; 12-value category checkbox, 1–4 artists, 5-row × 3-sub-field `sessions`: 66 `wp_postmeta` rows per post); `verify` batched (no per-post queries); unit tests updated |
 | 0.3b | Dataset generator: NF store writer | A12 | S | 0.3a, 1.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k); `nf` store verifies against the same fingerprint |
 | 0.4 | ACF API inventory | A5 | M | — | merged | wp/0.4-acf-api-inventory | `contracts/api.md` lists the full surface, ranked by usage |
-| 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | in-progress | | Reviewed by A13; no open questions |
+| 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | in-review | wp/0.5-contracts-v0 | Reviewed by A13; no open questions |
 | 0.6 | Differential test harness | A11 | L | 0.2, 0.3a, 0.3c | ready | | Zero diffs on an ACF-vs-ACF baseline |
 
 Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in parallel. After those, A0 runs 0.5 and A11 runs 0.6.

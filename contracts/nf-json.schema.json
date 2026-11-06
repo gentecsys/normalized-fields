@@ -2,6 +2,101 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "nf-json.schema.json",
   "title": "NF JSON (ACF-compatible superset)",
-  "description": "Status: not drafted yet (WP 0.5, A9 drafts, A0 freezes).",
-  "type": "object"
+  "description": "NF export format v1. Everything outside `nf` keys is ACF JSON, so the file still imports into ACF/SCF, which ignore unknown keys. NF's own vocabulary says `collections`; ACF's single-file format is a group object and is read as-is.",
+  "type": "object",
+  "required": ["nf_schema_version", "collections"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "nf_schema_version": { "const": 1 },
+    "exported": { "type": "string", "format": "date-time" },
+    "collections": { "type": "array", "items": { "$ref": "#/$defs/collection" } },
+    "post_types": { "type": "array", "items": { "type": "object" } },
+    "taxonomies": { "type": "array", "items": { "type": "object" } },
+    "options_pages": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "collection": {
+      "type": "object",
+      "required": ["key", "title", "fields"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^group_[A-Za-z0-9_]+$" },
+        "title": { "type": "string" },
+        "location": {
+          "type": "array",
+          "items": { "type": "array", "items": { "$ref": "#/$defs/locationRule" } }
+        },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+        "menu_order": { "type": "integer" },
+        "position": { "type": "string" },
+        "style": { "type": "string" },
+        "label_placement": { "type": "string" },
+        "instruction_placement": { "type": "string" },
+        "hide_on_screen": { "type": ["array", "string"] },
+        "active": { "type": "boolean" },
+        "description": { "type": "string" },
+        "show_in_rest": { "type": ["boolean", "integer"] },
+        "modified": { "type": "integer" },
+        "nf_hash": { "type": "string", "pattern": "^sha256:" }
+      },
+      "additionalProperties": true
+    },
+    "locationRule": {
+      "type": "object",
+      "required": ["param", "operator", "value"],
+      "properties": {
+        "param": { "type": "string" },
+        "operator": { "enum": ["==", "!="] },
+        "value": { "type": "string" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["key", "name", "type"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^field_[A-Za-z0-9_]+$" },
+        "name": { "type": "string" },
+        "label": { "type": "string" },
+        "type": {
+          "description": "ACF type names. `flexible_content` is accepted on import only to be reported and skipped (ADR-0008).",
+          "type": "string"
+        },
+        "required": { "type": ["boolean", "integer"] },
+        "instructions": { "type": "string" },
+        "default_value": {},
+        "conditional_logic": {},
+        "wrapper": { "type": "object" },
+        "choices": { "type": "object" },
+        "return_format": { "type": "string" },
+        "show_in_rest": { "type": ["boolean", "integer"] },
+        "sub_fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+        "nf": { "$ref": "#/$defs/fieldNf" }
+      },
+      "additionalProperties": true
+    },
+    "fieldNf": {
+      "type": "object",
+      "properties": {
+        "filterable": { "type": "boolean" },
+        "rest_filterable": { "type": "boolean" },
+        "slot": { "type": "string", "pattern": "^[intsm][1-8]$" },
+        "count": { "type": "boolean" },
+        "count_date": { "type": "boolean" },
+        "storage": { "enum": ["normalized", "acf"] },
+        "sort": {
+          "type": "object",
+          "properties": {
+            "mode": { "enum": ["manual", "on_save", "on_read"] },
+            "by": { "type": "string" },
+            "order": { "enum": ["asc", "desc"] },
+            "compare": { "enum": ["locale", "natural", "binary"] },
+            "empty": { "enum": ["first", "last"] }
+          },
+          "additionalProperties": false
+        },
+        "rollups": { "type": "array", "items": { "type": "string", "pattern": "^(min|max|count):.+$" } }
+      },
+      "additionalProperties": false
+    }
+  }
 }
