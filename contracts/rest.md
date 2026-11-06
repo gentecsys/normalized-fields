@@ -13,7 +13,7 @@ Design: `docs/design.md`, section "Public REST API and blocks" (ADR-0012, D-17).
 - Field exposure: a field appears in any response only with `show_in_rest`. It may appear in `where`, `any`, `related`, `row`, `orderby` or facets only with `rest_filterable`. Both default to false.
 - Exposure keys: `show_in_rest` is on the field definition; `rest_filterable` is `nf.rest_filterable` (JSON). For anonymous requests a field must have BOTH to be used in a filter, sort or facet (no value oracle). Authenticated users may filter on fields they can edit.
 - A hidden field used in a filter, sort or facet returns `nf_rest_field_not_exposed` (never `..._not_filterable`), so the code does not reveal that the field exists.
-- Anonymous `count=exact` is forced to `capped`. The offset cap applies to anonymous requests only. Facet counts and cursors honour the `publish`-only rule.
+- Anonymous `count=exact` is forced to `capped`. Anonymous requests may read `nf_count_cache` but never write to it, so varied filters can't grow the table through GETs. The offset cap applies to anonymous requests only. Facet counts and cursors honour the `publish`-only rule.
 - Visibility: anonymous requests see `publish` only (status is checked before the query). Password-protected posts return no field values without the password.
 
 ## Public routes
