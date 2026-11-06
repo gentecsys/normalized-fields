@@ -3,7 +3,7 @@
 ## What changed
 - `bin/install-scf.sh`: downloads Secure Custom Fields (free ACF fork, includes the repeater) from wordpress.org.
 - `tests/differential/acf/bootstrap.php`: WordPress test suite + SCF + bench fixtures (post type, Local JSON from `bench/acf-json`).
-- `tests/differential/acf/AcfBaselineTest.php`: writes a 40-post bench dataset with `AcfStore`, checks real ACF reads it (incl. 5-row `sessions` Series), then runs `BenchReadScenario` (`get_field` formatted and raw, `get_fields`, all 17 fields + `sessions`) through `GlobalFunctionTarget` on both targets; asserts zero diffs. Right target flushes the object cache on reset so it re-reads from the DB.
+- `tests/differential/acf/AcfBaselineTest.php`: writes a 40-post bench dataset with `AcfStore`, checks real ACF reads it (incl. 5-row `sessions` Series), then runs `BenchReadScenario` (`get_field` formatted and raw, `get_fields`, all 17 fields + `sessions`) through `GlobalFunctionTarget` on both targets; asserts zero diffs. Right target flushes the object cache before every call (`GlobalFunctionTarget` `reset_each_call`), so it re-reads from the DB.
 - `tests/differential/src/BenchReadScenario.php`: the scenario.
 - `phpunit-acf.xml.dist` and a new CI job `differential` (WP 7.0, PHP 8.3, MySQL 8.0): pure-PHP harness tests, then the SCF baseline.
 
@@ -21,3 +21,8 @@ If CI is red on the `differential` job: check that SCF is auto-loadable under th
 ## Follow-ups
 - Only ACF-vs-ACF; the NF target joins in 1.4/3.6. Writes (`update_field`) are 0.6c.
 - SCF is `latest-stable`, so a SCF release could change output; pin a version if it flakes.
+
+## Review fixes (A13)
+- Dropped the redundant pure-PHP CI step (the `differential-harness` suite already runs in the matrix).
+- Cold-cache flush now happens per call, not once per scenario; added non-empty sanity assertions.
+- Not done: pinning SCF (version unknown offline; follow-up), the `artists` relationship targets no real posts (follow-up for 0.6c), PLAN wording says wp-env.
