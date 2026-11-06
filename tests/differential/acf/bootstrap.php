@@ -22,6 +22,7 @@ if ( ! getenv( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH' ) && ! defined( 'WP_TESTS_PHPUN
 
 require_once $nf_tests_dir . '/includes/functions.php';
 require_once $nf_root . '/tests/differential/bootstrap.php';
+require_once $nf_root . '/tests/differential/src/functions.php';
 foreach ( array( 'Dataset', 'AcfMeta', 'AcfSchema', 'StoreWriter', 'AcfStore' ) as $nf_bench_class ) {
 	require_once $nf_root . '/bench/src/' . $nf_bench_class . '.php';
 }
