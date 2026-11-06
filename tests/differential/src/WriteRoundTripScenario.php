@@ -35,7 +35,7 @@ final class WriteRoundTripScenario implements ScenarioInterface {
 			'capacity'   => array( 300, 7 ),
 			'event_date' => array( '20261224', '20270101' ),
 			'featured'   => array( 1, 0 ),
-			'categories' => array( array( 'jazz', 'rock' ), array( 'pop' ) ),
+			'categories' => array( array( 'music', 'film' ), array( 'comedy' ) ),
 			'artists'    => array( array( $a[0], $a[1] ), array( $a[2] ) ),
 			'sessions'   => array(
 				array(

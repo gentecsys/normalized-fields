@@ -17,7 +17,8 @@ final class WriteRoundTripScenarioTest extends TestCase {
 		$steps  = ( new WriteRoundTripScenario( array( 10, 11 ), array( 1, 2, 3 ) ) )->steps();
 		$labels = array_map( static fn( Step $s ): string => $s->label, $steps );
 		$this->assertSame( count( $labels ), count( array_unique( $labels ) ) );
-		foreach ( array( 'venue', 'price', 'artists', 'sessions' ) as $field ) {
+		$this->assertCount( 2 * ( 8 * 2 + 3 ), $steps );
+		foreach ( array( 'venue', 'price', 'capacity', 'event_date', 'featured', 'categories', 'artists', 'sessions' ) as $field ) {
 			$this->assertContains( "wrd:{$field}:10", $labels );
 			$this->assertContains( "overwrite:{$field}:11", $labels );
 		}

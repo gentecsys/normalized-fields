@@ -21,3 +21,9 @@
 
 ## Resume from
 If the `differential` CI job is red, check the first diff in the failure message: likely ACF returns for Series empty writes or `delete_field` on never-set fields.
+
+## Review fixes (A13)
+- B1: probes now write/delete by field key (`AcfMeta::key()`), since Local JSON fields have no DB post to resolve by name; the probe test asserts `_sessions` reference meta and `sessions_0_room` row meta exist (typed write). Unverified until CI runs.
+- N1 real checkbox choices; N3 full field list and step count asserted; N4 header note that runners must require `functions.php`.
+- Open question: whether the typed-write assertion holds on SCF; check in CI.
+- N2: the baseline only proves ACF determinism; it cannot catch NF write bugs until the NF target exists.
