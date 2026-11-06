@@ -101,3 +101,8 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
 
 _No gates approved yet._
+
+### Contracts v0 drafted (2026-11-06, WP 0.5, made by daily agent, owner to review at G0)
+- **Decision:** `contracts/schema.sql` (all NF tables, MySQL dialect, `{p}` prefix, no `site_id`), `contracts/backend.md` (new: `BackendInterface` / `DialectInterface` seam), `contracts/rest.md` (public `nf/v1` part) and `contracts/nf-json.schema.json` are drafted; `contracts/api.md` came from WP 0.4.
+- **Choices beyond the design doc:** `nf_pivot` gains `parent_id`, `modified` and `by_modified`/`by_author` keys (needed to avoid joins to `wp_posts`, ADR-0009); `nf_json.value` is `LONGTEXT` on MySQL (MariaDB 10.4 compatible) and `jsonb` on PostgreSQL; added `nf_meta` and `nf_count_cache`; `nf_terms`/`nf_outbox` are PostgreSQL-only and listed as comments; user tables are `nf_user_*` on the base prefix.
+- **REST:** anonymous limits, error codes, cursor format and filter names are specified in `contracts/rest.md`; `facets` requires `rest_filterable` plus a dictionary or bitmask slot.
