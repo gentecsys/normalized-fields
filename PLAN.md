@@ -14,12 +14,11 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 | 0.2b | Class-based structure and Composer autoloading | A1 | S | 0.2 | merged | | 0.1 code converted to `NF\` classes in `src/` (PSR-4), procedural public functions in `src/functions/`; release build zip with `vendor/`; Dependabot; plugin renamed per D-02 (header `Plugin Name: Normalized Fields`, main file `normalized-fields.php`, text domain `normalized-fields` in code, header and PHPCS); activation unchanged on WP 7.0 / 7.1; CI green |
 | 0.3a | Dataset generator: model, ACF store, WP-CLI | A12 | S | 0.2b | merged | wp/0.3a-dataset-generator | Deterministic 10k/100k dataset written to `wp_posts`/`wp_postmeta` in ACF format; `wp nf-bench generate/verify/fingerprint`; unit tests |
 | 0.3c | Dataset parity with the design benchmark | A12 | S | 0.3a | merged | wp/0.3c-dataset-parity | `bench/bootstrap.php` registers the `nf_bench_event` post type and an ACF field group (keys `field_nfbench_*`, Local JSON in `bench/acf-json/`), so `get_field()` returns formatted values: date, checkbox array, relationship, Series rows; field set matches the design doc benchmark (17 top-level fields incl. 10 text fields, plus `sessions`; 12-value category checkbox, 1–4 artists, 5-row × 3-sub-field `sessions`: 66 `wp_postmeta` rows per post); `verify` batched (no per-post queries); unit tests updated |
-| 0.3b | Dataset generator: NF store writer | A12 | S | 0.3a, 1.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k); `nf` store verifies against the same fingerprint |
 | 0.4 | ACF API inventory | A5 | M | — | merged | wp/0.4-acf-api-inventory | `contracts/api.md` lists the full surface, ranked by usage |
 | 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | merged | wp/0.5-contracts-v0 | Reviewed by A13; no open questions |
 | 0.6a | Differential harness core (runner, normalizer, comparator, ACF-vs-ACF baseline on doubles) | A11 | S | 0.2, 0.3a, 0.3c | merged | wp/0.6a-diff-harness-core | Pure-PHP harness with unit tests; baseline of two identical targets has zero diffs, a tampered target is detected |
 | 0.6b | Differential harness: real ACF on wp-env and CI job | A11 | M | 0.6a | merged | wp/0.6b-diff-real-acf | ACF-vs-ACF baseline against SCF (Secure Custom Fields, free, includes the repeater) installed in wp-env, on the bench dataset (incl. `sessions` Series rows), zero diffs, running in CI. No ACF PRO in CI: there is no licence for it; ACF PRO parity is checked on the owner's LocalWP nf-dev site (`run-checks.sh`, outside the repo) |
-| 0.6c | Differential scenarios for the spike types | A11 | M | 0.6b | in-review | wp/0.6c-diff-scenarios | Scenarios for scalar, Series and relationship fields; baseline zero diffs |
+| 0.6c | Differential scenarios for the spike types | A11 | M | 0.6b | merged | wp/0.6c-diff-scenarios | Scenarios for scalar, Series and relationship fields; baseline zero diffs |
 
 Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in parallel. After those, A0 runs 0.5 and A11 runs 0.6.
 
@@ -34,6 +33,9 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 1.3 | Minimal pivot + two translated queries | A3 + A4 | M | 1.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` as `WP_Query` on `wp_postmeta`, incl. the design doc's pagination cases (`paged`, `offset`, `-1`) |
 | 1.4 | Differential check | A11 | S | 1.2 | todo | | Zero diffs |
 | 1.5 | Spike benchmark | A12 | S | 1.3 | todo | | Report in `reports/` |
+| 0.3b | Dataset generator: NF store writer | A12 | S | 0.3a, 1.1 | todo | | Same post IDs and values in ACF and NF stores (10k, 100k); `nf` store verifies against the same fingerprint |
+
+0.3b sits here because it needs 1.1, which needs G0; it stays numbered 0.3b so existing reports still match.
 
 **Gate G1 [owner]:** go / no-go. Go requires zero diffs and a clear win on the slow queries.
 
