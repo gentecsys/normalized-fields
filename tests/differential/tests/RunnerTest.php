@@ -49,7 +49,16 @@ final class RunnerTest extends TestCase {
 			}
 			public function steps(): array {
 				return array(
-					new Step( 'update_field', array( 'sessions', 1, array( array( 'room' => 'A', 'b' => 2.0 ), array( 'room' => 'B', 'b' => 3.0 ) ) ) ),
+					new Step( 'update_field', array( 'sessions', 1, array(
+							array(
+								'room' => 'A',
+								'b'    => 2.0,
+							),
+							array(
+								'room' => 'B',
+								'b'    => 3.0,
+							),
+						) ) ),
 					new Step( 'get_field', array( 'sessions', 1 ), 'sessions' ),
 					new Step( 'boom', array() ),
 				);
@@ -59,7 +68,7 @@ final class RunnerTest extends TestCase {
 
 	public function test_acf_vs_acf_baseline_has_zero_diffs(): void {
 		$report = ( new Runner() )->run( array( $this->scenario() ), $this->fakeAcf( 'acf' ), $this->fakeAcf( 'acf-2' ) );
-		$this->assertTrue( $report->isClean(), $report->summary() );
+		$this->assertTrue( $report->is_clean(), $report->summary() );
 		$this->assertSame( 3, $report->steps );
 	}
 
@@ -69,7 +78,7 @@ final class RunnerTest extends TestCase {
 			return $value;
 		};
 		$report = ( new Runner() )->run( array( $this->scenario() ), $this->fakeAcf( 'acf' ), $this->fakeAcf( 'nf', $tamper ) );
-		$this->assertFalse( $report->isClean() );
+		$this->assertFalse( $report->is_clean() );
 		$this->assertSame( '[1].room', $report->diffs[0]->path );
 	}
 
@@ -79,8 +88,14 @@ final class RunnerTest extends TestCase {
 	}
 
 	public function test_key_order_objects_and_float_noise_are_ignored(): void {
-		$left  = array( 'b' => 1.0000000000001, 'a' => (object) array( 'x' => 1 ) );
-		$right = array( 'a' => (object) array( 'x' => 1 ), 'b' => 1.0000000000002 );
+		$left  = array(
+			'b' => 1.0000000000001,
+			'a' => (object) array( 'x' => 1 ),
+		);
+		$right = array(
+			'a' => (object) array( 'x' => 1 ),
+			'b' => 1.0000000000002,
+		);
 		$this->assertSame( array(), ( new Comparator() )->compare( 's', 'x', $left, $right ) );
 	}
 
