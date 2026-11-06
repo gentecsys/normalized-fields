@@ -20,6 +20,11 @@ final class AcfBaselineTest extends TestCase {
 
 	private const POSTS = 40;
 
+	/**
+	 * Dataset under test.
+	 *
+	 * @var Dataset
+	 */
 	private static Dataset $dataset;
 
 	public static function setUpBeforeClass(): void {
