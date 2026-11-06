@@ -42,7 +42,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 - **Decision:** NF can keep its tables in a remote PostgreSQL database (Neon, Supabase, RDS/Aurora, Cloud SQL, Azure or self-managed) instead of MySQL, for much larger data. It must return exactly what the MySQL backend returns. WordPress core stays in MySQL. MySQL remains the default; PostgreSQL is opt-in per site.
 - **Consequence now (Phase 0 onwards):** every NF table access goes through `nf_db()` and a SQL dialect layer, never `$wpdb`, and no NF query joins core tables. Contracts v0 (WP 0.5) define that seam.
 - **Delivery:** Phase 5 (WPs 5.1 to 5.9, gate G5). Design: `docs/design.md`, "Remote PostgreSQL backend".
-- **Open:** D-10 to D-14 below.
+- **Open:** D-11 to D-14 below.
 
 ### ADR-0010: Class-based internals with Composer; procedural public API (2026-11-03, owner)
 - **Decision:** replaces the procedural convention in D-01.
@@ -82,12 +82,12 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-02 | Plugin name | G0 | **Decided by owner 2026-11-03** | **Normalized Fields**; slug and text domain `normalized-fields`; `NF` stays the short name in code |
 | D-03 | Minimum WordPress | G0 | **Decided by owner 2026-11-02** | 7.0 (test 7.0, 7.1, nightly) |
 | D-04 | Minimum PHP | G0 | **Decided by owner 2026-11-03** | 8.1 |
-| D-05 | ACF PRO + SCF support | G0 | **Default, pending owner confirmation** | Both from day one (same public API) |
+| D-05 | ACF PRO + SCF support | G0 | **Confirmed by owner 2026-11-06** | Both from day one (same public API) |
 | D-06 | Pilot site | G1 | Open | Default: one large client site copy |
 | D-07 | ACF shim default | G3 | Open | Default: off, enabled by the scanner's suggestion |
 | D-08 | Business model | 4.10 | Open | Undecided; doesn't block the build |
 | D-09 | Third-party adapters in 4.8 | Start of Phase 4 | Open | Default: the scanner's top hits on client sites |
-| D-10 | PostgreSQL backend scope | G0 (shapes contracts v0) | **Default, pending owner confirmation** | NF tables only; WordPress core stays in MySQL |
+| D-10 | PostgreSQL backend scope | G0 (shapes contracts v0) | **Confirmed by owner 2026-11-06** | NF tables only; WordPress core stays in MySQL |
 | D-11 | When Phase 5 runs | G3 | Open | After G3, in parallel with Phase 4 |
 | D-12 | Uncached reads while PostgreSQL is unreachable | Start of Phase 5 | Open | Return empty and log, with an admin notice |
 | D-13 | Providers tested in CI | Start of Phase 5 | Open | Neon and AWS RDS; Supabase, Cloud SQL and Azure documented |
