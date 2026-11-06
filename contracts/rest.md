@@ -11,6 +11,9 @@ Design: `docs/design.md`, section "Public REST API and blocks" (ADR-0012, D-17).
 - `{type}` is `post`, `term`, `user`, `comment` or `options`. `{id}` is the object ID (`options`: the options page slug, or `option`).
 - All reads go through `nf_query()` and the loader, never their own SQL (ADR-0012). All values are returned as `->values()` would give them: typed JSON (numbers as numbers, dates as `Y-m-d H:i:s` strings, relationships as IDs).
 - Field exposure: a field appears in any response only with `show_in_rest`. It may appear in `where`, `any`, `related`, `row`, `orderby` or facets only with `rest_filterable`. Both default to false.
+- Exposure keys: `show_in_rest` is on the field definition; `rest_filterable` is `nf.rest_filterable` (JSON) and requires `show_in_rest` for anonymous requests (a filterable-but-unreadable field is treated as unfiltered-capable only for authenticated users with edit access).
+- A hidden field used in a filter, sort or facet returns `nf_rest_field_not_exposed` (never `..._not_filterable`), so the code does not reveal that the field exists.
+- Anonymous `count=exact` is forced to `capped`. The offset cap applies to anonymous requests only. Facet counts and cursors honour the `publish`-only rule.
 - Visibility: anonymous requests see `publish` only (status is checked before the query). Password-protected posts return no field values without the password.
 
 ## Public routes
@@ -110,7 +113,7 @@ Both sources are registered; `acf/field` uses ACF's shape.
 ```
 - `key`: field name or key (required). `object`: `current` (default, the block's context post), `post:<id>`, `term:<id>`, `user:<id>`, `option`. `row` (0-based) and `sub` read a sub-field of one Series row. `format`: `formatted` (default, as `get_field()`) or `raw`.
 - `acf/field` `post` is ACF's `$post_id` convention (ID, `term_5`, `user_2`, `option`).
-- Server callback honours `show_in_rest`; a non-exposed field resolves to `null`. Options are read-only through bindings; `setValues` writes other objects through PATCH `/fields`.
+- Server callback honours `show_in_rest`; a non-exposed field resolves to `null`. It also applies the same visibility as GET `/fields`, whoever views the page: `publish` only unless the viewer has `read_post` (or the equivalent read capability for terms, users and comments); password-protected posts yield `null` without the password. A bound block can never leak a value that REST would withhold. Options are read-only through bindings; `setValues` writes other objects through PATCH `/fields`.
 - Attribute registration: `nf_register_bindable_attributes( string $block, string[] $attributes )` or block.json `nf.bindable`; filter `nf/bindings/attributes`.
 
 ## Admin-private routes (`private`, may change until the Phase 4 freeze)

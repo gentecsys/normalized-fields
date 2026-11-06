@@ -11,6 +11,10 @@
 --    one KEY per line. Charset/collation come from $wpdb->get_charset_collate().
 --  * Access only through nf_db(); never join these tables to core tables (ADR-0009).
 --  * No flexible content: no layout_id columns (ADR-0008).
+--  * Slots: i1-8, n1-4, t1-6, s1-8, m1-4 (object pivot); i1-4, n1-2, t1-4, s1-4, m1 (row pivot).
+--  * object_id for object_type 5 (options): the options page ID from the page registry (0 = default page).
+--  * Pivot count-date slot and count dimensions are collection JSON settings (field `nf`), not columns.
+--  * PostgreSQL: nf_json.value is jsonb; the pivot has 30 indexes (primary + by_published + by_modified + by_author + 26 slots).
 --  * Derived tables (pivot*, dict, count, terms) can be rebuilt from typed tables + nf_rows.
 
 -- 0. Schema version and environment stamp
@@ -130,51 +134,109 @@ CREATE TABLE {p}nf_pivot_slots (
 CREATE TABLE {p}nf_pivot (
   pivot_id   SMALLINT UNSIGNED NOT NULL,
   object_id  BIGINT UNSIGNED NOT NULL,
-  status     TINYINT UNSIGNED NOT NULL,
+  status     TINYINT UNSIGNED NOT NULL, -- 1 publish, 2 draft, 3 pending, 4 private, 5 future, 6 trash, 7 inherit, 8 auto-draft (enum NF\Storage\Status); other statuses map via filter to 100+
   author_id  BIGINT UNSIGNED NOT NULL DEFAULT 0,
   parent_id  BIGINT UNSIGNED NOT NULL DEFAULT 0,
   published  DATETIME NULL,
   modified   DATETIME NULL,
   menu_order INT NOT NULL DEFAULT 0,
-  i1 BIGINT NULL, i2 BIGINT NULL, i3 BIGINT NULL, i4 BIGINT NULL,
-  i5 BIGINT NULL, i6 BIGINT NULL, i7 BIGINT NULL, i8 BIGINT NULL,
-  n1 DECIMAL(20,6) NULL, n2 DECIMAL(20,6) NULL, n3 DECIMAL(20,6) NULL, n4 DECIMAL(20,6) NULL,
-  t1 DATETIME NULL, t2 DATETIME NULL, t3 DATETIME NULL, t4 DATETIME NULL, t5 DATETIME NULL, t6 DATETIME NULL,
-  s1 INT UNSIGNED NULL, s2 INT UNSIGNED NULL, s3 INT UNSIGNED NULL, s4 INT UNSIGNED NULL,
-  s5 INT UNSIGNED NULL, s6 INT UNSIGNED NULL, s7 INT UNSIGNED NULL, s8 INT UNSIGNED NULL,
-  m1 BIGINT UNSIGNED NOT NULL DEFAULT 0, m2 BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  m3 BIGINT UNSIGNED NOT NULL DEFAULT 0, m4 BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  i1 BIGINT NULL,
+  i2 BIGINT NULL,
+  i3 BIGINT NULL,
+  i4 BIGINT NULL,
+  i5 BIGINT NULL,
+  i6 BIGINT NULL,
+  i7 BIGINT NULL,
+  i8 BIGINT NULL,
+  n1 DECIMAL(20,6) NULL,
+  n2 DECIMAL(20,6) NULL,
+  n3 DECIMAL(20,6) NULL,
+  n4 DECIMAL(20,6) NULL,
+  t1 DATETIME NULL,
+  t2 DATETIME NULL,
+  t3 DATETIME NULL,
+  t4 DATETIME NULL,
+  t5 DATETIME NULL,
+  t6 DATETIME NULL,
+  s1 INT UNSIGNED NULL,
+  s2 INT UNSIGNED NULL,
+  s3 INT UNSIGNED NULL,
+  s4 INT UNSIGNED NULL,
+  s5 INT UNSIGNED NULL,
+  s6 INT UNSIGNED NULL,
+  s7 INT UNSIGNED NULL,
+  s8 INT UNSIGNED NULL,
+  m1 BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  m2 BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  m3 BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  m4 BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY  (pivot_id, object_id),
   KEY by_published (pivot_id, status, published),
   KEY by_modified (pivot_id, status, modified),
   KEY by_author (pivot_id, author_id),
-  KEY i1 (pivot_id, i1), KEY i2 (pivot_id, i2), KEY i3 (pivot_id, i3), KEY i4 (pivot_id, i4),
-  KEY i5 (pivot_id, i5), KEY i6 (pivot_id, i6), KEY i7 (pivot_id, i7), KEY i8 (pivot_id, i8),
-  KEY n1 (pivot_id, n1), KEY n2 (pivot_id, n2), KEY n3 (pivot_id, n3), KEY n4 (pivot_id, n4),
-  KEY t1 (pivot_id, t1), KEY t2 (pivot_id, t2), KEY t3 (pivot_id, t3), KEY t4 (pivot_id, t4),
-  KEY t5 (pivot_id, t5), KEY t6 (pivot_id, t6),
-  KEY s1 (pivot_id, s1), KEY s2 (pivot_id, s2), KEY s3 (pivot_id, s3), KEY s4 (pivot_id, s4),
-  KEY s5 (pivot_id, s5), KEY s6 (pivot_id, s6), KEY s7 (pivot_id, s7), KEY s8 (pivot_id, s8)
+  KEY i1 (pivot_id, i1),
+  KEY i2 (pivot_id, i2),
+  KEY i3 (pivot_id, i3),
+  KEY i4 (pivot_id, i4),
+  KEY i5 (pivot_id, i5),
+  KEY i6 (pivot_id, i6),
+  KEY i7 (pivot_id, i7),
+  KEY i8 (pivot_id, i8),
+  KEY n1 (pivot_id, n1),
+  KEY n2 (pivot_id, n2),
+  KEY n3 (pivot_id, n3),
+  KEY n4 (pivot_id, n4),
+  KEY t1 (pivot_id, t1),
+  KEY t2 (pivot_id, t2),
+  KEY t3 (pivot_id, t3),
+  KEY t4 (pivot_id, t4),
+  KEY t5 (pivot_id, t5),
+  KEY t6 (pivot_id, t6),
+  KEY s1 (pivot_id, s1),
+  KEY s2 (pivot_id, s2),
+  KEY s3 (pivot_id, s3),
+  KEY s4 (pivot_id, s4),
+  KEY s5 (pivot_id, s5),
+  KEY s6 (pivot_id, s6),
+  KEY s7 (pivot_id, s7),
+  KEY s8 (pivot_id, s8)
 );
 CREATE TABLE {p}nf_row_pivot (
   row_id    BIGINT UNSIGNED NOT NULL,
   pivot_id  SMALLINT UNSIGNED NOT NULL,
   object_id BIGINT UNSIGNED NOT NULL,
   field_id  INT UNSIGNED NOT NULL,
-  i1 BIGINT NULL, i2 BIGINT NULL, i3 BIGINT NULL, i4 BIGINT NULL,
-  n1 DECIMAL(20,6) NULL, n2 DECIMAL(20,6) NULL,
-  t1 DATETIME NULL, t2 DATETIME NULL, t3 DATETIME NULL, t4 DATETIME NULL,
-  s1 INT UNSIGNED NULL, s2 INT UNSIGNED NULL, s3 INT UNSIGNED NULL, s4 INT UNSIGNED NULL,
+  i1 BIGINT NULL,
+  i2 BIGINT NULL,
+  i3 BIGINT NULL,
+  i4 BIGINT NULL,
+  n1 DECIMAL(20,6) NULL,
+  n2 DECIMAL(20,6) NULL,
+  t1 DATETIME NULL,
+  t2 DATETIME NULL,
+  t3 DATETIME NULL,
+  t4 DATETIME NULL,
+  s1 INT UNSIGNED NULL,
+  s2 INT UNSIGNED NULL,
+  s3 INT UNSIGNED NULL,
+  s4 INT UNSIGNED NULL,
   m1 BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY  (row_id),
   KEY by_object (pivot_id, object_id, field_id),
-  KEY i1 (field_id, i1, object_id), KEY i2 (field_id, i2, object_id),
-  KEY i3 (field_id, i3, object_id), KEY i4 (field_id, i4, object_id),
-  KEY n1 (field_id, n1, object_id), KEY n2 (field_id, n2, object_id),
-  KEY t1 (field_id, t1, object_id), KEY t2 (field_id, t2, object_id),
-  KEY t3 (field_id, t3, object_id), KEY t4 (field_id, t4, object_id),
-  KEY s1 (field_id, s1, object_id), KEY s2 (field_id, s2, object_id),
-  KEY s3 (field_id, s3, object_id), KEY s4 (field_id, s4, object_id)
+  KEY i1 (field_id, i1, object_id),
+  KEY i2 (field_id, i2, object_id),
+  KEY i3 (field_id, i3, object_id),
+  KEY i4 (field_id, i4, object_id),
+  KEY n1 (field_id, n1, object_id),
+  KEY n2 (field_id, n2, object_id),
+  KEY t1 (field_id, t1, object_id),
+  KEY t2 (field_id, t2, object_id),
+  KEY t3 (field_id, t3, object_id),
+  KEY t4 (field_id, t4, object_id),
+  KEY s1 (field_id, s1, object_id),
+  KEY s2 (field_id, s2, object_id),
+  KEY s3 (field_id, s3, object_id),
+  KEY s4 (field_id, s4, object_id)
 );
 
 -- 10. Dictionary: each distinct short string once per field; bit = position in an m-slot.
@@ -228,8 +290,80 @@ CREATE TABLE {p}nf_archive (
 -- 14. Outbox: PostgreSQL backend only, stored in MySQL (pending writes). See contracts/backend.md.
 -- nf_outbox (outbox_id BIGINT AUTO_INCREMENT PK, op LONGTEXT, created DATETIME, attempts INT, last_error TEXT)
 
--- 15. Network-level user tables (ADR-0011): on the BASE prefix {bp}, one set shared by all sites.
---     Same skeletons as 1-3..8 with the prefix `{bp}nf_user_`: nf_user_fields (field map keyed by
---     ACF field_key, shared across sites), nf_user_rows, nf_user_int, nf_user_dec, nf_user_date,
---     nf_user_str, nf_user_text, nf_user_json. object_type is fixed at 3 and omitted from the keys.
---     User pivot rows live in the per-site pivot (object_type 3), derived from the network tables.
+-- 15. Network-level user tables (ADR-0011): on the BASE prefix {bp}, shared by all sites.
+--     Field map keyed by ACF field_key, so a field registered on two sites shares one value.
+--     object_type is fixed at 3 and omitted. Row IDs come from {bp}nf_user_rows, a separate
+--     sequence: user Series rows have NO row pivot (the per-site nf_row_pivot.row_id would
+--     collide); user Series are filtered through the typed tables. Per-site user pivot rows
+--     (object_type 3) map slots to network fields by field_key through the per-site nf_fields.
+CREATE TABLE {bp}nf_user_fields (
+  field_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  field_key      VARCHAR(64) NOT NULL,
+  field_name     VARCHAR(191) NOT NULL,
+  parent_id      INT UNSIGNED NOT NULL DEFAULT 0,
+  data_table     ENUM('int','dec','date','str','text','json','rows','none') NOT NULL,
+  multi          TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY  (field_id),
+  UNIQUE KEY field_key (field_key)
+);
+CREATE TABLE {bp}nf_user_rows (
+  row_id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  field_id      INT UNSIGNED NOT NULL,
+  parent_row_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  row_order     SMALLINT UNSIGNED NOT NULL,
+  PRIMARY KEY  (row_id),
+  KEY owner (user_id, field_id, parent_row_id, row_order)
+);
+CREATE TABLE {bp}nf_user_int (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       BIGINT NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position),
+  KEY by_value (field_id, value, user_id)
+);
+CREATE TABLE {bp}nf_user_dec (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       DECIMAL(20,6) NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position),
+  KEY by_value (field_id, value, user_id)
+);
+CREATE TABLE {bp}nf_user_date (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       DATETIME NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position),
+  KEY by_value (field_id, value, user_id)
+);
+CREATE TABLE {bp}nf_user_str (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       VARCHAR(191) NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position),
+  KEY by_value (field_id, value, user_id)
+);
+CREATE TABLE {bp}nf_user_text (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       MEDIUMTEXT NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position)
+);
+CREATE TABLE {bp}nf_user_json (
+  user_id     BIGINT UNSIGNED NOT NULL,
+  field_id    INT UNSIGNED NOT NULL,
+  row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  value       LONGTEXT NOT NULL,
+  PRIMARY KEY  (user_id, field_id, row_id, position)
+);

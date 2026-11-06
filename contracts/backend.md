@@ -35,9 +35,12 @@ interface DialectInterface {
 	public function nullsOrder( string $column, string $dir, string $nulls ): string; // ASC/DESC, FIRST/LAST
 	public function cast( string $expr, string $dataType ): string;   // int|dec|date|str
 	public function indexHint( string $table, string $index ): string; // '' outside MySQL
-	public function bit( string $column, int $bit ): string;          // bitmask test
+	public function bit( string $column, int $bit ): string;          // single-bit test
+	public function mask( string $column, int $mask, string $mode ): string; // mode: any | all | none
 }
 ```
+
+`$params` use positional `?` placeholders; the adapter translates them (`%s/%d/%f` for `$wpdb->prepare()` on MySQL, `$1..$n` on PostgreSQL). `nf_db(): BackendInterface` is the global accessor. Pivot mirror sync (`modified`, `author_id`, `parent_id`, status) is required on both backends, since it is the same write-through.
 
 ## Result equality
 For the same data, both backends return the same values, IDs, order, `found_posts` and `max_num_pages`. Collation: text compares case- and accent-insensitively (match the site's MySQL collation). Datetimes round-trip as the same `Y-m-d H:i:s` strings. Bit 63 of an `m` slot is mapped by the adapter.
