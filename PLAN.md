@@ -18,7 +18,7 @@ Next gate: **G0**: approve contracts v0 and settle D-01 to D-05.
 | 0.4 | ACF API inventory | A5 | M | — | merged | wp/0.4-acf-api-inventory | `contracts/api.md` lists the full surface, ranked by usage |
 | 0.5 | Contracts v0 (incl. public part of `rest.md`, ADR-0012) | A0 (+A2, A4, A5, A8, A9) | M | 0.4 | merged | wp/0.5-contracts-v0 | Reviewed by A13; no open questions |
 | 0.6a | Differential harness core (runner, normalizer, comparator, ACF-vs-ACF baseline on doubles) | A11 | S | 0.2, 0.3a, 0.3c | merged | wp/0.6a-diff-harness-core | Pure-PHP harness with unit tests; baseline of two identical targets has zero diffs, a tampered target is detected |
-| 0.6b | Differential harness: real ACF on wp-env and CI job | A11 | M | 0.6a | todo | | ACF-vs-ACF baseline against SCF (Secure Custom Fields, free, includes the repeater) installed in wp-env, on the bench dataset (incl. `sessions` Series rows), zero diffs, running in CI. No ACF PRO in CI: there is no licence for it; ACF PRO parity is checked by hand on nf-dev |
+| 0.6b | Differential harness: real ACF on wp-env and CI job | A11 | M | 0.6a | todo | | ACF-vs-ACF baseline against SCF (Secure Custom Fields, free, includes the repeater) installed in wp-env, on the bench dataset (incl. `sessions` Series rows), zero diffs, running in CI. No ACF PRO in CI: there is no licence for it; ACF PRO parity is checked on the owner's LocalWP nf-dev site (`run-checks.sh`, outside the repo) |
 | 0.6c | Differential scenarios for the spike types | A11 | M | 0.6b | todo | | Scenarios for scalar, Series and relationship fields; baseline zero diffs |
 
 Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in parallel. After those, A0 runs 0.5 and A11 runs 0.6.
