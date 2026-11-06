@@ -65,6 +65,36 @@ jobs:
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 ${{ matrix.wp }}
       - run: vendor/bin/phpunit
 
+  differential:
+    name: Differential baseline (ACF vs ACF, SCF)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp_test
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli
+          tools: composer
+      - run: sudo apt-get install -y subversion
+      - run: composer install --no-interaction --prefer-dist
+      - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
+      - name: Install Secure Custom Fields (free ACF fork incl. the repeater)
+        run: bin/install-scf.sh
+      - name: Pure-PHP harness tests
+        run: vendor/bin/phpunit --testsuite differential-harness --bootstrap tests/differential/bootstrap.php --no-configuration tests/differential/tests
+      - name: ACF vs ACF baseline on the bench dataset
+        run: vendor/bin/phpunit -c phpunit-acf.xml.dist
+
   release-build:
     name: Release zip builds
     runs-on: ubuntu-latest
