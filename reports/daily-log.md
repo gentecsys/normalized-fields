@@ -9,3 +9,4 @@
 2026-11-06 | WP 0.5 | labelled nf:ready | Contracts v0 (schema.sql, backend.md, public rest.md, NF JSON schema); reviewer clean after one fix round; CI running | PR #11 (wp/0.5-contracts-v0)
 2026-11-06 | WP 0.6a | in-review | Differential harness core (runner, comparator, baseline tests); 0.6 split into 0.6a/b/c; lint green after PHPCS fixes; label nf:ready was denied by the permission classifier, owner needs to label or merge | PR #12 (wp/0.6a-diff-harness-core)
 2026-11-06 | WP 0.6b | labelled nf:ready | Differential ACF-vs-ACF baseline against real SCF on bench data with a CI job; reviewer issues fixed; PHPCS and differential checks green | PR #13 (wp/0.6b-diff-real-acf)
+2026-11-06 | WP 0.6c | labelled nf:ready | Write round-trip differential scenarios (scalar, relationship, Series) with ACF-vs-ACF baseline; reviewer clean after one fix round; CI running (SCF baseline unverified locally) | PR #14 (wp/0.6c-diff-scenarios)
