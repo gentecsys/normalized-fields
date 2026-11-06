@@ -102,7 +102,7 @@ Errors use WP_Error shape `{ code, message, data: { status, ... } }`.
 - Normalisation: parameters sorted, defaults removed, so equivalent queries share a URL. Responses carry `Vary: Accept-Encoding`.
 
 ## Core `/wp/v2/{rest_base}` extension
-Field `nf`: `{ name: value }` for exposed fields (read and write via `editEntityRecord`). Query param `nf` accepts the same grammar as `/query`, as a nested array (`nf[where][price][lt]=50`), applied through `rest_{post_type}_query`; the same limits apply.
+Field `nf`: `{ name: value }` for exposed fields (read and write via `editEntityRecord`). The `nf` and `acf` fields save nothing for an anonymous request on any route, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on. Query param `nf` accepts the same grammar as `/query`, as a nested array (`nf[where][price][lt]=50`), applied through `rest_{post_type}_query`; the same limits apply.
 
 ## Block Bindings argument shapes
 Both sources are registered; `acf/field` uses ACF's shape.
