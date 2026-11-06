@@ -49,16 +49,23 @@ final class RunnerTest extends TestCase {
 			}
 			public function steps(): array {
 				return array(
-					new Step( 'update_field', array( 'sessions', 1, array(
+					new Step(
+						'update_field',
+						array(
+							'sessions',
+							1,
 							array(
-								'room' => 'A',
-								'b'    => 2.0,
+								array(
+									'room' => 'A',
+									'b'    => 2.0,
+								),
+								array(
+									'room' => 'B',
+									'b'    => 3.0,
+								),
 							),
-							array(
-								'room' => 'B',
-								'b'    => 3.0,
-							),
-						) ) ),
+						)
+					),
 					new Step( 'get_field', array( 'sessions', 1 ), 'sessions' ),
 					new Step( 'boom', array() ),
 				);
