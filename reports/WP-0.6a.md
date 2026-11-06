@@ -18,3 +18,12 @@
 
 ## Resume from
 Nothing pending unless review/CI finds issues. Next: 0.6b (wp-env with free ACF, `GlobalFunctionTarget`, CI job).
+
+## PLAN.md edits (disclosed)
+Made by the daily build agent per its routine, not by A11: split 0.6 into 0.6a/b/c (L WPs are split before work starts) and set 0.5 to `merged` (PR #11 is merged on GitHub). The "Lanes" paragraph still says "A11 runs 0.6"; still accurate for 0.6a-c.
+
+## Open questions / follow-ups
+- 0.6b: real ACF and NF share one DB; `Runner` interleaves steps, so use per-target sequential passes or separate post IDs.
+- `Report::is_clean()` is true for zero steps; consider failing on `steps === 0`. Exceptions compare by class only. NAN and DateTime-like objects are not handled by `Normalizer`. No test yet for `GlobalFunctionTarget`.
+- The `differential-harness` suite runs under the plugin bootstrap in CI (needs the WP test lib); the pure-PHP run is `--no-configuration --bootstrap tests/differential/bootstrap.php`.
+- PHPCS: CI flagged doc-comment sniffs; `phpcs.xml.dist` now excludes doc/naming sniffs for `tests/differential/*` (config file edit outside A11 paths, for A0 to confirm). Array formatting fixed in the test.
