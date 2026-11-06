@@ -119,6 +119,7 @@ CREATE TABLE {p}nf_pivot_sets (
   pivot_id    SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
   object_type TINYINT UNSIGNED NOT NULL,
   subtype     VARCHAR(64) NOT NULL,
+  write_version BIGINT UNSIGNED NOT NULL DEFAULT 0, -- bumped by every save, in the pivot write's transaction
   PRIMARY KEY  (pivot_id),
   UNIQUE KEY set_key (object_type, subtype)
 );
@@ -262,6 +263,8 @@ CREATE TABLE {p}nf_count (
   KEY by_day (pivot_id, status, dim, day, val, n)
 );
 -- Fallback for the versioned count cache when no persistent object cache exists.
+-- `version` is nf_pivot_sets.write_version at compute time; a row with another version is a miss.
+-- Anonymous requests read but never write here. A daily job deletes expired and old-version rows.
 CREATE TABLE {p}nf_count_cache (
   cache_key  CHAR(40) NOT NULL,
   pivot_id   SMALLINT UNSIGNED NOT NULL,
@@ -269,7 +272,8 @@ CREATE TABLE {p}nf_count_cache (
   n          BIGINT UNSIGNED NOT NULL,
   expires    DATETIME NOT NULL,
   PRIMARY KEY  (cache_key),
-  KEY by_pivot (pivot_id, version)
+  KEY by_pivot (pivot_id, version),
+  KEY by_expires (expires)
 );
 
 -- 12. Archive: revision and autosave snapshots.

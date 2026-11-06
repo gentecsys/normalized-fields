@@ -265,6 +265,7 @@ CREATE TABLE wp_nf_pivot_sets (
   pivot_id    SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   object_type TINYINT UNSIGNED NOT NULL,
   subtype     VARCHAR(64) NOT NULL,          -- 'event', 'category', 'user', 'options'
+  write_version BIGINT UNSIGNED NOT NULL DEFAULT 0,  -- bumped by every save, in the pivot write's transaction
   UNIQUE KEY set_key (object_type, subtype)
 );
 
@@ -536,7 +537,7 @@ CREATE TABLE wp_nf_count (
 
 - **What gets rolled up:** the `*` total, every boolean, select and dictionary slot, and every bit of every bitmask slot, each per day. Numbers, relationships and free text are excluded, since their values are too many to pre-count. At 100k posts the table held 44.5k rows.
 - **Maintenance:** on save, NF subtracts one from the post's old (dimension, value, day) cells and adds one to the new ones, in the same transaction as the pivot write. Status changes and trashing move counts between statuses. A rebuild from the pivot is one `INSERT … SELECT` per dimension.
-- **Count cache:** the key is a hash of the normalized filter. Each pivot set has a write version that every save bumps, so a cached count is valid exactly as long as nothing in that post type changed. It lives in the object cache when one exists, otherwise in a small `nf_count_cache` table.
+- **Count cache:** the key is a hash of the normalized filter. Each pivot set has a write version that every save bumps, so a cached count is valid exactly as long as nothing in that post type changed. It lives in the object cache when one exists, otherwise in a small `nf_count_cache` table. The version is the `write_version` column on `nf_pivot_sets`, bumped in the same transaction as the pivot write. Rows in `nf_count_cache` expire after a day (filter `nf/count_cache/ttl`), and a daily background job deletes expired rows and rows from older versions. Anonymous requests read the table but never write to it: without this rule, varying filters from outside would grow it through plain GETs.
 - **Capped counts:** available per query (`'nf_count' => 'exact' | 'capped' | 'none'`), mirroring `WP_Query`'s `no_found_rows`. Pagination then shows previous/next and "1,000+ results".
 - **Planner index hints:** slot keys become `(pivot_id, status, slot)`. In testing, MariaDB ignored them and scanned the pivot by primary key; forcing the slot index halved the archive count (15.2 → 7.8 ms). NF's planner uses its own field statistics to add `FORCE INDEX` when a slot is selective.
 
@@ -1101,7 +1102,7 @@ Core endpoints are extended as well:
 - **Limits on anonymous queries** (all filterable):
   - at most 100 per page and at most 8 conditions;
   - row conditions one level deep, and `embed` one level deep;
-  - `count` defaults to `capped`;
+  - `count` defaults to `capped`, and an anonymous request never writes to `nf_count_cache`;
   - page numbers above the cap fall back to cursors, so a URL like `?page=900000` cannot force a deep scan.
 - **Writes** need the capability and a REST nonce, or an application password. Values pass through the same validation and sanitisation as the admin form.
 - **Caching behind Pantheon and other edge caches.**
