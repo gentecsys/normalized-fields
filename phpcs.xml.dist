@@ -28,6 +28,22 @@
 			<property name="prefixes" type="array"><element value="nf"/><element value="NF"/></property>
 		</properties>
 	</rule>
+	<!-- The differential harness is test tooling: no per-method doc blocks, camelCase API, a `function` property. -->
+	<rule ref="Squiz.Commenting.ClassComment">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting.DocComment">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidFunctionName">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>tests/differential/*</exclude-pattern>
+	</rule>
 	<!-- src/ files follow PSR-4 (named after the class, CLAUDE.md); tests follow PHPUnit naming. -->
 	<rule ref="WordPress.Files.FileName">
 		<exclude-pattern>src/*</exclude-pattern>
