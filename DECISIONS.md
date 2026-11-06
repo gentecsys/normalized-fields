@@ -112,3 +112,8 @@ Only the owner edits this section. To approve a gate, add a line in the form `- 
 - **`nf_count_cache` cleanup:** added `KEY by_expires (expires)`, a one-day TTL (`nf/count_cache/ttl`) and a daily job that deletes expired and old-version rows.
 - **`nf_count_cache` writes:** anonymous requests read the table but never write to it, in REST and on the front end. On a site with no object cache, an anonymous cache miss computes the count each time.
 - **Correction:** `nf_meta` and `nf_count_cache` are not additions; the design doc names both.
+
+### Anonymous reads never write (2026-11-06, owner)
+- **Rule:** a GET or HEAD from a logged-out visitor never writes to any NF table, directly or by queuing a job.
+- **Exceptions:** guest `acf_form()` submissions and comment fields, which pass NF's own validation and nonce checks, with or without ACF active.
+- **Count cache:** filled only by logged-in requests and a background job for collection-declared filter combinations (WP 3.4). Other anonymous combinations pay the live count on sites with no object cache.
