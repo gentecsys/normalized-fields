@@ -60,7 +60,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 3.1 | Compiler and planner | A4 | XL | G2 | todo | | Compiler corpus green; `explain()` matches |
 | 3.2 | `NF::query()` builder | A4 | L | 3.1 | todo | | Every design-doc example runs as a test |
 | 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` on `WP_Query` args; every "Pagination parity" case in `docs/design.md` passes |
-| 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests |
+| 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests; background job recomputes count-cache entries for collection-declared filter combinations; a test proves an anonymous GET writes to no NF table |
 | 3.5 | Loading | A6 | L | 3.2 | todo | | 20-card listing in ≤ 15 queries |
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
@@ -81,7 +81,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | 4.4 | Tools, import wizard, health screens | A8 + A9 | L | 4.1, 2.6 | todo | | Wizard ports a real site end to end |
 | 4.5 | Schema import and export | A9 | L | 3.6 | todo | | Round-trip on corpus of real ACF exports |
 | 4.6 | Content migration | A9 | L | 4.5 | todo | | Cross-site ACF → NF-only migration |
-| 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF |
+| 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF; guest submissions pass NF's own validation and nonce checks with ACF deactivated |
 | 4.8 | Third-party compatibility | A10 | XL | 3.6, 2.4 | todo | | Each listed plugin passes or is documented unsupported |
 | 4.9 | Hardening | A11 | L | 4.2–4.8, 4.11 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
 | 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf_register_bindable_attributes()` and block.json `nf.bindable` work for custom blocks; `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass |
