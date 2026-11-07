@@ -16,7 +16,11 @@ Agent: A12 (daily build agent). Branch `wp/0.3b-nf-store-writer`.
 ## Deviations / notes
 - Both stores use the same IDs and `Dataset` records, so the shared fingerprint is the logical dataset's; `verify` for the NF store compares against it record by record.
 - Done-when "10k, 100k" generation not exercised here (needs a real site); owner or WP 1.5 benchmark run will confirm.
-- `nf_dec` is unused: price and capacity are integers in the dataset.
+- Types follow the design doc's "Field type → table": Number (`price`, `capacity`) in `nf_dec`, Time picker (`sessions.time`) in `nf_int` as seconds since midnight, dates in `nf_date`.
+- Review fix: the post insert now throws on failure.
+- Shared ID range: ACF and NF stores use the same post IDs, and `clear()` only wipes its own store. Run each on its own site/database.
+- `verify` compares against the logical dataset (same as `AcfStore`); the fingerprint is of the dataset, not of stored data.
+- Not done (non-blocking, follow-ups): a fake-backend unit test of `NfStore`, a CI generate/verify step for `--store=nf`, a friendly error when the NF schema is missing, counting stray rows in `verify`.
 
 ## Follow-ups
 - Run `generate --store=nf --posts=10000` then `verify` in wp-env (add to CI bench job in 1.5 / 3.8).
