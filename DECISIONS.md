@@ -95,7 +95,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-15 | Query builder entry point | G0 (contracts v0) | **Decided by owner 2026-11-03** | `nf_query()` and `nf_options()`; `NF::query()` and `NF::options()` as aliases |
 | D-16 | PostgreSQL multisite layout | Start of Phase 5 | **Decided by owner 2026-11-03** | Shared tables with `site_id` leading every key, partitioned by site |
 | D-17 | Public REST API for blocks | G0 (contracts v0) | **Decided by owner 2026-11-03** | Anonymous `/nf/v1/query` within limits; Block Bindings `setValues` in v1 (options read-only); register `acf/field` too (ADR-0012) |
-| D-18 | Anti-bot plan for anonymous REST (with and without a WAF) | Before WP 3.9 | **Open, owner** | Current same-host and IP rules are interim; owner considers them insufficient |
+| D-18 | Anti-bot plan for anonymous REST (with and without a WAF) | Before WP 3.9 | **Decided by owner 2026-11-06** | Bound the work, don't identify bots: profiles, early guard, cold slots, degradation |
 
 ## Gate approvals
 
@@ -120,3 +120,11 @@ Only the owner edits this section. To approve a gate, add a line in the form `- 
 - **Count cache:** filled only by logged-in requests and a background job for collection-declared filter combinations (WP 3.4). Other anonymous combinations pay the live count on sites with no object cache.
 - **Tightened (owner, same day):** anonymous writes follow WordPress's own settings. No REST route saves field values anonymously. Comment fields save only after WordPress accepts the comment. WordPress has no guest-form setting, so NF adds `nf_allow_guest_forms`, off by default, with a signed field list and a per-IP limit. This changes ACF behaviour for themes with guest forms, and the import wizard reports them.
 - **REST overload (owner, same day):** local calls (PHP, and browser calls from the same host, by `Sec-Fetch-Site` or `Referer`) are open. Outside anonymous `/query` and `/facets` are refused by default (`nf_rest_public_query`), and when enabled are limited per IP with an object-cache counter. No object cache means outside calls stay refused. A script can set those headers itself, so edge rate limiting stays the recommended outer layer.
+
+### D-18 anti-bot plan (2026-11-06, owner, after an independent review)
+- **Replaces** the local and outside calls rule, including the same-host check, `nf_rest_public_query` and `nf_rest_outside_disabled`.
+- **Design:** query profiles (default on), early guard, `GET_LOCK` cold slots with statement timeouts, degradation, then per-prefix limits where an object cache or APCu exists. See `contracts/rest.md`.
+- **Owner choices:** profiles default on, changing D-17's open anonymous filtering. Anonymous listings may be 60-300 s stale. No filesystem counters. Anonymous front-end `nf_query()` uses count slots and the timeout, but lists never get a 503.
+- **Caching:** post-type tags lose the write version; saves purge object keys only.
+- **Contract change:** `backend.md` gains `tryLock()`, `unlock()` and `statementTimeout()`. PostgreSQL pooled endpoints may break session locks; check in Phase 5.
+- **Unverified:** all latency and capacity figures are estimates, `GET_LOCK` and timeout support needs a version check across the matrix, and Pantheon behaviour needs a multidev test. WP 3.9 measures these.

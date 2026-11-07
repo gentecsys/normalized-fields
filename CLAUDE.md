@@ -57,7 +57,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
   - **Anonymous reads never write:** a GET or HEAD from a logged-out visitor never writes to any NF table, directly or by queuing a job. The only anonymous writes are:
     - Comment fields, saved from `comment_post` only after WordPress accepted the comment through `wp-comments-post.php`; nothing for spam or rejected comments.
     - Guest `acf_form()` submissions, refused unless `nf_allow_guest_forms` is on (default off), limited to the form's signed field list, passed through NF's own validation and nonce check, and rate limited per IP.
-  - **Local calls are open; outside calls are limited.** Anonymous `/query` and `/facets` from outside are refused unless `nf_rest_public_query` is on and an object cache holds the per-IP counter (see `contracts/rest.md`).
+  - **Anti-bot (D-18):** anonymous `/query` and `/facets` run through the early guard, query profiles, cold-query slots and degradation in `contracts/rest.md`. Anonymous front-end `nf_query()` uses the count slots and statement timeout too. Counters live in an object cache or APCu, never in a table or file.
   - **No anonymous field writes over REST,** on any route, even with `rest_allow_anonymous_comments` on.
   - Authenticated responses send `Cache-Control: private, no-store`.
 - Use `wp_cache_get` / `wp_cache_set` for caching.
