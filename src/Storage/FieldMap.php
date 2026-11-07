@@ -48,7 +48,7 @@ final class FieldMap {
 		if ( array() === $rows ) {
 			return null;
 		}
-		$def                = $this->hydrate( $rows[0] );
+		$def                  = $this->hydrate( $rows[0] );
 		$this->byKey[ $memo ] = $def;
 		return $def;
 	}
@@ -77,7 +77,7 @@ final class FieldMap {
 			'INSERT INTO ' . $t . ' (field_key, field_name, parent_id, data_table, multi) VALUES (?, ?, ?, ?, ?)',
 			array( $key, $name, $parentId, $table->value, $multi ? 1 : 0 )
 		);
-		$def = new FieldDef( $this->db->insertId(), $key, $name, $parentId, $table, $multi );
+		$def                            = new FieldDef( $this->db->insertId(), $key, $name, $parentId, $table, $multi );
 		$this->byKey[ $t . '|' . $key ] = $def;
 		return $def;
 	}
