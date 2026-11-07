@@ -18,8 +18,8 @@ final class NfLayout {
 	/** Storage table per scalar field: name => [table suffix, multi]. */
 	private const SPECIAL = array(
 		'event_date' => array( 'date', false ),
-		'price'      => array( 'int', false ),
-		'capacity'   => array( 'int', false ),
+		'price'      => array( 'dec', false ),
+		'capacity'   => array( 'dec', false ),
 		'featured'   => array( 'int', false ),
 		'categories' => array( 'str', true ),
 		'artists'    => array( 'int', true ),
@@ -28,9 +28,18 @@ final class NfLayout {
 	/** Series sub-field storage. */
 	public const SUBS = array(
 		'date' => 'date',
-		'time' => 'str',
+		'time' => 'time',
 		'room' => 'str',
 	);
+
+	/**
+	 * Database table suffix for a kind (`time` is stored in `int` as seconds since midnight).
+	 *
+	 * @param string $kind Kind.
+	 */
+	public static function table( string $kind ): string {
+		return 'time' === $kind ? 'int' : $kind;
+	}
 
 	/**
 	 * Storage for a top-level scalar field.
@@ -52,6 +61,8 @@ final class NfLayout {
 	public static function toDb( string $table, mixed $value ): int|string {
 		return match ( $table ) {
 			'int'   => (int) $value,
+			'dec'   => (string) $value,
+			'time'  => (int) substr( (string) $value, 0, 2 ) * 3600 + (int) substr( (string) $value, 3, 2 ) * 60,
 			'date'  => substr( (string) $value, 0, 4 ) . '-' . substr( (string) $value, 4, 2 ) . '-' . substr( (string) $value, 6, 2 ) . ' 00:00:00',
 			default => (string) $value,
 		};
@@ -62,11 +73,13 @@ final class NfLayout {
 	 *
 	 * @param string $table Table suffix.
 	 * @param mixed  $raw   Database value.
-	 * @return int|string
+	 * @return int|string|float
 	 */
-	public static function fromDb( string $table, mixed $raw ): int|string {
+	public static function fromDb( string $table, mixed $raw ): int|string|float {
 		return match ( $table ) {
 			'int'   => (int) $raw,
+			'dec'   => (float) $raw,
+			'time'  => sprintf( '%02d:%02d', intdiv( (int) $raw, 3600 ), intdiv( (int) $raw % 3600, 60 ) ),
 			'date'  => str_replace( '-', '', substr( (string) $raw, 0, 10 ) ),
 			default => (string) $raw,
 		};
