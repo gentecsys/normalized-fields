@@ -179,6 +179,8 @@ final class NfStore implements StoreWriter {
 	/**
 	 * Insert the wp_posts rows (same columns as the ACF store).
 	 *
+	 * @throws \RuntimeException When the insert fails.
+	 *
 	 * @param array<int,array<string,mixed>> $records Records.
 	 */
 	private function insert_posts( array $records ): void {
@@ -203,7 +205,7 @@ final class NfStore implements StoreWriter {
 		}
 		$sql = "INSERT INTO {$this->wpdb->posts} (ID,post_author,post_date,post_date_gmt,post_content,post_title,post_excerpt,post_status,comment_status,ping_status,post_name,post_modified,post_modified_gmt,post_type) VALUES " . implode( ',', $tuples ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tuples are prepared.
 		if ( false === $this->wpdb->query( $sql ) ) {
-			throw new \RuntimeException( 'Inserting the dataset posts failed: ' . $this->wpdb->last_error );
+			throw new \RuntimeException( 'Inserting the dataset posts failed: ' . esc_html( (string) $this->wpdb->last_error ) );
 		}
 	}
 
