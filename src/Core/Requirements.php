@@ -61,6 +61,9 @@ final class Requirements {
 			wp_die( esc_html( implode( ' ', $errors ) ), '', array( 'back_link' => true ) );
 		}
 		update_option( 'nf_version', NF_VERSION, false );
+		if ( class_exists( 'NF\Install\Schema' ) ) {
+			\NF\Install\Schema::install();
+		}
 	}
 
 	/**
