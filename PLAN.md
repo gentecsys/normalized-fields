@@ -60,12 +60,12 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 3.1 | Compiler and planner | A4 | XL | G2 | todo | | Compiler corpus green; `explain()` matches |
 | 3.2 | `NF::query()` builder | A4 | L | 3.1 | todo | | Every design-doc example runs as a test |
 | 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` on `WP_Query` args; every "Pagination parity" case in `docs/design.md` passes |
-| 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests; background job recomputes count-cache entries for collection-declared filter combinations; a test proves an anonymous GET writes to no NF table |
+| 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests; debounced background job recomputes count-cache entries for the top declared filter combinations, counts up to 60 s stale; a test proves an anonymous GET writes to no NF table |
 | 3.5 | Loading | A6 | L | 3.2 | todo | | 20-card listing in ≤ 15 queries |
 | 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
 | 3.8 | Benchmark gates | A12 | M | 3.3, 3.4, 3.5 | todo | | CI fails on regression > 20% |
-| 3.9 | Public REST API | A8 + A4 | L | 3.2, 3.6, D-18 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; local calls are unlimited; outside calls are refused by default and limited per IP when enabled, refused with no object cache, and 403/429 are never cached; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |
+| 3.9 | Public REST API, split into guard, profiles, cold slots and routes | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; profiles are the default; forged cookies and headers change nothing; `_method`, `rest_route=` and `Origin` rotation are refused or normalised; saturated slots degrade as specified; no NF table, transient or option write on anonymous paths; k6 on a 1-CPU, no-cache rig with a measured bootstrap and facet baseline at 100k and 1M posts; Pantheon multidev checks for client IP, 4xx caching and stale directives; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |
 
 XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 
@@ -84,7 +84,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | 4.7 | ACF Blocks and front-end forms | A5 + A8 | L | 3.6, 4.3 | todo | | Blocks render identically; forms save to NF; with ACF deactivated, guest submissions are refused unless `nf_allow_guest_forms` is on, and otherwise pass the signed field list, NF's own validation and nonce check, and the per-IP limit; comment fields save only for comments WordPress accepted |
 | 4.8 | Third-party compatibility | A10 | XL | 3.6, 2.4 | todo | | Each listed plugin passes or is documented unsupported |
 | 4.9 | Hardening | A11 | L | 4.2–4.8, 4.11 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
-| 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf_register_bindable_attributes()` and block.json `nf.bindable` work for custom blocks; `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass |
+| 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf_register_bindable_attributes()` and block.json `nf.bindable` work for custom blocks; `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass; blocks fall back to full navigation on 503 |
 | 4.10 | Docs and release | A0 | M | 4.9 | todo | | Plugin Check passes; RC tagged |
 
 **Gate G4 [owner]:** release decision.

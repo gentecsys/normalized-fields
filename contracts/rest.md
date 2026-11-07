@@ -23,7 +23,7 @@ Design: `docs/design.md`, section "Public REST API and blocks" (ADR-0012, D-17).
 | `/nf/v1/collections`, `/nf/v1/collections/{key}` | GET | Anyone; `show_in_rest` fields only |
 | `/nf/v1/{type}/{id}/fields` | GET | The object's read permission, as in core |
 | `/nf/v1/{type}/{id}/fields` | PATCH | The object's edit capability (`edit_post`, `edit_term`, `edit_user`, `edit_comment`, or the options page capability), plus a REST nonce or application password |
-| `/nf/v1/query/{post_type}` | GET | Anyone local, for public post types and `show_in_rest` / `rest_filterable` fields, within the limits; outside callers only as in "Local and outside calls" |
+| `/nf/v1/query/{post_type}` | GET | Anyone, for public post types and `show_in_rest` / `rest_filterable` fields, within the limits and the query profile |
 | `/nf/v1/facets/{post_type}` | GET | As `/query` |
 
 Core endpoint extensions: an `nf` field and `nf` query parameters on `/wp/v2/{rest_base}`; the ACF-shaped `acf` field stays alongside.
@@ -66,13 +66,16 @@ Response 200: `{ "items": [ { "id": 1, "title": "...", "link": "...", <projectio
 ### GET `/facets/{post_type}`
 Same filters as `/query`. Parameter `facets=field,field` (each must be `rest_filterable` and have a dictionary or bitmask slot). Response: `{ "facets": { "category": [ { "value": "music", "label": "Music", "count": 42 } ] }, "total": ..., "total_capped": ... }`. Counts come from the counting tier; with extra filters they may be capped or cached.
 
-## Local and outside calls
-Applies to anonymous `/query`, `/facets` and `nf` query parameters on core routes.
-- **Local:** PHP calls never go over HTTP and have no limit. A browser call is local when it comes from the same host: `Sec-Fetch-Site: same-origin`, or, if that header is missing, a `Referer` host matching `home_url()`. Extra hosts go through `nf/rest/local_hosts`. Compare against `home_url()`, never the request's `Host` header.
-- **Outside:** everything else. 403 `nf_rest_outside_disabled` unless `nf_rest_public_query` is on (default off). When on: 60 a minute per IP (`nf/rest/outside_rate_limit`), then 429 `nf_rest_rate_limited`.
-- **Counter:** object cache only, never a table. With no object cache, outside calls stay refused.
-- **Client IP:** `REMOTE_ADDR`, or the host's trusted header through `nf/rest/client_ip`. Never `X-Forwarded-For` by default.
-- 403 and 429 responses send `Cache-Control: no-store`.
+## Anonymous access and load control (D-18)
+Applies to anonymous `/query`, `/facets` and `nf` query parameters on core routes. Design: `docs/design.md`, "Anti-bot design".
+- **Mode:** `nf_rest_anonymous_mode` = `profiles` (default) | `open` | `off`. `off` refuses with 400 `nf_rest_query_not_allowed`.
+- **Profiles:** collection setting `rest_profiles` declares fields, operators, range buckets, sorts, `per_page` and projection. Ranges snap to buckets. `search` is off unless declared. List values capped by `nf/rest/max_values`. Admin warns above `nf/rest/max_keyspace`.
+- **Guard:** runs at the top of `normalized-fields.php`, before Composer, for GET and HEAD. Refuses unknown parameters, `_method`, `_envelope`, `_jsonp`, `rest_route=` and over-long URLs. Non-canonical order: 308 to the canonical URL. Strips `Vary: Origin`. Settings are constants or an autoloaded option. The same check repeats at `rest_pre_dispatch`.
+- **Cold slots:** 2 count and 4 list slots via `GET_LOCK` (`nf/rest/cold_slots`), non-blocking, lock names include a per-site hash. Rollup-answered queries skip them. Timeout 250 ms (`nf/rest/statement_timeout_ms`).
+- **Degraded:** no count slot: 200, `total: null`, `X-NF-Degraded: count`, `max-age=15`. No list slot: 503 `nf_rest_busy`, `Retry-After`, `no-store`.
+- **Front-end `nf_query()` in anonymous web requests:** count slots and timeout apply. Lists take no slot and never 503; a timed-out list returns no rows and fires `nf/query/timeout`. CLI, cron and logged-in requests are exempt.
+- **Per-prefix limits:** only with an object cache or APCu. Charged by cold cost, never by cache hits (`nf/rest/cost_budget`). IPv6 /64 plus looser /48 (`nf/rest/ipv6_prefix`); IPv4 /32 plus looser /24. Over budget: 429 `nf_rest_rate_limited`, `no-store`. Never a table or a file.
+- **Client IP:** `REMOTE_ADDR`, or `NF_TRUSTED_IP_HEADER` from a proxy in `NF_TRUSTED_PROXIES`. Never `X-Forwarded-For` by default.
 
 ## Anonymous limits (all filterable)
 
@@ -95,8 +98,9 @@ Errors use WP_Error shape `{ code, message, data: { status, ... } }`.
 | `nf_rest_field_not_exposed` | 400 | Field is unknown or lacks `show_in_rest` (the message never says which) |
 | `nf_rest_field_not_filterable` | 400 | Field used in a filter/sort/facet lacks `rest_filterable` |
 | `nf_rest_limit_exceeded` | 400 | `per_page`, condition count or depth over the limit (`data.limit`, `data.max`) |
-| `nf_rest_outside_disabled` | 403 | Outside anonymous query while `nf_rest_public_query` is off, or no object cache exists |
-| `nf_rest_rate_limited` | 429 | Outside caller over the per-IP limit |
+| `nf_rest_query_not_allowed` | 400 | Anonymous query outside the profile, or mode `off`; cacheable 60 s |
+| `nf_rest_busy` | 503 | No list slot free; `Retry-After`, `no-store` |
+| `nf_rest_rate_limited` | 429 | Prefix over its cold-cost budget; `no-store` |
 | `nf_rest_use_cursor` | 400 | Page beyond the offset cap; `data.hint` says to use `after` |
 | `nf_rest_cursor_invalid` | 400 | Bad, tampered or mismatched cursor |
 | `nf_rest_invalid_param` | 400 | Bad operator or value for the field type |
@@ -107,9 +111,9 @@ Errors use WP_Error shape `{ code, message, data: { status, ... } }`.
 | `rest_forbidden` | 401/403 | Core permission failure |
 
 ## Caching
-- Anonymous GET: `Cache-Control: public, max-age=<nf/rest/cache_ttl>`; `Surrogate-Key: nf-pt-<post_type>-v<pivot write version> nf-obj-<id> ...` (IDs capped at 50, then the post-type tag alone). A save purges the affected keys (via `pantheon_wp_clear_edge_keys()` when present).
+- Anonymous GET: `Cache-Control: public, s-maxage=300, stale-while-revalidate=600, stale-if-error=3600`; `Surrogate-Key: nf-pt-<post_type> nf-obj-<id> ...` (IDs capped at 50, then the post-type tag alone). A save purges object keys only (via `pantheon_wp_clear_edge_keys()` when present); lists age out by TTL.
 - Authenticated or permission-dependent responses: `Cache-Control: private, no-store`. Never public under a URL that varies by permission.
-- Normalisation: parameters sorted, defaults removed, so equivalent queries share a URL. Responses carry `Vary: Accept-Encoding`.
+- Canonical URLs: parameters sorted, defaults removed; other forms get a 308 redirect. Responses carry `Vary: Accept-Encoding`.
 
 ## Core `/wp/v2/{rest_base}` extension
 Field `nf`: `{ name: value }` for exposed fields (read and write via `editEntityRecord`). The `nf` and `acf` fields save nothing for an anonymous request on any route, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on. Query param `nf` accepts the same grammar as `/query`, as a nested array (`nf[where][price][lt]=50`), applied through `rest_{post_type}_query`; the same limits apply.

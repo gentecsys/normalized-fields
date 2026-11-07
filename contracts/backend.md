@@ -26,6 +26,8 @@ interface BackendInterface {
 	public function insertId(): int;                                  // MySQL: last id; pgsql: RETURNING
 	public function transaction( callable $fn ): mixed;               // commit on return, rollback on throw
 	public function ping(): bool;
+	public function tryLock( string $name ): bool;                    // non-blocking; site-hashed name
+	public function unlock( string $name ): void;
 }
 
 interface DialectInterface {
@@ -37,6 +39,7 @@ interface DialectInterface {
 	public function indexHint( string $table, string $index ): string; // '' outside MySQL
 	public function bit( string $column, int $bit ): string;          // single-bit test
 	public function mask( string $column, int $mask, string $mode ): string; // mode: any | all | none
+	public function statementTimeout( int $ms ): string;              // MAX_EXECUTION_TIME or max_statement_time; '' if unsupported
 }
 ```
 
