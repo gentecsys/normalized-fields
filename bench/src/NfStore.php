@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace NF\Bench;
 
+// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Core wp_posts only; values come from prepare() and integer ID lists.
+
 use NF\Backend\BackendInterface;
 use NF\Storage\DataTable;
 use NF\Storage\FieldDef;
@@ -119,7 +121,7 @@ final class NfStore implements StoreWriter {
 		}
 		$map = new FieldMap( $this->db );
 		foreach ( array_keys( Dataset::FIELDS ) as $name ) {
-			[ $table, $multi ] = NfLayout::scalar( $name );
+			[ $table, $multi ]   = NfLayout::scalar( $name );
 			$this->defs[ $name ] = $map->register( AcfMeta::key( $name ), $name, DataTable::from( $table ), $multi );
 		}
 		$series = $map->register( AcfMeta::key( 'sessions' ), 'sessions', DataTable::Rows );
