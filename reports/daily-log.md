@@ -11,3 +11,4 @@
 2026-11-06 | WP 0.6b | labelled nf:ready | Differential ACF-vs-ACF baseline against real SCF on bench data with a CI job; reviewer issues fixed; PHPCS and differential checks green | PR #13 (wp/0.6b-diff-real-acf)
 2026-11-06 | WP 0.6c | labelled nf:ready | Write round-trip differential scenarios (scalar, relationship, Series) with ACF-vs-ACF baseline; reviewer clean after one fix round; CI running (SCF baseline unverified locally) | PR #14 (wp/0.6c-diff-scenarios)
 2026-11-06 | gate G0 | waiting G0 | Phase 0 fully merged, CI green; wrote reports/gate-G0.md for owner approval | main
+2026-11-07 | WP 1.1 | labelled nf:ready | Backend adapter, field map, typed-table store (scalar, relationship, Series), schema installer, nf_db(); reviewer blockers fixed; full CI matrix + PHPCS/PHPStan green | PR #15 (wp/1.1-store)
