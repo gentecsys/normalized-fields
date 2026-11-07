@@ -21,6 +21,7 @@ final class MysqlDialect implements DialectInterface {
 	 *
 	 * @param string $name Identifier.
 	 * @return string
+	 * @throws \InvalidArgumentException When an argument is invalid.
 	 */
 	public function quoteIdentifier( string $name ): string {
 		if ( ! preg_match( '/^[A-Za-z0-9_]+$/', $name ) ) {
@@ -83,6 +84,7 @@ final class MysqlDialect implements DialectInterface {
 	 * @param string $expr     Expression.
 	 * @param string $dataType int|dec|date|str.
 	 * @return string
+	 * @throws \InvalidArgumentException When an argument is invalid.
 	 */
 	public function cast( string $expr, string $dataType ): string {
 		return match ( $dataType ) {
@@ -123,6 +125,7 @@ final class MysqlDialect implements DialectInterface {
 	 * @param int    $mask   Mask.
 	 * @param string $mode   any|all|none.
 	 * @return string
+	 * @throws \InvalidArgumentException When an argument is invalid.
 	 */
 	public function mask( string $column, int $mask, string $mode ): string {
 		$col = $this->quoteIdentifier( $column );

@@ -60,6 +60,7 @@ final class MysqlBackend implements BackendInterface {
 	 *
 	 * @param string $logical Logical name, e.g. nf_int.
 	 * @return string
+	 * @throws \InvalidArgumentException When the name is invalid.
 	 */
 	public function table( string $logical ): string {
 		global $wpdb;
@@ -112,6 +113,7 @@ final class MysqlBackend implements BackendInterface {
 	 *
 	 * @param callable $fn Work.
 	 * @return mixed
+	 * @throws \Throwable Whatever the callable throws, after rollback.
 	 */
 	public function transaction( callable $fn ): mixed {
 		global $wpdb;
@@ -123,7 +125,7 @@ final class MysqlBackend implements BackendInterface {
 				--$this->depth;
 			}
 		}
-		$wpdb->query( 'START TRANSACTION' );
+		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$this->depth = 1;
 		try {
 			$result = $fn();
@@ -209,6 +211,7 @@ final class MysqlBackend implements BackendInterface {
 	 * Turn a database error into an exception so transactions roll back.
 	 *
 	 * @return void
+	 * @throws \RuntimeException On a database error.
 	 */
 	private function check(): void {
 		global $wpdb;

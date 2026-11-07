@@ -179,7 +179,7 @@ class StoreTest extends WP_UnitTestCase {
 	 */
 	public function test_json_encode_failure_throws() {
 		$this->expectException( InvalidArgumentException::class );
-		$this->store->set( ObjectType::Post, 101, 'field_t11_meta', "\xB1\x31" );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_meta', NAN );
 	}
 
 	/**
