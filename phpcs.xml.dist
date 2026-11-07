@@ -44,6 +44,23 @@
 	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
 		<exclude-pattern>tests/differential/*</exclude-pattern>
 	</rule>
+	<!-- Class internals use camelCase (contracts/backend.md fixes the adapter names); enums use $this, which PHPCompatibility 2.1 does not know. -->
+	<rule ref="WordPress.NamingConventions.ValidFunctionName">
+		<exclude-pattern>src/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidVariableName">
+		<exclude-pattern>src/*</exclude-pattern>
+	</rule>
+	<rule ref="PHPCompatibility.Variables.ForbiddenThisUseContexts.OutsideObjectContext">
+		<exclude-pattern>src/Storage/*</exclude-pattern>
+	</rule>
+	<!-- The backend adapter is the one place that talks to $wpdb for NF tables (ADR-0009). -->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>src/Backend/*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>src/Backend/*</exclude-pattern>
+	</rule>
 	<!-- src/ files follow PSR-4 (named after the class, CLAUDE.md); tests follow PHPUnit naming. -->
 	<rule ref="WordPress.Files.FileName">
 		<exclude-pattern>src/*</exclude-pattern>
