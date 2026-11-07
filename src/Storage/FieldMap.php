@@ -14,7 +14,7 @@ use NF\Backend\BackendInterface;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Reads and registers nf_fields rows. Cached in memory and in the object cache per site.
+ * Reads and registers nf_fields rows. Cached in memory per request (keyed by physical table, so switch_blog is safe).
  */
 final class FieldMap {
 
@@ -39,8 +39,8 @@ final class FieldMap {
 	 * @return FieldDef|null
 	 */
 	public function byKey( string $key ): ?FieldDef {
-		$table  = $this->db->table( 'nf_fields' );
-		$memo   = $table . '|' . $key;
+		$table = $this->db->table( 'nf_fields' );
+		$memo  = $table . '|' . $key;
 		if ( isset( $this->byKey[ $memo ] ) ) {
 			return $this->byKey[ $memo ];
 		}
@@ -48,7 +48,9 @@ final class FieldMap {
 		if ( array() === $rows ) {
 			return null;
 		}
-		return $this->byKey[ $memo ] = $this->hydrate( $rows[0] );
+		$def                = $this->hydrate( $rows[0] );
+		$this->byKey[ $memo ] = $def;
+		return $def;
 	}
 
 	/**
@@ -76,7 +78,8 @@ final class FieldMap {
 			array( $key, $name, $parentId, $table->value, $multi ? 1 : 0 )
 		);
 		$def = new FieldDef( $this->db->insertId(), $key, $name, $parentId, $table, $multi );
-		return $this->byKey[ $t . '|' . $key ] = $def;
+		$this->byKey[ $t . '|' . $key ] = $def;
+		return $def;
 	}
 
 	/**

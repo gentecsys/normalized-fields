@@ -175,6 +175,14 @@ class StoreTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A value that cannot be JSON-encoded is refused, not stored as an empty string.
+	 */
+	public function test_json_encode_failure_throws() {
+		$this->expectException( InvalidArgumentException::class );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_meta', "\xB1\x31" );
+	}
+
+	/**
 	 * Dialect output is explicit.
 	 */
 	public function test_dialect() {
