@@ -98,7 +98,7 @@ final class Store {
 			'SELECT row_id FROM ' . $this->db->table( 'nf_rows' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND parent_row_id = 0 ORDER BY row_order',
 			array( $type->value, $id, $def->id )
 		);
-		$out = array();
+		$out  = array();
 		foreach ( $rows as $r ) {
 			$row_id = (int) $r['row_id'];
 			$row    = array();
