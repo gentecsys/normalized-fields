@@ -130,9 +130,21 @@ class StoreTest extends WP_UnitTestCase {
 	 */
 	public function test_series_round_trip() {
 		$rows = array(
-			array( 'name' => 'Keynote', 'length' => 60, 'speakers' => array( 4, 2 ) ),
-			array( 'name' => 'Panel', 'length' => 45, 'speakers' => array() ),
-			array( 'name' => 'Break', 'length' => null, 'speakers' => array( 8 ) ),
+			array(
+				'name'     => 'Keynote',
+				'length'   => 60,
+				'speakers' => array( 4, 2 ),
+			),
+			array(
+				'name'     => 'Panel',
+				'length'   => 45,
+				'speakers' => array(),
+			),
+			array(
+				'name'     => 'Break',
+				'length'   => null,
+				'speakers' => array( 8 ),
+			),
 		);
 		$this->store->setRows( ObjectType::Post, 101, 'field_t11_sessions', $rows );
 		$this->assertSame( $rows, $this->store->getRows( ObjectType::Post, 101, 'field_t11_sessions' ) );
@@ -155,7 +167,18 @@ class StoreTest extends WP_UnitTestCase {
 	 * A failed write rolls the whole Series back.
 	 */
 	public function test_series_write_is_atomic() {
-		$this->store->setRows( ObjectType::Post, 101, 'field_t11_sessions', array( array( 'name' => 'Keep', 'length' => 1, 'speakers' => array() ) ) );
+		$this->store->setRows(
+			ObjectType::Post,
+			101,
+			'field_t11_sessions',
+			array(
+				array(
+					'name'     => 'Keep',
+					'length'   => 1,
+					'speakers' => array(),
+				),
+			)
+		);
 		try {
 			$this->store->setRows( ObjectType::Post, 101, 'field_t11_sessions', array( array( 'name' => 'New' ), array( 'nope' => 1 ) ) );
 			$this->fail( 'Expected an exception.' );
