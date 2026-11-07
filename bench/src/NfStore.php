@@ -122,11 +122,11 @@ final class NfStore implements StoreWriter {
 		$map = new FieldMap( $this->db );
 		foreach ( array_keys( Dataset::FIELDS ) as $name ) {
 			[ $table, $multi ]   = NfLayout::scalar( $name );
-			$this->defs[ $name ] = $map->register( AcfMeta::key( $name ), $name, DataTable::from( $table ), $multi );
+			$this->defs[ $name ] = $map->register( AcfMeta::key( $name ), $name, DataTable::from( NfLayout::table( $table ) ), $multi );
 		}
 		$series = $map->register( AcfMeta::key( 'sessions' ), 'sessions', DataTable::Rows );
 		foreach ( NfLayout::SUBS as $sub => $table ) {
-			$this->defs[ 'sessions.' . $sub ] = $map->register( AcfMeta::key( 'sessions_' . $sub ), $sub, DataTable::from( $table ), false, $series->id );
+			$this->defs[ 'sessions.' . $sub ] = $map->register( AcfMeta::key( 'sessions_' . $sub ), $sub, DataTable::from( NfLayout::table( $table ) ), false, $series->id );
 		}
 		$this->defs['sessions'] = $series;
 	}
@@ -147,7 +147,7 @@ final class NfStore implements StoreWriter {
 				$type   = ObjectType::Post->value;
 				foreach ( $records as $record ) {
 					foreach ( array_keys( Dataset::FIELDS ) as $name ) {
-						[ $table ] = NfLayout::scalar( $name );
+						$table = NfLayout::table( NfLayout::scalar( $name )[0] );
 						foreach ( NfLayout::scalarValues( $record, $name ) as $pos => $v ) {
 							$values[ $table ][] = array( $record['id'], $this->defs[ $name ]->id, 0, $pos, $v );
 						}
@@ -158,7 +158,7 @@ final class NfStore implements StoreWriter {
 					foreach ( $record['sessions'] as $order => $row ) {
 						$row_id = $row_ids[ $record['id'] ][ $order ];
 						foreach ( NfLayout::SUBS as $sub => $table ) {
-							$values[ $table ][] = array( $record['id'], $this->defs[ 'sessions.' . $sub ]->id, $row_id, 0, NfLayout::toDb( $table, $row[ $sub ] ) );
+							$values[ NfLayout::table( $table ) ][] = array( $record['id'], $this->defs[ 'sessions.' . $sub ]->id, $row_id, 0, NfLayout::toDb( $table, $row[ $sub ] ) );
 						}
 					}
 				}
@@ -202,7 +202,9 @@ final class NfStore implements StoreWriter {
 			);
 		}
 		$sql = "INSERT INTO {$this->wpdb->posts} (ID,post_author,post_date,post_date_gmt,post_content,post_title,post_excerpt,post_status,comment_status,ping_status,post_name,post_modified,post_modified_gmt,post_type) VALUES " . implode( ',', $tuples ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tuples are prepared.
-		$this->wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		if ( false === $this->wpdb->query( $sql ) ) {
+			throw new \RuntimeException( 'Inserting the dataset posts failed: ' . $this->wpdb->last_error );
+		}
 	}
 
 	/**
@@ -288,7 +290,7 @@ final class NfStore implements StoreWriter {
 				array_merge( array( $type ), $ids )
 			);
 			foreach ( $rows as $r ) {
-				$found[ (int) $r['object_id'] ][ (int) $r['field_id'] ][ (int) $r['row_id'] ][ (int) $r['position'] ] = NfLayout::fromDb( $table, $r['value'] );
+				$found[ (int) $r['object_id'] ][ (int) $r['field_id'] ][ (int) $r['row_id'] ][ (int) $r['position'] ] = $r['value'];
 			}
 		}
 		$rowmap = $this->read_row_ids( $ids );
@@ -298,16 +300,17 @@ final class NfStore implements StoreWriter {
 			$ok = ( $titles[ $id ] ?? null ) === $record['title'];
 			foreach ( array_keys( Dataset::FIELDS ) as $name ) {
 				[ $table, $multi ] = NfLayout::scalar( $name );
-				$want              = $multi ? array_map( static fn( $v ) => NfLayout::fromDb( $table, NfLayout::toDb( $table, $v ) ), (array) $record['fields'][ $name ] ) : array( $record['fields'][ $name ] );
-				$got               = array_values( $found[ $id ][ $this->defs[ $name ]->id ][0] ?? array() );
+				$source            = $multi ? (array) $record['fields'][ $name ] : array( $record['fields'][ $name ] );
+				$want              = array_map( static fn( $v ) => NfLayout::fromDb( $table, NfLayout::toDb( $table, $v ) ), array_values( $source ) );
+				$got               = array_map( static fn( $v ) => NfLayout::fromDb( $table, $v ), array_values( $found[ $id ][ $this->defs[ $name ]->id ][0] ?? array() ) );
 				$ok                = $ok && $want === $got;
 			}
 			$count = count( $record['sessions'] );
 			$ok    = $ok && count( $rowmap[ $id ] ?? array() ) === $count;
 			foreach ( $record['sessions'] as $order => $row ) {
 				foreach ( NfLayout::SUBS as $sub => $table ) {
-					$got = $found[ $id ][ $this->defs[ 'sessions.' . $sub ]->id ][ $rowmap[ $id ][ $order ] ?? -1 ][0] ?? null;
-					$ok  = $ok && $got === $row[ $sub ];
+					$raw = $found[ $id ][ $this->defs[ 'sessions.' . $sub ]->id ][ $rowmap[ $id ][ $order ] ?? -1 ][0] ?? null;
+					$ok  = $ok && null !== $raw && NfLayout::fromDb( $table, $raw ) === NfLayout::fromDb( $table, NfLayout::toDb( $table, $row[ $sub ] ) );
 				}
 			}
 			if ( ! $ok ) {

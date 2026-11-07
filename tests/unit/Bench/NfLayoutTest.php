@@ -32,7 +32,11 @@ final class NfLayoutTest extends TestCase {
 				$values            = NfLayout::scalarValues( $record, $name );
 				$this->assertNotEmpty( $values, $name );
 				$back = array_map( static fn( $v ) => NfLayout::fromDb( $table, $v ), $values );
-				$this->assertSame( $multi ? array_values( (array) $record['fields'][ $name ] ) : array( $record['fields'][ $name ] ), $multi && 'int' === $table ? array_map( 'intval', $back ) : $back, $name );
+				$want = $multi ? array_values( (array) $record['fields'][ $name ] ) : array( $record['fields'][ $name ] );
+				if ( 'dec' === $table ) {
+					$want = array_map( 'floatval', $want );
+				}
+				$this->assertEquals( $want, $back, $name );
 			}
 			foreach ( $record['sessions'] as $row ) {
 				foreach ( NfLayout::SUBS as $sub => $table ) {
@@ -48,6 +52,16 @@ final class NfLayoutTest extends TestCase {
 	public function test_date_storage_form(): void {
 		$this->assertSame( '2024-03-09 00:00:00', NfLayout::toDb( 'date', '20240309' ) );
 		$this->assertSame( '20240309', NfLayout::fromDb( 'date', '2024-03-09 00:00:00' ) );
+	}
+
+	/**
+	 * Test the design doc mapping: Number to dec, Time picker to int seconds.
+	 */
+	public function test_design_doc_types(): void {
+		$this->assertSame( 'dec', NfLayout::scalar( 'price' )[0] );
+		$this->assertSame( 'int', NfLayout::table( NfLayout::SUBS['time'] ) );
+		$this->assertSame( 50400, NfLayout::toDb( 'time', '14:00' ) );
+		$this->assertSame( '14:15', NfLayout::fromDb( 'time', 51300 ) );
 	}
 
 	/**
