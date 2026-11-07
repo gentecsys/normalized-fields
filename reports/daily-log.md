@@ -12,3 +12,4 @@
 2026-11-06 | WP 0.6c | labelled nf:ready | Write round-trip differential scenarios (scalar, relationship, Series) with ACF-vs-ACF baseline; reviewer clean after one fix round; CI running (SCF baseline unverified locally) | PR #14 (wp/0.6c-diff-scenarios)
 2026-11-06 | gate G0 | waiting G0 | Phase 0 fully merged, CI green; wrote reports/gate-G0.md for owner approval | main
 2026-11-07 | WP 1.1 | labelled nf:ready | Backend adapter, field map, typed-table store (scalar, relationship, Series), schema installer, nf_db(); reviewer blockers fixed; full CI matrix + PHPCS/PHPStan green | PR #15 (wp/1.1-store)
+2026-11-07 | WP 0.3b | in-review (NOT labelled: label call denied by permission classifier; owner to add nf:ready) | NF store writer for the benchmark dataset (dec/int-seconds per design doc); reviewer clean after one fix round; CI 27/27 green; WP 1.1 marked merged, 1.2/1.3 ready | PR #16 (wp/0.3b-nf-store-writer)
