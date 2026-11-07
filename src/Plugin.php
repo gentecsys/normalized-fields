@@ -37,6 +37,22 @@ final class Plugin {
 	}
 
 	/**
+	 * Backend adapter (ADR-0009), created on first use.
+	 *
+	 * @var Backend\BackendInterface|null
+	 */
+	private static ?Backend\BackendInterface $db = null;
+
+	/**
+	 * The backend adapter behind nf_db().
+	 *
+	 * @return Backend\BackendInterface
+	 */
+	public static function db(): Backend\BackendInterface {
+		return self::$db ??= new Backend\MysqlBackend();
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
