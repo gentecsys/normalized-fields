@@ -16,6 +16,10 @@ Agent: A2 (daily build agent). Branch `wp/1.1-store`.
 - Schema install is per-site on activation only; no versioned migration class yet (`NF\Install\Migrations\`) and no multisite network-activation loop. Follow-up for A1.
 - Tests remove the WP test suite's temporary-table filters so dbDelta creates real tables, and clean their own rows.
 
+- **Ownership deviation:** besides A2's paths, this WP edited `src/Install/Schema.php`, `src/Plugin.php` (`db()` accessor), `src/Core/Requirements.php` (calls `Schema::install()`) and `src/functions/nf.php` (`nf_db()`), because the store cannot be tested without tables and the accessor. A1 should take over `Schema` and a versioned migration; owner to confirm at review.
+- Reviewer fixes: JSON encode failure now throws; `str` length counts characters; nested Series refused clearly; style fixes.
+- Non-blocking follow-ups from the reviewer: `getRows`/`setRows` are N+1 (batch in A6 loader or 2.1); `str` over 191 chars does not spill to `nf_text` yet; `dec` reads back as `12.500000` (decide canonical form before WP 1.4); MariaDB `max_statement_time` missing in `statementTimeout()` (A4); `prepare()` does not escape literal `%` or handle `?` in literals; scalar `set()` could use `upsert()`; `Plugin` has no `FieldMap`/`Store` accessor yet (needed by 1.2); `nf_meta` table not created; more tests (switch_blog, nested transaction, dialect cast/bit/mask).
+
 ## Contract change requested
 None.
 

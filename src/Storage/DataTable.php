@@ -76,10 +76,14 @@ enum DataTable: string {
 				}
 				return (string) $value;
 			case self::Json:
-				return (string) wp_json_encode( $value );
+				$json = wp_json_encode( $value );
+				if ( false === $json ) {
+					throw new \InvalidArgumentException( 'Value cannot be encoded as JSON.' );
+				}
+				return $json;
 			case self::Str:
-				if ( ! is_scalar( $value ) || strlen( (string) $value ) > 191 ) {
-					throw new \InvalidArgumentException( 'String value is longer than 191 bytes; use a text field.' );
+				if ( ! is_scalar( $value ) || mb_strlen( (string) $value ) > 191 ) {
+					throw new \InvalidArgumentException( 'String value is longer than 191 characters; use a text field.' );
 				}
 				return (string) $value;
 			default:

@@ -131,6 +131,9 @@ final class Store {
 		$def    = $this->rowsField( $key );
 		$byName = array();
 		foreach ( $this->fields->children( $def->id ) as $sub ) {
+			if ( ! $sub->table->hasValues() ) {
+				throw new \InvalidArgumentException( 'Nested Series are not supported yet.' );
+			}
 			$byName[ $sub->name ] = $sub;
 		}
 		$this->db->transaction(
