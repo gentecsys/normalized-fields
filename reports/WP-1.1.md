@@ -21,3 +21,7 @@ None.
 
 ## Verification
 See the section appended at the end of the run.
+
+### Verification (this run)
+- `php -l` on every new file: clean.
+- phpunit, phpcs (WPCS), phpstan: **not run locally**. `composer install` timed out (dist downloads blocked) and WPCS/phpunit are not available as phars. The real-database round-trip tests need the WP test suite and MySQL, so CI (full matrix) is the authoritative check.
