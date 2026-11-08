@@ -42,3 +42,6 @@ Composer dist downloads time out in the sandbox, so phpunit, phpcs and phpstan d
 - Only a `repeater` parent is queued (Group sub-fields are ignored); `add_row()`/`delete_row()` (count passed to the Series filter) queue a re-copy instead of writing no rows; sub-field lookup hoisted out of the row loop.
 - Semantics: queuing happens before ACF writes, so a failed ACF save just re-copies ACF's unchanged state (idempotent).
 - Tests added: Group sub-field, count save + missing count, logged-out GET vs POST. The `acf_get_field()` parent walk is only covered on the owner's ACF PRO check.
+
+## Follow-up (non-blocking, from re-review)
+A nested Series inside a re-synced Series is copied as a bare count by `readRows()` (nested Series are not stored in NF yet). Revisit when nested Series storage lands.
