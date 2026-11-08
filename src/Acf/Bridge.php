@@ -316,13 +316,14 @@ final class Bridge {
 	 * @param string               $name    Series name.
 	 * @param \NF\Storage\FieldDef $def     Series definition.
 	 * @return array<int,array<string,mixed>>
+	 * @throws \RuntimeException When ACF holds no row count.
 	 */
 	private function readRows( mixed $post_id, string $name, \NF\Storage\FieldDef $def ): array {
-		$read  = $this->reader ?? static fn( $id, string $meta ) => function_exists( 'acf_get_metadata' ) ? acf_get_metadata( $id, $meta ) : null;
-		$raw   = $read( $post_id, $name );
+		$read = $this->reader ?? static fn( $id, string $meta ) => function_exists( 'acf_get_metadata' ) ? acf_get_metadata( $id, $meta ) : null;
+		$raw  = $read( $post_id, $name );
 		if ( ! is_numeric( $raw ) ) {
 			// Reader unavailable or no stored count: never replace NF rows with nothing.
-			throw new \RuntimeException( 'ACF row count unavailable for ' . $name );
+			throw new \RuntimeException( 'ACF row count unavailable for ' . esc_html( $name ) );
 		}
 		$count = (int) $raw;
 		$subs  = $this->fields->children( $def->id );
