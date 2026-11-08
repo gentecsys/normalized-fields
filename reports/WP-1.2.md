@@ -14,6 +14,9 @@ Agent: A5 (daily build agent). Branch `wp/1.2-bridge-mode`.
 - Series are one level deep; nested Series sub-fields are skipped.
 - Text fields with no `maxlength` go to `nf_text` (a `nf_str` value over 191 chars would throw).
 
+- Reviewer fix: a nested Series is ignored while an outer one is saving; depth resets on `acf/save_post`; added a filter-chain test.
+- Known (non-blocking): the mirror runs at generic priority 99, before ACF's `name=`/`key=`/type handlers, so site filters on those can make NF and postmeta differ; WP 1.4's differential check must cover it. Group/clone sub-field names register as top-level fields. `text` without `maxlength` goes to `nf_text` (decide permanently at A0 review).
+
 ## Contract change requested
 None.
 
