@@ -75,7 +75,13 @@ class BridgeTest extends WP_UnitTestCase {
 	public function test_type_map(): void {
 		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( array( 'type' => 'relationship' ) ) );
 		$this->assertSame( array( DataTable::Text, false ), TypeMap::storage( array( 'type' => 'text' ) ) );
-		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( array( 'type' => 'text', 'maxlength' => 100 ) ) );
+		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage(
+				array(
+					'type'      => 'text',
+					'maxlength' => 100,
+				)
+			)
+		);
 		$this->assertSame( '2026-03-04 00:00:00', TypeMap::normalize( '20260304', DataTable::Date, false ) );
 		$this->assertNull( TypeMap::normalize( '', DataTable::Str, false ) );
 	}
@@ -84,8 +90,17 @@ class BridgeTest extends WP_UnitTestCase {
 	 * A scalar and a relationship save land in NF; an empty value removes the row.
 	 */
 	public function test_scalar_and_relationship_update(): void {
-		$title = array( 'key' => 'field_t12_title', 'name' => 'title', 'type' => 'text', 'maxlength' => 80 );
-		$rel   = array( 'key' => 'field_t12_rel', 'name' => 'rel', 'type' => 'relationship' );
+		$title = array(
+			'key'       => 'field_t12_title',
+			'name'      => 'title',
+			'type'      => 'text',
+			'maxlength' => 80,
+		);
+		$rel   = array(
+			'key'  => 'field_t12_rel',
+			'name' => 'rel',
+			'type' => 'relationship',
+		);
 		$this->assertSame( 'Hello', $this->bridge->onUpdate( 'Hello', 7, $title ) );
 		$this->bridge->onUpdate( array( '9', '4' ), 7, $rel );
 		$this->assertSame( 'Hello', $this->store->get( ObjectType::Post, 7, 'field_t12_title' ) );
@@ -103,13 +118,28 @@ class BridgeTest extends WP_UnitTestCase {
 			'name'       => 'sessions',
 			'type'       => 'repeater',
 			'sub_fields' => array(
-				array( 'key' => 'field_t12_s_name', 'name' => 'name', 'type' => 'text', 'maxlength' => 50 ),
-				array( 'key' => 'field_t12_s_len', 'name' => 'length', 'type' => 'number' ),
+				array(
+					'key'       => 'field_t12_s_name',
+					'name'      => 'name',
+					'type'      => 'text',
+					'maxlength' => 50,
+				),
+				array(
+					'key'  => 'field_t12_s_len',
+					'name' => 'length',
+					'type' => 'number',
+				),
 			),
 		);
 		$raw    = array(
-			'row-0' => array( 'field_t12_s_name' => 'Intro', 'field_t12_s_len' => '30' ),
-			'row-1' => array( 'field_t12_s_name' => 'Talk', 'field_t12_s_len' => '45.5' ),
+			'row-0' => array(
+				'field_t12_s_name' => 'Intro',
+				'field_t12_s_len'  => '30',
+			),
+			'row-1' => array(
+				'field_t12_s_name' => 'Talk',
+				'field_t12_s_len'  => '45.5',
+			),
 		);
 		$this->assertSame( $raw, $this->bridge->beforeSeries( $raw, 8, $series ) );
 		// ACF now saves each sub-field through acf/update_value; the bridge must not store it as a top-level field.
@@ -133,7 +163,11 @@ class BridgeTest extends WP_UnitTestCase {
 			++$seen;
 		};
 		add_action( 'nf/bridge/error', $count );
-		$bad = array( 'key' => 'field_t12_bad', 'name' => 'bad', 'type' => 'number' );
+		$bad = array(
+			'key'  => 'field_t12_bad',
+			'name' => 'bad',
+			'type' => 'number',
+		);
 		$this->assertSame( 'abc', $this->bridge->onUpdate( 'abc', 3, $bad ) );
 		$this->assertSame( 1, $seen );
 	}
