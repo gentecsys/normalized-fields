@@ -373,4 +373,89 @@ class BridgeTest extends WP_UnitTestCase {
 		$bridge->flush();
 		$this->assertSame( 1, $seen );
 	}
+
+	/**
+	 * A sub-field of a Group (not a Series) is never queued or written as rows.
+	 */
+	public function test_group_sub_field_is_not_resynced(): void {
+		$meta = array( 'rs' => 2 );
+		$this->resync_fixture( $meta );
+		$this->store->setRows( ObjectType::Post, 7, 'field_t12_rs', array( array( 'room' => 'Keep' ) ) );
+		$sub = array(
+			'key'    => 'field_t12_g_sub',
+			'name'   => 'grp_sub',
+			'type'   => 'text',
+			'parent' => 'field_t12_g',
+		);
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertSame( 'Keep', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[0]['room'] );
+	}
+
+	/**
+	 * add_row()/delete_row() pass a count to the Series filter: rows are re-copied, never wiped; and a
+	 * missing count leaves NF untouched and reports an error.
+	 */
+	public function test_row_count_save_resyncs_and_missing_count_is_safe(): void {
+		$meta   = array(
+			'rs'        => 2,
+			'rs_0_room' => 'Room A',
+			'rs_1_room' => 'Room Z',
+		);
+		$series = $this->resync_fixture( $meta );
+		$this->bridge->beforeSeries( 2, 7, $series );
+		$this->bridge->afterSeries( 2 );
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+		$this->bridge->flush();
+		$this->assertSame( 'Room Z', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+
+		$seen = 0;
+		add_action(
+			'nf/bridge/error',
+			static function () use ( &$seen ): void {
+				++$seen;
+			}
+		);
+		unset( $meta['rs'] );
+		$this->bridge->beforeSeries( 2, 7, $series );
+		$this->bridge->afterSeries( 2 );
+		$this->bridge->flush();
+		$this->assertSame( 1, $seen );
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+	}
+
+	/**
+	 * A logged-out GET never writes; a logged-out POST does.
+	 */
+	public function test_logged_out_get_does_not_write(): void {
+		$meta = array(
+			'rs'        => 1,
+			'rs_0_room' => 'Room N',
+		);
+		$this->resync_fixture( $meta );
+		$sub = array(
+			'key'    => 'field_t12_rs_room',
+			'name'   => 'rs_0_room',
+			'type'   => 'text',
+			'parent' => 'field_t12_rs',
+		);
+		wp_set_current_user( 0 );
+		$old = $_SERVER['REQUEST_METHOD'] ?? null;
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+
+		if ( null === $old ) {
+			unset( $_SERVER['REQUEST_METHOD'] );
+		} else {
+			$_SERVER['REQUEST_METHOD'] = $old;
+		}
+	}
 }

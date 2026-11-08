@@ -117,9 +117,14 @@ final class Bridge {
 			$this->queue( $post_id, $field );
 			return $value;
 		}
+		if ( ! is_array( $value ) ) {
+			// add_row()/delete_row() pass a row count: re-copy the rows from ACF instead of writing none.
+			$this->queueSeries( $post_id, $field );
+			return $value;
+		}
 		try {
 			$def  = $this->ensure( $field );
-			$rows = $this->normalizeRows( $def, is_array( $value ) ? $value : array() );
+			$rows = $this->normalizeRows( $def, $value );
 			$this->store->setRows( $target[0], $target[1], (string) $field['key'], $rows );
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
@@ -202,6 +207,7 @@ final class Bridge {
 	 * @return void
 	 */
 	public function flush(): void {
+		// Cleared first: a failed or skipped re-sync is not retried within the request.
 		$queue         = $this->pending;
 		$this->pending = array();
 		if ( array() === $queue ) {
@@ -235,8 +241,18 @@ final class Bridge {
 	 * @return void
 	 */
 	private function queue( mixed $post_id, array $field ): void {
-		$top = $this->topSeries( $field );
-		if ( null === $top || empty( $top['key'] ) ) {
+		$this->queueSeries( $post_id, $this->topSeries( $field ) );
+	}
+
+	/**
+	 * Queue a Series (only a repeater, never a Group or other parent) for a re-sync.
+	 *
+	 * @param mixed                    $post_id ACF post ID.
+	 * @param array<string,mixed>|null $top     Top-level Series.
+	 * @return void
+	 */
+	private function queueSeries( mixed $post_id, ?array $top ): void {
+		if ( null === $top || empty( $top['key'] ) || 'repeater' !== ( $top['type'] ?? '' ) ) {
 			return;
 		}
 		$id                                       = is_scalar( $post_id ) ? (string) $post_id : '';
@@ -282,7 +298,7 @@ final class Bridge {
 		}
 		if ( is_string( $ref ) && str_starts_with( $ref, 'field_' ) ) {
 			$known = $this->fields->byKey( $ref );
-			if ( null !== $known ) {
+			if ( null !== $known && DataTable::Rows === $known->table ) {
 				return array(
 					'key'  => $known->key,
 					'name' => $known->name,
@@ -303,11 +319,17 @@ final class Bridge {
 	 */
 	private function readRows( mixed $post_id, string $name, \NF\Storage\FieldDef $def ): array {
 		$read  = $this->reader ?? static fn( $id, string $meta ) => function_exists( 'acf_get_metadata' ) ? acf_get_metadata( $id, $meta ) : null;
-		$count = (int) $read( $post_id, $name );
+		$raw   = $read( $post_id, $name );
+		if ( ! is_numeric( $raw ) ) {
+			// Reader unavailable or no stored count: never replace NF rows with nothing.
+			throw new \RuntimeException( 'ACF row count unavailable for ' . $name );
+		}
+		$count = (int) $raw;
+		$subs  = $this->fields->children( $def->id );
 		$rows  = array();
 		for ( $i = 0; $i < $count; $i++ ) {
 			$row = array();
-			foreach ( $this->fields->children( $def->id ) as $sub ) {
+			foreach ( $subs as $sub ) {
 				$row[ $sub->name ] = $read( $post_id, $name . '_' . $i . '_' . $sub->name );
 			}
 			$rows[] = $row;
