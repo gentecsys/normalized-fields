@@ -100,7 +100,7 @@ final class Bridge {
 		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
 		$target = self::decode( $post_id );
-		if ( $nested || null === $target || empty( $field['key'] ) ) {
+		if ( $nested || null === $target || empty( $field['key'] ) || $this->isSubField( $field ) ) {
 			return $value;
 		}
 		try {
@@ -148,11 +148,11 @@ final class Bridge {
 	 *
 	 * @param mixed               $value   Value.
 	 * @param mixed               $post_id ACF post ID.
-	 * @param mixed               $field   Field.
+	 * @param array<string,mixed> $field   Field.
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || 'repeater' === ( $field['type'] ?? '' ) || empty( $field['key'] ) ) {
+		if ( $this->seriesDepth > 0 || 'repeater' === ( $field['type'] ?? '' ) || empty( $field['key'] ) || $this->isSubField( $field ) ) {
 			return $value;
 		}
 		$target = self::decode( $post_id );
@@ -171,9 +171,9 @@ final class Bridge {
 	/**
 	 * Action: ACF deleted a value.
 	 *
-	 * @param mixed               $post_id ACF post ID.
-	 * @param string              $name    Field name.
-	 * @param mixed               $field   Field.
+	 * @param mixed  $post_id ACF post ID.
+	 * @param string $name    Field name.
+	 * @param mixed  $field   Field.
 	 * @return void
 	 */
 	public function onDelete( mixed $post_id, string $name, mixed $field = null ): void {
@@ -189,6 +189,26 @@ final class Bridge {
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
+	}
+
+	/**
+	 * Whether a field belongs to a Series. Sub-fields are written only with their Series' rows, so a
+	 * sub-field saved on its own (update_sub_field(), update_field( 'outer_0_name' )) is not mirrored
+	 * as a top-level value; the next full Series save brings NF up to date.
+	 *
+	 * @param array<string,mixed> $field ACF field.
+	 * @return bool
+	 */
+	private function isSubField( array $field ): bool {
+		$parent = $field['parent'] ?? 0;
+		if ( is_string( $parent ) && str_starts_with( $parent, 'field_' ) ) {
+			return true;
+		}
+		if ( is_numeric( $parent ) && (int) $parent > 0 && 'acf-field' === get_post_type( (int) $parent ) ) {
+			return true;
+		}
+		$known = $this->fields->byKey( (string) $field['key'] );
+		return null !== $known && 0 !== $known->parentId;
 	}
 
 	/**
