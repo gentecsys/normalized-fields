@@ -32,12 +32,20 @@ final class Bridge {
 	private int $seriesDepth = 0;
 
 	/**
+	 * Top-level Series to re-copy from ACF once its sub-fields were saved on their own.
+	 *
+	 * @var array<string,array{0:mixed,1:array<string,mixed>}>
+	 */
+	private array $pending = array();
+
+	/**
 	 * Constructor.
 	 *
-	 * @param Store    $store  Store.
-	 * @param FieldMap $fields Field map.
+	 * @param Store         $store  Store.
+	 * @param FieldMap      $fields Field map.
+	 * @param \Closure|null $reader Reads a raw ACF meta value: fn( mixed $post_id, string $name ): mixed. Defaults to ACF's own.
 	 */
-	public function __construct( private Store $store, private FieldMap $fields ) {}
+	public function __construct( private Store $store, private FieldMap $fields, private ?\Closure $reader = null ) {}
 
 	/**
 	 * Add hooks. Series run first (priority 1) because ACF's own Series handler replaces the rows with a count.
@@ -46,6 +54,8 @@ final class Bridge {
 	 */
 	public function register(): void {
 		add_action( 'acf/save_post', array( $this, 'reset' ), 1 );
+		add_action( 'acf/save_post', array( $this, 'flush' ), 99 );
+		add_action( 'shutdown', array( $this, 'flush' ), 5 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'beforeSeries' ), 1, 3 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'afterSeries' ), 99, 1 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
@@ -100,31 +110,21 @@ final class Bridge {
 		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
 		$target = self::decode( $post_id );
-		if ( $nested || null === $target || empty( $field['key'] ) || $this->isSubField( $field ) ) {
+		if ( $nested || null === $target || empty( $field['key'] ) ) {
+			return $value;
+		}
+		if ( $this->isSubField( $field ) ) {
+			$this->queue( $post_id, $field );
+			return $value;
+		}
+		if ( ! is_array( $value ) ) {
+			// add_row()/delete_row() pass a row count: re-copy the rows from ACF instead of writing none.
+			$this->queueSeries( $post_id, $field );
 			return $value;
 		}
 		try {
 			$def  = $this->ensure( $field );
-			$subs = $this->fields->children( $def->id );
-			$rows = array();
-			foreach ( is_array( $value ) ? $value : array() as $row ) {
-				if ( ! is_array( $row ) ) {
-					continue;
-				}
-				$out = array();
-				foreach ( $subs as $sub ) {
-					$sub_key = $sub->key;
-					if ( array_key_exists( $sub_key, $row ) ) {
-						$raw = $row[ $sub_key ];
-					} elseif ( array_key_exists( $sub->name, $row ) ) {
-						$raw = $row[ $sub->name ];
-					} else {
-						continue;
-					}
-					$out[ $sub->name ] = TypeMap::normalize( $raw, $sub->table, $sub->multi );
-				}
-				$rows[] = $out;
-			}
+			$rows = $this->normalizeRows( $def, $value );
 			$this->store->setRows( $target[0], $target[1], (string) $field['key'], $rows );
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
@@ -152,7 +152,11 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || 'repeater' === ( $field['type'] ?? '' ) || empty( $field['key'] ) || $this->isSubField( $field ) ) {
+		if ( $this->seriesDepth > 0 || 'repeater' === ( $field['type'] ?? '' ) || empty( $field['key'] ) ) {
+			return $value;
+		}
+		if ( $this->isSubField( $field ) ) {
+			$this->queue( $post_id, $field );
 			return $value;
 		}
 		$target = self::decode( $post_id );
@@ -181,6 +185,10 @@ final class Bridge {
 		if ( null === $target || ! is_array( $field ) || empty( $field['key'] ) || $this->seriesDepth > 0 ) {
 			return;
 		}
+		if ( $this->isSubField( $field ) ) {
+			$this->queue( $post_id, $field );
+			return;
+		}
 		try {
 			$def = $this->fields->byKey( (string) $field['key'] );
 			if ( null !== $def && 0 === $def->parentId ) {
@@ -192,9 +200,178 @@ final class Bridge {
 	}
 
 	/**
-	 * Whether a field belongs to a Series. Sub-fields are written only with their Series' rows, so a
-	 * sub-field saved on its own (update_sub_field(), update_field( 'outer_0_name' )) is not mirrored
-	 * as a top-level value; the next full Series save brings NF up to date.
+	 * Re-copy every queued top-level Series from ACF into NF. Runs after ACF wrote its meta (late
+	 * `acf/save_post`, or `shutdown` for calls outside a save). One re-sync per Series per request.
+	 * A logged-out GET or HEAD never writes (D-18).
+	 *
+	 * @return void
+	 */
+	public function flush(): void {
+		// Cleared first: a failed or skipped re-sync is not retried within the request.
+		$queue         = $this->pending;
+		$this->pending = array();
+		if ( array() === $queue ) {
+			return;
+		}
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( (string) $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+		if ( ! is_user_logged_in() && in_array( $method, array( 'GET', 'HEAD' ), true ) ) {
+			return;
+		}
+		foreach ( $queue as [ $post_id, $series ] ) {
+			$target = self::decode( $post_id );
+			if ( null === $target ) {
+				continue;
+			}
+			try {
+				$def  = $this->ensure( $series );
+				$name = '' !== $def->name ? $def->name : (string) ( $series['name'] ?? '' );
+				$rows = $this->readRows( $post_id, $name, $def );
+				$this->store->setRows( $target[0], $target[1], $def->key, $rows );
+			} catch ( \Throwable $e ) {
+				do_action( 'nf/bridge/error', $e, $series, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			}
+		}
+	}
+
+	/**
+	 * Queue the top-level Series that owns a sub-field for a re-sync.
+	 *
+	 * @param mixed               $post_id ACF post ID.
+	 * @param array<string,mixed> $field   Sub-field.
+	 * @return void
+	 */
+	private function queue( mixed $post_id, array $field ): void {
+		$this->queueSeries( $post_id, $this->topSeries( $field ) );
+	}
+
+	/**
+	 * Queue a Series (only a repeater, never a Group or other parent) for a re-sync.
+	 *
+	 * @param mixed                    $post_id ACF post ID.
+	 * @param array<string,mixed>|null $top     Top-level Series.
+	 * @return void
+	 */
+	private function queueSeries( mixed $post_id, ?array $top ): void {
+		if ( null === $top || empty( $top['key'] ) || 'repeater' !== ( $top['type'] ?? '' ) ) {
+			return;
+		}
+		$id                                       = is_scalar( $post_id ) ? (string) $post_id : '';
+		$this->pending[ $id . '|' . $top['key'] ] = array( $post_id, $top );
+	}
+
+	/**
+	 * Walk `parent` up to the top-level Series.
+	 *
+	 * @param array<string,mixed> $field Sub-field.
+	 * @return array<string,mixed>|null
+	 */
+	private function topSeries( array $field ): ?array {
+		$current = $field;
+		for ( $i = 0; $i < 10; $i++ ) {
+			$parent = $this->loadParent( $current['parent'] ?? 0 );
+			if ( null === $parent ) {
+				return $i > 0 ? $current : null;
+			}
+			if ( ! $this->isSubField( $parent ) ) {
+				return $parent;
+			}
+			$current = $parent;
+		}
+		return null;
+	}
+
+	/**
+	 * Load a parent field by key or ACF field post ID.
+	 *
+	 * @param mixed $ref Parent reference.
+	 * @return array<string,mixed>|null
+	 */
+	private function loadParent( mixed $ref ): ?array {
+		if ( ! is_string( $ref ) && ! is_int( $ref ) ) {
+			return null;
+		}
+		if ( function_exists( 'acf_get_field' ) ) {
+			$loaded = acf_get_field( $ref );
+			if ( is_array( $loaded ) && ! empty( $loaded['key'] ) ) {
+				return $loaded;
+			}
+		}
+		if ( is_string( $ref ) && str_starts_with( $ref, 'field_' ) ) {
+			$known = $this->fields->byKey( $ref );
+			if ( null !== $known && DataTable::Rows === $known->table ) {
+				return array(
+					'key'  => $known->key,
+					'name' => $known->name,
+					'type' => 'repeater',
+				);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Read a Series' raw rows from ACF's meta.
+	 *
+	 * @param mixed                $post_id ACF post ID.
+	 * @param string               $name    Series name.
+	 * @param \NF\Storage\FieldDef $def     Series definition.
+	 * @return array<int,array<string,mixed>>
+	 * @throws \RuntimeException When ACF holds no row count.
+	 */
+	private function readRows( mixed $post_id, string $name, \NF\Storage\FieldDef $def ): array {
+		$read = $this->reader ?? static fn( $id, string $meta ) => function_exists( 'acf_get_metadata' ) ? acf_get_metadata( $id, $meta ) : null;
+		$raw  = $read( $post_id, $name );
+		if ( ! is_numeric( $raw ) ) {
+			// Reader unavailable or no stored count: never replace NF rows with nothing.
+			throw new \RuntimeException( 'ACF row count unavailable for ' . esc_html( $name ) );
+		}
+		$count = (int) $raw;
+		$subs  = $this->fields->children( $def->id );
+		$rows  = array();
+		for ( $i = 0; $i < $count; $i++ ) {
+			$row = array();
+			foreach ( $subs as $sub ) {
+				$row[ $sub->name ] = $read( $post_id, $name . '_' . $i . '_' . $sub->name );
+			}
+			$rows[] = $row;
+		}
+		return $this->normalizeRows( $def, $rows );
+	}
+
+	/**
+	 * Normalise raw Series rows (keyed by sub-field key or name) for the store.
+	 *
+	 * @param \NF\Storage\FieldDef $def  Series definition.
+	 * @param array<mixed>         $value Raw rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function normalizeRows( \NF\Storage\FieldDef $def, array $value ): array {
+		$subs = $this->fields->children( $def->id );
+		$rows = array();
+		foreach ( $value as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$out = array();
+			foreach ( $subs as $sub ) {
+				if ( array_key_exists( $sub->key, $row ) ) {
+					$raw = $row[ $sub->key ];
+				} elseif ( array_key_exists( $sub->name, $row ) ) {
+					$raw = $row[ $sub->name ];
+				} else {
+					continue;
+				}
+				$out[ $sub->name ] = TypeMap::normalize( $raw, $sub->table, $sub->multi );
+			}
+			$rows[] = $out;
+		}
+		return $rows;
+	}
+
+	/**
+	 * Whether a field belongs to a Series. Sub-fields are not mirrored as top-level values; when saved
+	 * on their own (update_sub_field(), update_field( 'outer_0_name' )) their top-level Series is queued
+	 * and re-copied from ACF by flush().
 	 *
 	 * @param array<string,mixed> $field ACF field.
 	 * @return bool

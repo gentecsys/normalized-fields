@@ -38,6 +38,8 @@ class BridgeTest extends WP_UnitTestCase {
 	 */
 	public function set_up() {
 		parent::set_up();
+		// The WP test bootstrap runs as a logged-out GET, which the bridge never writes for (D-18).
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
@@ -260,5 +262,202 @@ class BridgeTest extends WP_UnitTestCase {
 		);
 		$this->assertSame( 'abc', $this->bridge->onUpdate( 'abc', 3, $bad ) );
 		$this->assertSame( 1, $seen );
+	}
+
+	/**
+	 * Build a bridge that reads ACF meta from an array, and a Series with one text sub-field.
+	 *
+	 * @param array<string,mixed> $meta Raw meta by name.
+	 * @return array<string,mixed> Series field.
+	 */
+	private function resync_fixture( array &$meta ): array {
+		$fields       = new FieldMap( nf_db() );
+		$this->bridge = new Bridge(
+			$this->store,
+			$fields,
+			static function ( $id, string $name ) use ( &$meta ) {
+				return $meta[ $name ] ?? null;
+			}
+		);
+		$series       = array(
+			'key'        => 'field_t12_rs',
+			'name'       => 'rs',
+			'type'       => 'repeater',
+			'sub_fields' => array(
+				array(
+					'key'    => 'field_t12_rs_room',
+					'name'   => 'room',
+					'type'   => 'text',
+					'parent' => 'field_t12_rs',
+				),
+			),
+		);
+		$this->bridge->beforeSeries( array( array( 'field_t12_rs_room' => 'Room A' ), array( 'field_t12_rs_room' => 'Room A' ) ), 7, $series );
+		$this->bridge->afterSeries( 2 );
+		return $series;
+	}
+
+	/**
+	 * A lone sub-field save re-copies the whole Series from ACF, once, on flush.
+	 */
+	public function test_sub_field_save_resyncs_series_once(): void {
+		$meta = array(
+			'rs'        => 2,
+			'rs_0_room' => 'Room A',
+			'rs_1_room' => 'Room B',
+		);
+		$this->resync_fixture( $meta );
+		$sub = array(
+			'key'    => 'field_t12_rs_room',
+			'name'   => 'rs_1_room',
+			'type'   => 'text',
+			'parent' => 'field_t12_rs',
+		);
+		$this->bridge->onUpdate( 'Room B', 7, $sub );
+		$this->bridge->onUpdate( 'Room B', 7, array_merge( $sub, array( 'name' => 'rs_0_room' ) ) );
+		$this->assertSame( 'Room A', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+		$this->bridge->flush();
+		$rows = $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' );
+		$this->assertSame( array( 'Room A', 'Room B' ), array( $rows[0]['room'], $rows[1]['room'] ) );
+		// Second flush has nothing queued: change meta and confirm no further write.
+		$meta['rs_1_room'] = 'Room C';
+		$this->bridge->flush();
+		$this->assertSame( 'Room B', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+	}
+
+	/**
+	 * A deleted row (count shrinks) and a delete_sub_field() both re-sync.
+	 */
+	public function test_row_delete_resyncs_series(): void {
+		$meta = array(
+			'rs'        => 1,
+			'rs_0_room' => 'Room A',
+		);
+		$this->resync_fixture( $meta );
+		$sub = array(
+			'key'    => 'field_t12_rs_room',
+			'name'   => 'rs_1_room',
+			'type'   => 'text',
+			'parent' => 'field_t12_rs',
+		);
+		$this->bridge->onDelete( 7, 'rs_1_room', $sub );
+		$this->bridge->flush();
+		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+	}
+
+	/**
+	 * A re-sync failure is reported, never thrown.
+	 */
+	public function test_resync_failure_is_reported(): void {
+		$seen = 0;
+		add_action(
+			'nf/bridge/error',
+			static function () use ( &$seen ): void {
+				++$seen;
+			}
+		);
+		$meta = array();
+		$this->resync_fixture( $meta );
+		$bridge = new Bridge(
+			$this->store,
+			new FieldMap( nf_db() ),
+			static function (): never {
+				throw new \RuntimeException( 'boom' );
+			}
+		);
+		$sub    = array(
+			'key'    => 'field_t12_rs_room',
+			'name'   => 'rs_0_room',
+			'type'   => 'text',
+			'parent' => 'field_t12_rs',
+		);
+		$bridge->onUpdate( 'x', 7, $sub );
+		$bridge->flush();
+		$this->assertSame( 1, $seen );
+	}
+
+	/**
+	 * A sub-field of a Group (not a Series) is never queued or written as rows.
+	 */
+	public function test_group_sub_field_is_not_resynced(): void {
+		$meta = array( 'rs' => 2 );
+		$this->resync_fixture( $meta );
+		$this->store->setRows( ObjectType::Post, 7, 'field_t12_rs', array( array( 'room' => 'Keep' ) ) );
+		$sub = array(
+			'key'    => 'field_t12_g_sub',
+			'name'   => 'grp_sub',
+			'type'   => 'text',
+			'parent' => 'field_t12_g',
+		);
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertSame( 'Keep', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[0]['room'] );
+	}
+
+	/**
+	 * The add_row()/delete_row() count saves re-copy rows and never wipe them; a missing count leaves NF
+	 * untouched and reports an error.
+	 */
+	public function test_row_count_save_resyncs_and_missing_count_is_safe(): void {
+		$meta   = array(
+			'rs'        => 2,
+			'rs_0_room' => 'Room A',
+			'rs_1_room' => 'Room Z',
+		);
+		$series = $this->resync_fixture( $meta );
+		$this->bridge->beforeSeries( 2, 7, $series );
+		$this->bridge->afterSeries( 2 );
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+		$this->bridge->flush();
+		$this->assertSame( 'Room Z', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+
+		$seen = 0;
+		add_action(
+			'nf/bridge/error',
+			static function () use ( &$seen ): void {
+				++$seen;
+			}
+		);
+		unset( $meta['rs'] );
+		$this->bridge->beforeSeries( 2, 7, $series );
+		$this->bridge->afterSeries( 2 );
+		$this->bridge->flush();
+		$this->assertSame( 1, $seen );
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+	}
+
+	/**
+	 * A logged-out GET never writes; a logged-out POST does.
+	 */
+	public function test_logged_out_get_does_not_write(): void {
+		$meta = array(
+			'rs'        => 1,
+			'rs_0_room' => 'Room N',
+		);
+		$this->resync_fixture( $meta );
+		$sub = array(
+			'key'    => 'field_t12_rs_room',
+			'name'   => 'rs_0_room',
+			'type'   => 'text',
+			'parent' => 'field_t12_rs',
+		);
+		wp_set_current_user( 0 );
+		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertCount( 2, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$this->bridge->onUpdate( 'x', 7, $sub );
+		$this->bridge->flush();
+		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' ) );
+
+		if ( null === $old ) {
+			unset( $_SERVER['REQUEST_METHOD'] );
+		} else {
+			$_SERVER['REQUEST_METHOD'] = $old;
+		}
 	}
 }
