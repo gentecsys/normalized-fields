@@ -53,12 +53,44 @@ final class Plugin {
 	}
 
 	/**
+	 * Field map, created on first use.
+	 *
+	 * @var Storage\FieldMap|null
+	 */
+	private static ?Storage\FieldMap $fieldMap = null;
+
+	/**
+	 * Store, created on first use.
+	 *
+	 * @var Storage\Store|null
+	 */
+	private static ?Storage\Store $store = null;
+
+	/**
+	 * The field map.
+	 *
+	 * @return Storage\FieldMap
+	 */
+	public static function fields(): Storage\FieldMap {
+		return self::$fieldMap ??= new Storage\FieldMap( self::db() );
+	}
+
+	/**
+	 * The typed-table store.
+	 *
+	 * @return Storage\Store
+	 */
+	public static function store(): Storage\Store {
+		return self::$store ??= new Storage\Store( self::db(), self::fields() );
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array();
+		return array( new Acf\Bridge( self::store(), self::fields() ) );
 	}
 
 	/**
