@@ -27,3 +27,7 @@ None.
 - `php -l` on every new/changed file: clean.
 - phpunit, phpstan, WPCS: not run locally (no vendor; WPCS phar unavailable; phpcs phar downloaded but cannot load the WordPress standard). CI is the authoritative check.
 - Tests drive the hooks with ACF-shaped arguments; they do not install ACF.
+
+## Resume from (second review, blocking, NOT labelled nf:ready)
+- **Blocking:** a sub-field saved outside a Series save (`update_sub_field()`, or `update_field('outer_0_name')`) has `seriesDepth` 0, so `Bridge::onUpdate` mirrors it as a top-level value; an inner Series saved the same way goes through `beforeSeries` and is registered with `parent_id = 0`. Fix in `src/Acf/Bridge.php`: in `onUpdate` and `beforeSeries`, return early when the field is a sub-field (`$def->parentId !== 0` after `fields->byKey()`, or `$field['parent']` is a `field_` key). Add a test with depth 0 and a sub-field array asserting nothing is written.
+- Non-blocking: inner Series rows are dropped (document); depth only resets on `acf/save_post`; strengthen `test_series_through_filters_and_nested` to assert outer rows are unchanged after the inner call.
