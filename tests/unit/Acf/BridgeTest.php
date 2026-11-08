@@ -363,7 +363,7 @@ class BridgeTest extends WP_UnitTestCase {
 				throw new \RuntimeException( 'boom' );
 			}
 		);
-		$sub = array(
+		$sub    = array(
 			'key'    => 'field_t12_rs_room',
 			'name'   => 'rs_0_room',
 			'type'   => 'text',
