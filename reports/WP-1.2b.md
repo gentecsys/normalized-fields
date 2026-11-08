@@ -28,3 +28,20 @@ top-level Series from ACF into NF once the ACF write has happened:
 ## Tests
 Sub-field update, `add_row()`, `delete_row()`, two sub-fields in one request (one re-sync), failure
 reported not thrown. The owner re-runs the ACF PRO check on nf-dev after merge.
+
+## Result (daily agent, 2026-11-08)
+`Bridge` now queues the top-level Series whenever a sub-field is updated, deleted or a nested Series is saved outside a full Series save (`onUpdate`, `onDelete`, `beforeSeries` when `isSubField()`); `topSeries()` walks `parent` via `acf_get_field()` (falls back to the NF field map). `flush()` runs on `acf/save_post` priority 99 and on `shutdown`, re-reads the raw rows from ACF meta (`acf_get_metadata()`, name + `_i_` + sub name), normalises them through the shared `normalizeRows()` and calls `Store::setRows()`. One re-sync per (object, Series) per request; failures go to `nf/bridge/error`; logged-out GET/HEAD never write.
+
+Tests added in `tests/unit/Acf/BridgeTest.php`: lone sub-field updates (two in one request, one re-sync), row delete, failure reported. The meta reader is injectable (constructor), so no ACF is needed.
+
+## Not run here
+Composer dist downloads time out in the sandbox, so phpunit, phpcs and phpstan did not run locally (`php -l` only); CI is the check. Owner still re-runs the ACF PRO check on nf-dev after merge.
+
+## Review round 1 (fixed)
+- Reader: re-sync reads ACF meta with `acf_get_metadata()` (raw, no formatting; `get_field( $key, $id, false )` returns only a count for a Series). A missing count now throws and is reported; NF rows are never replaced by nothing.
+- Only a `repeater` parent is queued (Group sub-fields are ignored); `add_row()`/`delete_row()` (count passed to the Series filter) queue a re-copy instead of writing no rows; sub-field lookup hoisted out of the row loop.
+- Semantics: queuing happens before ACF writes, so a failed ACF save just re-copies ACF's unchanged state (idempotent).
+- Tests added: Group sub-field, count save + missing count, logged-out GET vs POST. The `acf_get_field()` parent walk is only covered on the owner's ACF PRO check.
+
+## Follow-up (non-blocking, from re-review)
+A nested Series inside a re-synced Series is copied as a bare count by `readRows()` (nested Series are not stored in NF yet). Revisit when nested Series storage lands.
