@@ -267,21 +267,21 @@ final class Bridge {
 	/**
 	 * Load a parent field by key or ACF field post ID.
 	 *
-	 * @param mixed $parent Parent reference.
+	 * @param mixed $ref Parent reference.
 	 * @return array<string,mixed>|null
 	 */
-	private function loadParent( mixed $parent ): ?array {
-		if ( ! is_string( $parent ) && ! is_int( $parent ) ) {
+	private function loadParent( mixed $ref ): ?array {
+		if ( ! is_string( $ref ) && ! is_int( $ref ) ) {
 			return null;
 		}
 		if ( function_exists( 'acf_get_field' ) ) {
-			$loaded = acf_get_field( $parent );
+			$loaded = acf_get_field( $ref );
 			if ( is_array( $loaded ) && ! empty( $loaded['key'] ) ) {
 				return $loaded;
 			}
 		}
-		if ( is_string( $parent ) && str_starts_with( $parent, 'field_' ) ) {
-			$known = $this->fields->byKey( $parent );
+		if ( is_string( $ref ) && str_starts_with( $ref, 'field_' ) ) {
+			$known = $this->fields->byKey( $ref );
 			if ( null !== $known ) {
 				return array(
 					'key'  => $known->key,
