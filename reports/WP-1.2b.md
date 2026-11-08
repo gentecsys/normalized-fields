@@ -28,3 +28,11 @@ top-level Series from ACF into NF once the ACF write has happened:
 ## Tests
 Sub-field update, `add_row()`, `delete_row()`, two sub-fields in one request (one re-sync), failure
 reported not thrown. The owner re-runs the ACF PRO check on nf-dev after merge.
+
+## Result (daily agent, 2026-11-08)
+`Bridge` now queues the top-level Series whenever a sub-field is updated, deleted or a nested Series is saved outside a full Series save (`onUpdate`, `onDelete`, `beforeSeries` when `isSubField()`); `topSeries()` walks `parent` via `acf_get_field()` (falls back to the NF field map). `flush()` runs on `acf/save_post` priority 99 and on `shutdown`, re-reads the raw rows from ACF meta (`acf_get_metadata()`, name + `_i_` + sub name), normalises them through the shared `normalizeRows()` and calls `Store::setRows()`. One re-sync per (object, Series) per request; failures go to `nf/bridge/error`; logged-out GET/HEAD never write.
+
+Tests added in `tests/unit/Acf/BridgeTest.php`: lone sub-field updates (two in one request, one re-sync), row delete, failure reported. The meta reader is injectable (constructor), so no ACF is needed.
+
+## Not run here
+Composer dist downloads time out in the sandbox, so phpunit, phpcs and phpstan did not run locally (`php -l` only); CI is the check. Owner still re-runs the ACF PRO check on nf-dev after merge.
