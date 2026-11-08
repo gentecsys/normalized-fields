@@ -38,6 +38,8 @@ class BridgeTest extends WP_UnitTestCase {
 	 */
 	public function set_up() {
 		parent::set_up();
+		// The WP test bootstrap runs as a logged-out GET, which the bridge never writes for (D-18).
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
