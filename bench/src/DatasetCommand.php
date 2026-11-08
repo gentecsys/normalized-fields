@@ -38,11 +38,12 @@ final class DatasetCommand {
 	 * ---
 	 *
 	 * [--store=<store>]
-	 * : Target store. `nf` arrives with WP 0.3b.
+	 * : Target store (`acf` = wp_postmeta in ACF format, `nf` = NF typed tables).
 	 * ---
 	 * default: acf
 	 * options:
 	 *   - acf
+	 *   - nf
 	 * ---
 	 *
 	 * [--force]
@@ -133,6 +134,9 @@ final class DatasetCommand {
 	private static function store( array $assoc ): StoreWriter {
 		global $wpdb;
 		$name = (string) ( $assoc['store'] ?? 'acf' );
+		if ( 'nf' === $name ) {
+			return new NfStore( $wpdb, \NF\Plugin::db() );
+		}
 		if ( 'acf' !== $name ) {
 			\WP_CLI::error( "Unknown store '{$name}'." );
 		}
