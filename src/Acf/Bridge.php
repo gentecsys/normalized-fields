@@ -127,7 +127,7 @@ final class Bridge {
 			}
 			$this->store->setRows( $target[0], $target[1], (string) $field['key'], $rows );
 		} catch ( \Throwable $e ) {
-			do_action( 'nf/bridge/error', $e, $field, $post_id );
+			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
 		return $value;
 	}
@@ -148,7 +148,7 @@ final class Bridge {
 	 *
 	 * @param mixed               $value   Value.
 	 * @param mixed               $post_id ACF post ID.
-	 * @param array<string,mixed> $field   Field.
+	 * @param mixed               $field   Field.
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
@@ -163,7 +163,7 @@ final class Bridge {
 			$def = $this->ensure( $field );
 			$this->store->set( $target[0], $target[1], $def->key, TypeMap::normalize( $value, $def->table, $def->multi ) );
 		} catch ( \Throwable $e ) {
-			do_action( 'nf/bridge/error', $e, $field, $post_id );
+			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
 		return $value;
 	}
@@ -173,7 +173,7 @@ final class Bridge {
 	 *
 	 * @param mixed               $post_id ACF post ID.
 	 * @param string              $name    Field name.
-	 * @param array<string,mixed> $field   Field.
+	 * @param mixed               $field   Field.
 	 * @return void
 	 */
 	public function onDelete( mixed $post_id, string $name, mixed $field = null ): void {
@@ -187,7 +187,7 @@ final class Bridge {
 				$this->store->delete( $target[0], $target[1], $def->key );
 			}
 		} catch ( \Throwable $e ) {
-			do_action( 'nf/bridge/error', $e, $field, $post_id );
+			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
 	}
 

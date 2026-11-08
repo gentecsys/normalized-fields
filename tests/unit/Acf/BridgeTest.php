@@ -75,13 +75,11 @@ class BridgeTest extends WP_UnitTestCase {
 	public function test_type_map(): void {
 		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( array( 'type' => 'relationship' ) ) );
 		$this->assertSame( array( DataTable::Text, false ), TypeMap::storage( array( 'type' => 'text' ) ) );
-		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage(
-				array(
-					'type'      => 'text',
-					'maxlength' => 100,
-				)
-			)
+		$short = array(
+			'type'      => 'text',
+			'maxlength' => 100,
 		);
+		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( $short ) );
 		$this->assertSame( '2026-03-04 00:00:00', TypeMap::normalize( '20260304', DataTable::Date, false ) );
 		$this->assertNull( TypeMap::normalize( '', DataTable::Str, false ) );
 	}
@@ -174,13 +172,13 @@ class BridgeTest extends WP_UnitTestCase {
 				),
 			),
 		);
-		$inner  = array(
+		$inner = array(
 			'key'  => 'field_t12_inner',
 			'name' => 'outer_0_inner',
 			'type' => 'repeater',
 		);
-		$rows   = array( 'row-0' => array( 'field_t12_o_name' => 'A' ) );
-		$this->assertSame( 1, apply_filters( 'acf/update_value/type=repeater', $rows, 8, $series ) );
+		$rows  = array( 'row-0' => array( 'field_t12_o_name' => 'A' ) );
+		$this->assertSame( 1, apply_filters( 'acf/update_value/type=repeater', $rows, 8, $series ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 8, 'field_t12_outer' ) );
 		// An inner Series while the outer one is open is ignored.
 		$this->bridge->beforeSeries( $rows, 8, $series );
