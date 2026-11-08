@@ -45,10 +45,20 @@ final class Bridge {
 	 * @return void
 	 */
 	public function register(): void {
+		add_action( 'acf/save_post', array( $this, 'reset' ), 1 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'beforeSeries' ), 1, 3 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'afterSeries' ), 99, 1 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
 		add_action( 'acf/delete_value', array( $this, 'onDelete' ), 10, 3 );
+	}
+
+	/**
+	 * Reset the Series depth at the start of a save, in case an earlier filter threw.
+	 *
+	 * @return void
+	 */
+	public function reset(): void {
+		$this->seriesDepth = 0;
 	}
 
 	/**
@@ -87,9 +97,10 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function beforeSeries( mixed $value, mixed $post_id, array $field ): mixed {
+		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
 		$target = self::decode( $post_id );
-		if ( null === $target || empty( $field['key'] ) ) {
+		if ( $nested || null === $target || empty( $field['key'] ) ) {
 			return $value;
 		}
 		try {
