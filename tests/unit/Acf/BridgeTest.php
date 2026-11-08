@@ -160,7 +160,7 @@ class BridgeTest extends WP_UnitTestCase {
 		$this->bridge->register();
 		$handler = static fn( $value ) => is_array( $value ) ? count( $value ) : $value;
 		add_filter( 'acf/update_value/type=repeater', $handler, 10 );
-		$series = array(
+		$series  = array(
 			'key'        => 'field_t12_outer',
 			'name'       => 'outer',
 			'type'       => 'repeater',
@@ -172,12 +172,12 @@ class BridgeTest extends WP_UnitTestCase {
 				),
 			),
 		);
-		$inner = array(
+		$inner   = array(
 			'key'  => 'field_t12_inner',
 			'name' => 'outer_0_inner',
 			'type' => 'repeater',
 		);
-		$rows  = array( 'row-0' => array( 'field_t12_o_name' => 'A' ) );
+		$rows    = array( 'row-0' => array( 'field_t12_o_name' => 'A' ) );
 		$this->assertSame( 1, apply_filters( 'acf/update_value/type=repeater', $rows, 8, $series ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 8, 'field_t12_outer' ) );
 		// An inner Series while the outer one is open is ignored.
@@ -187,6 +187,61 @@ class BridgeTest extends WP_UnitTestCase {
 		$this->bridge->afterSeries( 1 );
 		$this->assertNull( ( new FieldMap( nf_db() ) )->byKey( 'field_t12_inner' ) );
 		remove_filter( 'acf/update_value/type=repeater', $handler, 10 );
+	}
+
+	/**
+	 * A sub-field saved outside a Series save (depth 0) writes nothing: no top-level value, no inner Series.
+	 */
+	public function test_sub_field_outside_series_writes_nothing(): void {
+		$this->bridge->beforeSeries(
+			array( 'row-0' => array( 'field_t12_o_name' => 'A' ) ),
+			8,
+			array(
+				'key'        => 'field_t12_outer',
+				'name'       => 'outer',
+				'type'       => 'repeater',
+				'sub_fields' => array(
+					array(
+						'key'  => 'field_t12_o_name',
+						'name' => 'name',
+						'type' => 'text',
+					),
+				),
+			)
+		);
+		$this->bridge->afterSeries( 1 );
+		$fields = new FieldMap( nf_db() );
+
+		// Known sub-field (registered with its Series), saved alone.
+		$known = array(
+			'key'  => 'field_t12_o_name',
+			'name' => 'outer_0_name',
+			'type' => 'text',
+		);
+		$this->bridge->onUpdate( 'B', 8, $known );
+		$this->assertNull( $this->store->get( ObjectType::Post, 8, 'field_t12_o_name' ) );
+		$this->assertSame( 'A', $this->store->getRows( ObjectType::Post, 8, 'field_t12_outer' )[0]['name'] );
+
+		// Unregistered sub-field, recognised by its field_ parent.
+		$loose = array(
+			'key'    => 'field_t12_o_loose',
+			'name'   => 'outer_0_loose',
+			'type'   => 'text',
+			'parent' => 'field_t12_outer',
+		);
+		$this->bridge->onUpdate( 'C', 8, $loose );
+		$this->assertNull( $fields->byKey( 'field_t12_o_loose' ) );
+
+		// Inner Series saved on its own is not registered at the top level.
+		$inner = array(
+			'key'    => 'field_t12_inner2',
+			'name'   => 'outer_0_inner2',
+			'type'   => 'repeater',
+			'parent' => 'field_t12_outer',
+		);
+		$this->bridge->beforeSeries( array(), 8, $inner );
+		$this->bridge->afterSeries( 0 );
+		$this->assertNull( $fields->byKey( 'field_t12_inner2' ) );
 	}
 
 	/**
