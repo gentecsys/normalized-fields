@@ -30,7 +30,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1.1 | Store: scalar, repeater, relationship | A2 | M | G0 | merged | wp/1.1-store | Write/read/update/delete round-trip tests |
 | 1.2 | Bridge mode | A5 | M | 1.1 | merged | wp/1.2-bridge-mode | ACF admin saves land in NF tables |
-| 1.2b | Bridge: re-sync a Series after a lone sub-field save | A5 | S | 1.2 | ready | | **Do this before 1.3.** See `reports/WP-1.2b.md`. After `update_sub_field()` or `update_field( 'outer_0_name' )` on real ACF PRO, NF holds the same rows as ACF; tests cover sub-field, row add/remove via `add_row()`/`delete_row()`, and no write when ACF's save fails |
+| 1.2b | Bridge: re-sync a Series after a lone sub-field save | A5 | S | 1.2 | in-review | wp/1.2b-series-resync | **Do this before 1.3.** See `reports/WP-1.2b.md`. After `update_sub_field()` or `update_field( 'outer_0_name' )` on real ACF PRO, NF holds the same rows as ACF; tests cover sub-field, row add/remove via `add_row()`/`delete_row()`, and no write when ACF's save fails |
 | 1.3 | Minimal pivot + two translated queries | A3 + A4 | M | 1.1 | ready | | Same IDs, order, `found_posts` and `max_num_pages` as `WP_Query` on `wp_postmeta`, incl. the design doc's pagination cases (`paged`, `offset`, `-1`) |
 | 1.4 | Differential check | A11 | S | 1.2, 1.2b | todo | | Zero diffs |
 | 1.5 | Spike benchmark | A12 | S | 1.3 | todo | | Report in `reports/` |
