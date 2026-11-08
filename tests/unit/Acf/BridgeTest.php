@@ -393,8 +393,8 @@ class BridgeTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * add_row()/delete_row() pass a count to the Series filter: rows are re-copied, never wiped; and a
-	 * missing count leaves NF untouched and reports an error.
+	 * The add_row()/delete_row() count saves re-copy rows and never wipe them; a missing count leaves NF
+	 * untouched and reports an error.
 	 */
 	public function test_row_count_save_resyncs_and_missing_count_is_safe(): void {
 		$meta   = array(
@@ -440,7 +440,7 @@ class BridgeTest extends WP_UnitTestCase {
 			'parent' => 'field_t12_rs',
 		);
 		wp_set_current_user( 0 );
-		$old = $_SERVER['REQUEST_METHOD'] ?? null;
+		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 
 		$_SERVER['REQUEST_METHOD'] = 'GET';
 		$this->bridge->onUpdate( 'x', 7, $sub );
