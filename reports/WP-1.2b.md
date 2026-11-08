@@ -36,3 +36,9 @@ Tests added in `tests/unit/Acf/BridgeTest.php`: lone sub-field updates (two in o
 
 ## Not run here
 Composer dist downloads time out in the sandbox, so phpunit, phpcs and phpstan did not run locally (`php -l` only); CI is the check. Owner still re-runs the ACF PRO check on nf-dev after merge.
+
+## Review round 1 (fixed)
+- Reader: re-sync reads ACF meta with `acf_get_metadata()` (raw, no formatting; `get_field( $key, $id, false )` returns only a count for a Series). A missing count now throws and is reported; NF rows are never replaced by nothing.
+- Only a `repeater` parent is queued (Group sub-fields are ignored); `add_row()`/`delete_row()` (count passed to the Series filter) queue a re-copy instead of writing no rows; sub-field lookup hoisted out of the row loop.
+- Semantics: queuing happens before ACF writes, so a failed ACF save just re-copies ACF's unchanged state (idempotent).
+- Tests added: Group sub-field, count save + missing count, logged-out GET vs POST. The `acf_get_field()` parent walk is only covered on the owner's ACF PRO check.
