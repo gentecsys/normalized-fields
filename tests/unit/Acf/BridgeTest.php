@@ -155,6 +155,43 @@ class BridgeTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Through apply_filters, the Series rows land in NF even though ACF's handler swaps them for a count,
+	 * and a nested Series save does not write a top-level field.
+	 */
+	public function test_series_through_filters_and_nested(): void {
+		$this->bridge->register();
+		$handler = static fn( $value ) => is_array( $value ) ? count( $value ) : $value;
+		add_filter( 'acf/update_value/type=repeater', $handler, 10 );
+		$series = array(
+			'key'        => 'field_t12_outer',
+			'name'       => 'outer',
+			'type'       => 'repeater',
+			'sub_fields' => array(
+				array(
+					'key'  => 'field_t12_o_name',
+					'name' => 'name',
+					'type' => 'text',
+				),
+			),
+		);
+		$inner  = array(
+			'key'  => 'field_t12_inner',
+			'name' => 'outer_0_inner',
+			'type' => 'repeater',
+		);
+		$rows   = array( 'row-0' => array( 'field_t12_o_name' => 'A' ) );
+		$this->assertSame( 1, apply_filters( 'acf/update_value/type=repeater', $rows, 8, $series ) );
+		$this->assertCount( 1, $this->store->getRows( ObjectType::Post, 8, 'field_t12_outer' ) );
+		// An inner Series while the outer one is open is ignored.
+		$this->bridge->beforeSeries( $rows, 8, $series );
+		$this->bridge->beforeSeries( $rows, 8, $inner );
+		$this->bridge->afterSeries( 1 );
+		$this->bridge->afterSeries( 1 );
+		$this->assertNull( ( new FieldMap( nf_db() ) )->byKey( 'field_t12_inner' ) );
+		remove_filter( 'acf/update_value/type=repeater', $handler, 10 );
+	}
+
+	/**
 	 * A storage failure never breaks the ACF save.
 	 */
 	public function test_failure_is_reported_not_thrown(): void {
