@@ -1301,7 +1301,7 @@ The export screen is a DataViews list of collections with checkboxes and a forma
 - **No hard dependencies:** no persistent object cache, CLI access or specific host is required; a persistent object cache is used when present.
 - **Install and upgrade:** tables are created with `dbDelta()` on activation and versioned upgrades; multisite creates them per site on network activation and for new sites. `uninstall.php` drops tables only if the admin opted in.
 - **Deploys:** collections travel as ACF-format JSON files in the theme or plugin, so any pipeline (Git, FTP, a host's deploy tool) keeps environments in sync.
-- **Distribution:** GPL, no calls to external services (a remote PostgreSQL database is used only when the site owner configures one), ready for the WordPress.org directory.
+- **Distribution:** GPL v3 or later (`GPL-3.0-or-later`), no calls to external services (a remote PostgreSQL database is used only when the site owner configures one), ready for the WordPress.org directory.
 
 ### Multisite networks
 
@@ -1448,7 +1448,7 @@ The hardest part is not the schema but staying invisible to code that assumes AC
 | Remote PostgreSQL latency or outage | Slow pages, or fields missing during an outage | Same-region requirement, pooler, object cache in front, circuit breaker, `nf_outbox` replay for writes |
 | PostgreSQL results differing from MySQL (collation, NULL order, casting) | Different matches or order than ACF on MySQL | ICU collation matched to the site's MySQL collation, explicit `NULLS` and casts, a three-way differential suite |
 | A cloned environment writing into another environment's PostgreSQL data | Dev or staging edits corrupt live data | Environment stamp in `nf_meta`; NF refuses writes on a mismatch; one database or Neon branch per environment |
-| Naming and positioning | ACF trademark; the WP Engine / WordPress.org dispute | Neutral name; GPL; compatibility described as "works with ACF code"; supports ACF and SCF equally |
+| Naming and positioning | ACF trademark; the WP Engine / WordPress.org dispute | Neutral name; GPL v3; compatibility described as "works with ACF code"; supports ACF and SCF equally |
 
 ### Trade-offs to accept
 
