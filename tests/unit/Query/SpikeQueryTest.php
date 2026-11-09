@@ -66,7 +66,8 @@ class SpikeQueryTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
 		register_post_type( self::TYPE );
-		$db     = nf_db();
+		$db = nf_db();
+		$this->wipe();
 		$fields = new FieldMap( $db );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t13%' ) );
 		$fields->flush();
@@ -136,16 +137,37 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Remove posts of the test type and the NF rows of its pivot set. The suite's rollback may not cover them
+	 * (DDL in set_up can commit the transaction), so every test starts and ends clean.
+	 */
+	private function wipe(): void {
+		$db = nf_db();
+		foreach ( get_posts(
+			array(
+				'post_type'   => self::TYPE,
+				'post_status' => 'any',
+				'numberposts' => -1,
+				'fields'      => 'ids',
+			)
+		) as $id ) {
+			wp_delete_post( (int) $id, true );
+		}
+		$set = $db->select( 'SELECT pivot_id FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( self::TYPE ) );
+		foreach ( $set as $row ) {
+			$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( (int) $row['pivot_id'] ) );
+			$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( (int) $row['pivot_id'] ) );
+		}
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( self::TYPE ) );
+	}
+
+	/**
 	 * Remove NF rows (they survive the test transaction after DDL).
 	 */
 	public function tear_down() {
-		$db = nf_db();
 		foreach ( $this->ids as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 		}
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$this->wipe();
 		unregister_post_type( self::TYPE );
 		parent::tear_down();
 	}
@@ -300,6 +322,35 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			)
 		);
 		$this->assertNull( $this->query->run( array( 'post_type' => 'no_such_type_with_pivot' ) ), 'No pivot set: read-only, nothing created.' );
+	}
+
+	/**
+	 * Untyped comparisons that core does as strings are left to core.
+	 */
+	public function test_untyped_numeric_comparison_is_not_translated() {
+		$this->assertNull(
+			$this->query->run(
+				array(
+					'post_type'  => self::TYPE,
+					'meta_query' => array(
+						array(
+							'key'     => 'price',
+							'value'   => 5,
+							'compare' => '>',
+						),
+					),
+				)
+			)
+		);
+		$this->assertNull(
+			$this->query->run(
+				array(
+					'post_type' => self::TYPE,
+					'meta_key'  => 'price',
+					'orderby'   => 'meta_value',
+				)
+			)
+		);
 	}
 
 	/**
