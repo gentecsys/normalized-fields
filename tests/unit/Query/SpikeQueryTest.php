@@ -181,7 +181,7 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 */
 	private function paging( int $per_page, mixed ...$pairs ): array {
 		$out = array( 'posts_per_page' => $per_page );
-		$n = count( $pairs );
+		$n   = count( $pairs );
 		for ( $i = 0; $i < $n; $i += 2 ) {
 			$out[ $pairs[ $i ] ] = $pairs[ $i + 1 ];
 		}
