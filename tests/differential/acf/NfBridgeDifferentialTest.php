@@ -64,6 +64,10 @@ final class NfBridgeDifferentialTest extends TestCase {
 		foreach ( self::$artist_ids as $id ) {
 			wp_delete_post( $id, true );
 		}
+		// The bridge registered the bench fields; NF tables are real, so remove them or later suites see
+		// two top-level fields with the same name (SpikeQuery then refuses the ambiguous reverse lookup).
+		$db = nf_db();
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field\\_nfbench\\_%' ) );
 		wp_cache_flush();
 	}
 
