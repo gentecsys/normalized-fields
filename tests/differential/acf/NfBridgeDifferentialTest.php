@@ -85,11 +85,8 @@ final class NfBridgeDifferentialTest extends TestCase {
 			$ids[] = $record['id'];
 		}
 		$scenario = new NfBridgeScenario( $ids, self::$artist_ids );
-		$probe    = static fn( string $source ): \Closure => static function ( Step $step ) use ( $source ): mixed {
-			return NfProbe::run( $source, ...$step->args );
-		};
-		$left     = new ClosureTarget( 'acf', $probe( 'acf' ) );
-		$right    = new ClosureTarget( 'nf', $probe( 'nf' ) );
+		$left     = new ClosureTarget( 'acf', static fn( Step $step ): mixed => NfProbe::run( 'acf', ...$step->args ) );
+		$right    = new ClosureTarget( 'nf', static fn( Step $step ): mixed => NfProbe::run( 'nf', ...$step->args ) );
 
 		$report = ( new Runner() )->run( array( $scenario ), $left, $right );
 
