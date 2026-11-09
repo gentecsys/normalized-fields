@@ -5,6 +5,8 @@
  * @package NF
  */
 
+// phpcs:disable WordPress.DB.SlowDBQuery -- the test compares meta_query / meta_key against NF.
+
 use NF\Pivot\Pivot;
 use NF\Query\SpikeQuery;
 use NF\Storage\DataTable;
@@ -46,7 +48,7 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 *
 	 * @var int
 	 */
-	private int $pivotId;
+	private int $pivot_id;
 
 	/**
 	 * Post IDs created, for cleanup.
@@ -76,21 +78,23 @@ class SpikeQueryTest extends WP_UnitTestCase {
 		$this->pivot = new Pivot( $db, $fields, $this->store );
 		$this->query = new SpikeQuery( $db, $this->pivot );
 
-		$this->pivotId = $this->pivot->setId( ObjectType::Post, self::TYPE );
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $this->pivotId ) );
-		$this->pivot->assignSlot( $this->pivotId, 'field_t13_featured', 'i1' );
-		$this->pivot->assignSlot( $this->pivotId, 'field_t13_date', 't1' );
-		$this->pivot->assignSlot( $this->pivotId, 'field_t13_price', 'n1' );
+		$this->pivot_id = $this->pivot->setId( ObjectType::Post, self::TYPE );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$this->pivot->assignSlot( $this->pivot_id, 'field_t13_featured', 'i1' );
+		$this->pivot->assignSlot( $this->pivot_id, 'field_t13_date', 't1' );
+		$this->pivot->assignSlot( $this->pivot_id, 'field_t13_price', 'n1' );
 
 		for ( $i = 1; $i <= 23; $i++ ) {
-			$status   = 0 === $i % 11 ? 'draft' : 'publish';
-			$id       = self::factory()->post->create(
+			$status = 0 === $i % 11 ? 'draft' : 'publish';
+
+			$id = self::factory()->post->create(
 				array(
 					'post_type'   => self::TYPE,
 					'post_status' => $status,
 					'post_date'   => gmdate( 'Y-m-d H:i:s', 1700000000 + $i * 3600 ),
 				)
 			);
+
 			$this->ids[] = $id;
 			$featured    = (int) ( 0 === $i % 2 );
 			$day         = 1 + ( ( $i * 7 ) % 23 ); // Unique days 1-23 of Nov 2026, scrambled.
@@ -110,7 +114,7 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			$this->store->set( ObjectType::Post, $id, 'field_t13_price', $price );
 			$this->store->set( ObjectType::Post, $id, 'field_t13_artists', $artists );
 			$post = get_post( $id );
-			$this->pivot->sync( $this->pivotId, $id, $this->core( $post ) );
+			$this->pivot->sync( $this->pivot_id, $id, $this->core( $post ) );
 		}
 	}
 
@@ -139,9 +143,9 @@ class SpikeQueryTest extends WP_UnitTestCase {
 		foreach ( $this->ids as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 		}
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $this->pivotId ) );
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $this->pivotId ) );
-		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $this->pivotId ) );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
 		unregister_post_type( self::TYPE );
 		parent::tear_down();
 	}
@@ -189,14 +193,33 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			'order'      => 'ASC',
 		);
 		$this->assertParity( $base + array( 'posts_per_page' => 3 ) );
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'paged' => 2 ) );
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'paged' => 4 ) );      // Last page.
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'paged' => 9 ) );      // Past the last page.
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'offset' => 2 ) );
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'offset' => 2, 'paged' => 3 ) ); // Offset wins.
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'paged' => 2,
+			) );
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'paged' => 4,
+			) );      // Last page.
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'paged' => 9,
+			) );      // Past the last page.
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'offset' => 2,
+			) );
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'offset' => 2,
+				'paged' => 3,
+			) ); // Offset wins.
 		$this->assertParity( $base + array( 'posts_per_page' => -1 ) );
 		$this->assertParity( $base + array( 'nopaging' => true ) );
-		$this->assertParity( $base + array( 'posts_per_page' => 3, 'no_found_rows' => true ) );
+		$this->assertParity( $base + array(
+				'posts_per_page' => 3,
+				'no_found_rows' => true,
+			) );
 	}
 
 	/**
@@ -234,7 +257,10 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			),
 		);
 		$this->assertParity( $reverse + array( 'posts_per_page' => 3 ) );
-		$this->assertParity( $reverse + array( 'posts_per_page' => 3, 'paged' => 2 ) );
+		$this->assertParity( $reverse + array(
+				'posts_per_page' => 3,
+				'paged' => 2,
+			) );
 		$this->assertParity( $reverse + array( 'posts_per_page' => -1 ) );
 		$this->assertParity(
 			array(
@@ -254,14 +280,21 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 * Arguments outside the subset are refused, not guessed.
 	 */
 	public function test_unsupported_arguments_return_null() {
-		$this->assertNull( $this->query->run( array( 'post_type' => self::TYPE, 's' => 'x', 'orderby' => 'rand' ) ) );
+		$this->assertNull( $this->query->run( array(
+					'post_type' => self::TYPE,
+					's'         => 'x',
+					'orderby'   => 'rand',
+				) ) );
 		$this->assertNull(
 			$this->query->run(
 				array(
 					'post_type'  => self::TYPE,
 					'meta_query' => array(
 						'relation' => 'OR',
-						array( 'key' => 'featured', 'value' => 1 ),
+						array(
+							'key'   => 'featured',
+							'value' => 1,
+						),
 					),
 				)
 			)
@@ -273,9 +306,9 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 * A read never writes: no pivot set is created for an unknown type, write_version does not move.
 	 */
 	public function test_query_does_not_write() {
-		$before = $this->pivot->writeVersion( $this->pivotId );
+		$before = $this->pivot->writeVersion( $this->pivot_id );
 		$this->query->run( array( 'post_type' => self::TYPE ) );
-		$this->assertSame( $before, $this->pivot->writeVersion( $this->pivotId ) );
+		$this->assertSame( $before, $this->pivot->writeVersion( $this->pivot_id ) );
 		$this->assertNull( $this->pivot->findSetId( ObjectType::Post, 'no_such_type_with_pivot' ) );
 	}
 
@@ -285,13 +318,13 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	public function test_rebuild_equals_write_through() {
 		$db   = nf_db();
 		$sql  = 'SELECT * FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? ORDER BY object_id';
-		$live = $db->select( $sql, array( $this->pivotId ) );
+		$live = $db->select( $sql, array( $this->pivot_id ) );
 		$this->assertCount( 23, $live );
-		$v = $this->pivot->writeVersion( $this->pivotId );
-		$db->execute( 'UPDATE ' . $db->table( 'nf_pivot' ) . ' SET i1 = NULL, t1 = NULL, n1 = NULL WHERE pivot_id = ?', array( $this->pivotId ) );
-		$this->assertSame( 23, $this->pivot->rebuild( $this->pivotId ) );
-		$this->assertSame( $live, $db->select( $sql, array( $this->pivotId ) ) );
-		$this->assertGreaterThan( $v, $this->pivot->writeVersion( $this->pivotId ) );
+		$v = $this->pivot->writeVersion( $this->pivot_id );
+		$db->execute( 'UPDATE ' . $db->table( 'nf_pivot' ) . ' SET i1 = NULL, t1 = NULL, n1 = NULL WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$this->assertSame( 23, $this->pivot->rebuild( $this->pivot_id ) );
+		$this->assertSame( $live, $db->select( $sql, array( $this->pivot_id ) ) );
+		$this->assertGreaterThan( $v, $this->pivot->writeVersion( $this->pivot_id ) );
 	}
 
 	/**
@@ -299,6 +332,6 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 */
 	public function test_slot_type_mismatch_is_refused() {
 		$this->expectException( InvalidArgumentException::class );
-		$this->pivot->assignSlot( $this->pivotId, 'field_t13_price', 'i2' );
+		$this->pivot->assignSlot( $this->pivot_id, 'field_t13_price', 'i2' );
 	}
 }
