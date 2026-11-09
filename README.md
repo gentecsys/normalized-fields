@@ -11,3 +11,7 @@ Status: Phase 0 (foundations). No plugin code yet.
 - Status board: [PLAN.md](PLAN.md)
 - Decisions: [DECISIONS.md](DECISIONS.md)
 - Design: [docs/design.md](docs/design.md)
+
+## Licence
+
+GPL v3 or later (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
