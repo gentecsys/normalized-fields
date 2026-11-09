@@ -60,11 +60,14 @@ final class SpikeQuery {
 		$found = count( $ids );
 		$max   = 0;
 		if ( $plan['limit'] > 0 ) {
-			$found = $plan['no_found_rows'] ? 0 : (int) ( $this->db->select( $plan['count_sql'], $plan['count_params'] )[0]['c'] ?? 0 );
-			$max   = $plan['no_found_rows'] ? 0 : (int) ceil( $found / $plan['limit'] );
-		} elseif ( ! $plan['no_found_rows'] ) {
-			$max = $found > 0 ? 1 : 0;
-		} else {
+			// Core returns found_posts = 0 and max_num_pages = 0 when the page of posts is empty (also past the last page).
+			if ( $found > 0 && ! $plan['no_found_rows'] ) {
+				$found = (int) ( $this->db->select( $plan['count_sql'], $plan['count_params'] )[0]['c'] ?? 0 );
+				$max   = (int) ceil( $found / $plan['limit'] );
+			} else {
+				$found = 0;
+			}
+		} elseif ( $plan['no_found_rows'] ) {
 			$found = 0;
 		}
 		return array(
@@ -81,7 +84,7 @@ final class SpikeQuery {
 	 * @return array{sql:string,params:array<int,scalar>,count_sql:string,count_params:array<int,scalar>,limit:int,no_found_rows:bool}|null
 	 */
 	public function translate( array $args ): ?array {
-		if ( array() !== array_diff( array_keys( $args ), self::KNOWN ) ) {
+		if ( array() !== array_diff( array_keys( $args ), self::KNOWN ) || ( isset( $args['fields'] ) && 'ids' !== $args['fields'] ) ) {
 			return null;
 		}
 		$type = $args['post_type'] ?? 'post';
@@ -124,7 +127,7 @@ final class SpikeQuery {
 			$name    = (string) $clause['key'];
 			if ( isset( $byName[ $name ] ) && in_array( $compare, self::OPS, true ) ) {
 				[ $slot, $table ] = $byName[ $name ];
-				$value            = $this->slotValue( $table, $clause, (string) $clause['value'] );
+				$value            = $this->slotValue( $table, $clause, (string) $clause['value'], $compare );
 				if ( null === $value ) {
 					return null;
 				}
@@ -149,7 +152,7 @@ final class SpikeQuery {
 		}
 		switch ( $orderby ) {
 			case 'date':
-				$orderSql = "p.published {$order}, p.object_id {$order}";
+				$orderSql = $this->db->dialect()->nullsOrder( 'published', $order, 'LAST' ) . ", p.object_id {$order}";
 				break;
 			case 'ID':
 				$orderSql = "p.object_id {$order}";
@@ -161,6 +164,9 @@ final class SpikeQuery {
 					return null;
 				}
 				// Core joins the sort key with an inner join, so objects without a value are excluded.
+				if ( 'meta_value' === $orderby && DataTable::Date !== $byName[ $key ][1] ) {
+					return null; // Core sorts meta_value as a string; only dates sort the same way.
+				}
 				$where[]  = "p.{$byName[ $key ][0]} IS NOT NULL";
 				$orderSql = "p.{$byName[ $key ][0]} {$order}, p.object_id {$order}";
 				break;
@@ -215,12 +221,14 @@ final class SpikeQuery {
 	 * @param string               $raw    Raw value.
 	 * @return int|string|null
 	 */
-	private function slotValue( DataTable $table, array $clause, string $raw ): int|string|null {
+	private function slotValue( DataTable $table, array $clause, string $raw, string $compare ): int|string|null {
+		$numeric = in_array( strtoupper( (string) ( $clause['type'] ?? '' ) ), array( 'NUMERIC', 'DECIMAL', 'SIGNED', 'UNSIGNED' ), true );
 		switch ( $table ) {
 			case DataTable::Int:
-				return is_numeric( $raw ) ? (int) $raw : null;
+				// Core compares as strings unless typed; only `=` on an integer is the same either way.
+				return is_numeric( $raw ) && ( $numeric || '=' === $compare ) ? (int) $raw : null;
 			case DataTable::Dec:
-				return is_numeric( $raw ) ? $raw : null;
+				return is_numeric( $raw ) && $numeric ? $raw : null;
 			case DataTable::Date:
 				// ACF stores Ymd; compare as DATE like core's CAST(... AS DATE).
 				if ( 1 === preg_match( '/^(\d{4})(\d{2})(\d{2})$/', $raw, $m ) && 'DATE' === strtoupper( (string) ( $clause['type'] ?? '' ) ) ) {
