@@ -135,35 +135,35 @@ final class Pivot {
 	public function sync( int $pivotId, int $objectId, array $core ): void {
 		$this->db->transaction(
 			function () use ( $pivotId, $objectId, $core ): void {
-				$cols   = array( 'pivot_id', 'object_id' );
+				$d      = $this->db->dialect();
+				$t      = $this->db->table( 'nf_pivot' );
+				$cols   = array();
 				$values = array( $pivotId, $objectId );
-				$sqlv   = array( '?', '?' );
-				$update = array();
-				$push   = function ( string $col, mixed $val ) use ( &$cols, &$values, &$sqlv, &$update ): void {
-					$q        = $this->db->dialect()->quoteIdentifier( $col );
-					$cols[]   = $col;
-					$update[] = "{$q} = VALUES({$q})";
-					if ( null === $val ) {
-						$sqlv[] = 'NULL'; // The adapter never binds NULL.
-						return;
-					}
-					$sqlv[]   = '?';
-					$values[] = $val;
-				};
+				$nulls  = array();
 				foreach ( self::CORE as $c ) {
-					$default = in_array( $c, array( 'published', 'modified' ), true ) ? null : 0;
-					$push( $c, $core[ $c ] ?? $default );
+					$val = $core[ $c ] ?? ( in_array( $c, array( 'published', 'modified' ), true ) ? null : 0 );
+					if ( null === $val ) {
+						$nulls[] = $c;
+						continue;
+					}
+					$cols[]   = $c;
+					$values[] = $val;
 				}
 				foreach ( $this->slots( $pivotId ) as $slot => $field ) {
 					$v = $this->store->get( ObjectType::Post, $objectId, $field['key'] );
-					$push( $slot, null === $v ? null : ( DataTable::Int === $field['table'] ? (int) $v : (string) $v ) );
+					if ( null === $v ) {
+						$nulls[] = $slot;
+						continue;
+					}
+					$cols[]   = $slot;
+					$values[] = DataTable::Int === $field['table'] ? (int) $v : (string) $v;
 				}
-				$t   = $this->db->table( 'nf_pivot' );
-				$ids = implode( ', ', array_map( array( $this->db->dialect(), 'quoteIdentifier' ), $cols ) );
-				$this->db->execute(
-					"INSERT INTO {$t} ({$ids}) VALUES (" . implode( ', ', $sqlv ) . ') ON DUPLICATE KEY UPDATE ' . implode( ', ', $update ),
-					$values
-				);
+				$this->db->execute( $d->upsert( $t, array( 'pivot_id', 'object_id' ), $cols ), $values );
+				// The adapter never binds NULL, so unset columns are cleared with a literal (columns come from the contract).
+				if ( $nulls ) {
+					$set = implode( ', ', array_map( fn( string $c ): string => $d->quoteIdentifier( $c ) . ' = NULL', $nulls ) );
+					$this->db->execute( "UPDATE {$t} SET {$set} WHERE pivot_id = ? AND object_id = ?", array( $pivotId, $objectId ) );
+				}
 				$this->bump( $pivotId );
 			}
 		);
