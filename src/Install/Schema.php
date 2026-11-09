@@ -74,8 +74,66 @@ final class Schema {
   {$pkey}{$key}
 ) {$charset};";
 		}
+		$sql[] = "CREATE TABLE {$p}nf_pivot_sets (
+  pivot_id SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  object_type TINYINT UNSIGNED NOT NULL,
+  subtype VARCHAR(64) NOT NULL,
+  write_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY  (pivot_id),
+  UNIQUE KEY set_key (object_type, subtype)
+) {$charset};";
+		$sql[] = "CREATE TABLE {$p}nf_pivot_slots (
+  pivot_id SMALLINT UNSIGNED NOT NULL,
+  repeater_id INT UNSIGNED NOT NULL DEFAULT 0,
+  slot CHAR(3) NOT NULL,
+  field_id INT UNSIGNED NOT NULL,
+  rollup ENUM('none','min','max','count') NOT NULL DEFAULT 'none',
+  PRIMARY KEY  (pivot_id, repeater_id, slot)
+) {$charset};";
+		$sql[] = self::pivotTable( $p, $charset );
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
+	}
+
+	/**
+	 * DDL for nf_pivot (contracts/schema.sql section 9): core columns plus 26 filter slots and 4 bitmask slots.
+	 *
+	 * @param string $p       Table prefix.
+	 * @param string $charset Charset clause.
+	 * @return string
+	 */
+	private static function pivotTable( string $p, string $charset ): string {
+		$cols = '';
+		$keys = '';
+		$defs = array(
+			'i' => array( 8, 'BIGINT NULL' ),
+			'n' => array( 4, 'DECIMAL(20,6) NULL' ),
+			't' => array( 6, 'DATETIME NULL' ),
+			's' => array( 8, 'INT UNSIGNED NULL' ),
+			'm' => array( 4, 'BIGINT UNSIGNED NOT NULL DEFAULT 0' ),
+		);
+		foreach ( $defs as $letter => list( $count, $type ) ) {
+			for ( $n = 1; $n <= $count; $n++ ) {
+				$cols .= "  {$letter}{$n} {$type},\n";
+				if ( 'm' !== $letter ) {
+					$keys .= ",\n  KEY {$letter}{$n} (pivot_id, {$letter}{$n})";
+				}
+			}
+		}
+		return "CREATE TABLE {$p}nf_pivot (
+  pivot_id SMALLINT UNSIGNED NOT NULL,
+  object_id BIGINT UNSIGNED NOT NULL,
+  status TINYINT UNSIGNED NOT NULL,
+  author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  published DATETIME NULL,
+  modified DATETIME NULL,
+  menu_order INT NOT NULL DEFAULT 0,
+{$cols}  PRIMARY KEY  (pivot_id, object_id),
+  KEY by_published (pivot_id, status, published),
+  KEY by_modified (pivot_id, status, modified),
+  KEY by_author (pivot_id, author_id){$keys}
+) {$charset};";
 	}
 }
