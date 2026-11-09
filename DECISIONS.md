@@ -96,6 +96,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-16 | PostgreSQL multisite layout | Start of Phase 5 | **Decided by owner 2026-11-03** | Shared tables with `site_id` leading every key, partitioned by site |
 | D-17 | Public REST API for blocks | G0 (contracts v0) | **Decided by owner 2026-11-03** | Anonymous `/nf/v1/query` within limits; Block Bindings `setValues` in v1 (options read-only); register `acf/field` too (ADR-0012) |
 | D-18 | Anti-bot plan for anonymous REST (with and without a WAF) | Before WP 3.9 | **Decided by owner 2026-11-06** | Bound the work, don't identify bots: profiles, early guard, cold slots, degradation |
+| D-19 | Licence | Release | **Decided by owner 2026-11-09** | GPL v3 or later (`GPL-3.0-or-later`); `LICENSE` holds the GPL v3 text. Every bundled dependency must be GPL v3 compatible |
 
 ## Gate approvals
 
