@@ -181,7 +181,8 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 */
 	private function paging( int $per_page, mixed ...$pairs ): array {
 		$out = array( 'posts_per_page' => $per_page );
-		for ( $i = 0; $i < count( $pairs ); $i += 2 ) {
+		$n = count( $pairs );
+		for ( $i = 0; $i < $n; $i += 2 ) {
 			$out[ $pairs[ $i ] ] = $pairs[ $i + 1 ];
 		}
 		return $out;
@@ -295,11 +296,15 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	 * Arguments outside the subset are refused, not guessed.
 	 */
 	public function test_unsupported_arguments_return_null() {
-		$this->assertNull( $this->query->run( array(
+		$this->assertNull(
+			$this->query->run(
+				array(
 					'post_type' => self::TYPE,
 					's'         => 'x',
 					'orderby'   => 'rand',
-				) ) );
+				)
+			)
+		);
 		$this->assertNull(
 			$this->query->run(
 				array(
