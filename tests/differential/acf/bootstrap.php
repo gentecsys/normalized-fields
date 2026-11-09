@@ -30,8 +30,9 @@ foreach ( array( 'Dataset', 'AcfMeta', 'AcfSchema', 'StoreWriter', 'AcfStore' ) 
 tests_add_filter(
 	'muplugins_loaded',
 	static function () use ( $nf_acf_main, $nf_root ): void {
-		// Only ACF is loaded here: the harness compares ACF with ACF, NF joins in later WPs.
 		require $nf_acf_main;
+		// NF in bridge mode (WP 1.4): ACF writes are mirrored into the NF tables, which the NF-vs-ACF check reads back.
+		require $nf_root . '/normalized-fields.php';
 		add_filter(
 			'acf/settings/load_json',
 			static function ( array $paths ) use ( $nf_root ): array {
@@ -40,6 +41,14 @@ tests_add_filter(
 			}
 		);
 	}
+);
+
+tests_add_filter(
+	'init',
+	static function (): void {
+		NF\Install\Schema::install();
+	},
+	1
 );
 
 tests_add_filter(
