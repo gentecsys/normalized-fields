@@ -228,9 +228,9 @@ final class SpikeQuery {
 		switch ( $table ) {
 			case DataTable::Int:
 				// Core compares as strings unless typed; only `=` on an integer is the same either way.
-				return is_numeric( $raw ) && ( $numeric || '=' === $compare ) ? (int) $raw : null;
+				return ( $numeric || '=' === $compare ) && (string) (int) $raw === $raw ? (int) $raw : null; // Canonical integers only.
 			case DataTable::Dec:
-				return is_numeric( $raw ) && $numeric ? $raw : null;
+				return $numeric && 1 === preg_match( '/^-?\d+(\.\d+)?$/', $raw ) ? $raw : null;
 			case DataTable::Date:
 				// ACF stores Ymd; compare as DATE like core's CAST(... AS DATE).
 				if ( 1 === preg_match( '/^(\d{4})(\d{2})(\d{2})$/', $raw, $m ) && 'DATE' === strtoupper( (string) ( $clause['type'] ?? '' ) ) ) {
