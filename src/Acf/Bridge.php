@@ -202,7 +202,7 @@ final class Bridge {
 	/**
 	 * Re-copy every queued top-level Series from ACF into NF. Runs after ACF wrote its meta (late
 	 * `acf/save_post`, or `shutdown` for calls outside a save). One re-sync per Series per request.
-	 * A logged-out GET or HEAD never writes (D-18).
+	 * A logged-out GET or HEAD never writes (D-18); WP-CLI and WP-Cron are server-side and do.
 	 *
 	 * @return void
 	 */
@@ -213,8 +213,7 @@ final class Bridge {
 		if ( array() === $queue ) {
 			return;
 		}
-		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( (string) $_SERVER['REQUEST_METHOD'] ) ) ) : '';
-		if ( ! is_user_logged_in() && in_array( $method, array( 'GET', 'HEAD' ), true ) ) {
+		if ( $this->isAnonymousRead() ) {
 			return;
 		}
 		foreach ( $queue as [ $post_id, $series ] ) {
@@ -231,6 +230,23 @@ final class Bridge {
 				do_action( 'nf/bridge/error', $e, $series, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			}
 		}
+	}
+
+	/**
+	 * Whether this request is a visitor's logged-out GET or HEAD, which must never write (D-18).
+	 *
+	 * WP-CLI sets REQUEST_METHOD to GET with no user, and WP-Cron runs as a logged-out GET when a
+	 * system cron calls wp-cron.php (as on Pantheon). Both run code the site owner scheduled, not
+	 * visitor input, so they are not anonymous reads.
+	 *
+	 * @return bool
+	 */
+	private function isAnonymousRead(): bool {
+		if ( ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || is_user_logged_in() ) {
+			return false;
+		}
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( (string) $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+		return in_array( $method, array( 'GET', 'HEAD' ), true );
 	}
 
 	/**
