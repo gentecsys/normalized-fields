@@ -103,8 +103,9 @@ final class SpikeQuery {
 		if ( null === $pivotId ) {
 			return null;
 		}
-		$slots   = $this->pivot->slots( $pivotId );
-		$byName  = array();
+		$slots = $this->pivot->slots( $pivotId );
+
+		$byName = array();
 		foreach ( $slots as $slot => $f ) {
 			$byName[ $f['name'] ] = array( $slot, $f['table'] );
 		}
@@ -216,9 +217,10 @@ final class SpikeQuery {
 	/**
 	 * Value in the slot's type, or null when it cannot be converted.
 	 *
-	 * @param DataTable            $table  Slot data table.
-	 * @param array<string,mixed>  $clause Meta clause.
-	 * @param string               $raw    Raw value.
+	 * @param DataTable           $table   Slot data table.
+	 * @param array<string,mixed> $clause  Meta clause.
+	 * @param string              $raw     Raw value.
+	 * @param string              $compare Comparison operator.
 	 * @return int|string|null
 	 */
 	private function slotValue( DataTable $table, array $clause, string $raw, string $compare ): int|string|null {
