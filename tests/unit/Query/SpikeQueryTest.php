@@ -352,6 +352,34 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Values that are not canonical numbers are left to core (it compares them as strings or full numbers).
+	 */
+	public function test_non_canonical_numbers_are_not_translated() {
+		foreach ( array( '01', '1.0', '1e3', ' 1' ) as $value ) {
+			$this->assertNull( $this->query->run( $this->featuredArgs( $value ) ), $value );
+		}
+		$this->assertNotNull( $this->query->run( $this->featuredArgs( '1' ) ) );
+	}
+
+	/**
+	 * Arguments for an untyped featured = value query.
+	 *
+	 * @param string $value Value.
+	 * @return array<string,mixed>
+	 */
+	private function featuredArgs( string $value ): array {
+		return array(
+			'post_type'  => self::TYPE,
+			'meta_query' => array(
+				array(
+					'key'   => 'featured',
+					'value' => $value,
+				),
+			),
+		);
+	}
+
+	/**
 	 * A read never writes: no pivot set is created for an unknown type, write_version does not move.
 	 */
 	public function test_query_does_not_write() {
