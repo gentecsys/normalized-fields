@@ -43,6 +43,7 @@ At the end of every session, write or update `reports/WP-<id>.md`. Don't rely on
   - The only public classes are the ones a dependency forces: the `ACF` shim class (themes check `class_exists( 'ACF' )`) and the Timber `IntegrationInterface` implementation. The query builder's entry points are `nf_query()` and `nf_options()` (D-15); `NF::query()` and `NF::options()` are only aliases.
 - **Composer for the whole project:**
   - Never commit `vendor/`. Release builds run `composer install --no-dev --optimize-autoloader --classmap-authoritative` and ship `vendor/` in the zip.
+  - **Licence (D-19):** the plugin is `GPL-3.0-or-later`. Only add dependencies whose licence is GPL v3 compatible (MIT, BSD, Apache-2.0, LGPL, GPL-2.0-or-later, GPL-3.0); never GPL-2.0-only.
   - Runtime dependencies are prefixed with Strauss into `NF\Vendor\`. Action Scheduler (`woocommerce/action-scheduler`) is the exception: it comes through Composer but loads through its own version registry.
   - Schema upgrades are versioned migration classes in `NF\Install\Migrations\`, run on version change for both backends.
   - Hook names and option keys keep the `nf/` and `nf_` prefixes.
