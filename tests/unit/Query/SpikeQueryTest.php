@@ -173,6 +173,21 @@ class SpikeQueryTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Paging arguments: posts_per_page plus key / value pairs.
+	 *
+	 * @param int   $per_page Posts per page.
+	 * @param mixed ...$pairs Alternating argument names and values.
+	 * @return array<string,mixed>
+	 */
+	private function paging( int $per_page, mixed ...$pairs ): array {
+		$out = array( 'posts_per_page' => $per_page );
+		for ( $i = 0; $i < count( $pairs ); $i += 2 ) {
+			$out[ $pairs[ $i ] ] = $pairs[ $i + 1 ];
+		}
+		return $out;
+	}
+
+	/**
 	 * Assert NF and WP_Query agree for the same arguments.
 	 *
 	 * @param array<string,mixed> $args WP_Query arguments.
@@ -214,34 +229,15 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			'orderby'    => 'meta_value',
 			'order'      => 'ASC',
 		);
-		$this->assertParity( $base + array( 'posts_per_page' => 3 ) );
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'paged' => 2,
-			) );
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'paged' => 4,
-			) );      // Last page.
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'paged' => 9,
-			) );      // Past the last page.
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'offset' => 2,
-			) );
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'offset' => 2,
-				'paged' => 3,
-			) ); // Offset wins.
-		$this->assertParity( $base + array( 'posts_per_page' => -1 ) );
-		$this->assertParity( $base + array( 'nopaging' => true ) );
-		$this->assertParity( $base + array(
-				'posts_per_page' => 3,
-				'no_found_rows' => true,
-			) );
+		$this->assertParity( $base + $this->paging( 3 ) );
+		$this->assertParity( $base + $this->paging( 3, 'paged', 2 ) );
+		$this->assertParity( $base + $this->paging( 3, 'paged', 4 ) ); // Last page.
+		$this->assertParity( $base + $this->paging( 3, 'paged', 9 ) ); // Past the last page.
+		$this->assertParity( $base + $this->paging( 3, 'offset', 2 ) );
+		$this->assertParity( $base + $this->paging( 3, 'offset', 2, 'paged', 3 ) ); // Offset wins.
+		$this->assertParity( $base + $this->paging( -1 ) );
+		$this->assertParity( $base + $this->paging( 3, 'nopaging', true ) );
+		$this->assertParity( $base + $this->paging( 3, 'no_found_rows', true ) );
 	}
 
 	/**
@@ -278,12 +274,9 @@ class SpikeQueryTest extends WP_UnitTestCase {
 				),
 			),
 		);
-		$this->assertParity( $reverse + array( 'posts_per_page' => 3 ) );
-		$this->assertParity( $reverse + array(
-				'posts_per_page' => 3,
-				'paged' => 2,
-			) );
-		$this->assertParity( $reverse + array( 'posts_per_page' => -1 ) );
+		$this->assertParity( $reverse + $this->paging( 3 ) );
+		$this->assertParity( $reverse + $this->paging( 3, 'paged', 2 ) );
+		$this->assertParity( $reverse + $this->paging( -1 ) );
 		$this->assertParity(
 			array(
 				'meta_query'     => array(
