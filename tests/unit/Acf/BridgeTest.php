@@ -460,4 +460,41 @@ class BridgeTest extends WP_UnitTestCase {
 			$_SERVER['REQUEST_METHOD'] = $old;
 		}
 	}
+
+	/**
+	 * WP-Cron runs as a logged-out GET (system cron calling wp-cron.php) and still re-syncs.
+	 * WP-CLI is the same case; it is checked against real ACF PRO on nf-dev, since WP_CLI is a constant.
+	 */
+	public function test_logged_out_get_in_cron_writes(): void {
+		$meta = array(
+			'rs'        => 2,
+			'rs_0_room' => 'Room A',
+			'rs_1_room' => 'Room B',
+		);
+		$this->resync_fixture( $meta );
+		wp_set_current_user( 0 );
+		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		add_filter( 'wp_doing_cron', '__return_true' );
+		$this->bridge->onUpdate(
+			'Room B',
+			7,
+			array(
+				'key'    => 'field_t12_rs_room',
+				'name'   => 'rs_1_room',
+				'type'   => 'text',
+				'parent' => 'field_t12_rs',
+			)
+		);
+		$this->bridge->flush();
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		$this->assertSame( 'Room B', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+
+		if ( null === $old ) {
+			unset( $_SERVER['REQUEST_METHOD'] );
+		} else {
+			$_SERVER['REQUEST_METHOD'] = $old;
+		}
+	}
 }
