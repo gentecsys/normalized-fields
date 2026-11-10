@@ -9,3 +9,4 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 delete_option( 'nf_version' );
 delete_option( 'nf_db_version' );
+delete_option( 'nf_upgrade_lock' );

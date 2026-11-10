@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace NF\Acf;
 
+use NF\Install\Upgrader;
 use NF\Storage\DataTable;
 use NF\Storage\FieldMap;
 use NF\Storage\ObjectType;
@@ -214,6 +215,11 @@ final class Bridge {
 			return;
 		}
 		if ( $this->isAnonymousRead() ) {
+			return;
+		}
+		// Tables may be missing until a trusted request runs the upgrade; never create them here.
+		if ( ! Upgrader::isCurrent() ) {
+			do_action( 'nf/bridge/schema_behind', $queue ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			return;
 		}
 		foreach ( $queue as [ $post_id, $series ] ) {
