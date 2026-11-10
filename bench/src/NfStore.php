@@ -38,7 +38,7 @@ final class NfStore implements StoreWriter {
 	 * @param \wpdb            $wpdb WordPress database object (core tables only).
 	 * @param BackendInterface $db   NF backend adapter.
 	 */
-	public function __construct( private readonly \wpdb $wpdb, private readonly BackendInterface $db ) {}
+	public function __construct( private readonly \wpdb $wpdb, private readonly BackendInterface $db, private readonly bool $with_posts = true ) {}
 
 	/**
 	 * Number of dataset posts already present.
@@ -60,6 +60,8 @@ final class NfStore implements StoreWriter {
 	/**
 	 * Remove dataset posts and their NF values.
 	 *
+	 * Posts are left alone when the store was built without posts.
+	 *
 	 * @param Dataset $dataset Dataset.
 	 */
 	public function clear( Dataset $dataset ): void {
@@ -70,6 +72,9 @@ final class NfStore implements StoreWriter {
 				'DELETE FROM ' . $this->db->table( $table ) . ' WHERE object_type = ? AND object_id BETWEEN ? AND ?',
 				array( ObjectType::Post->value, $low, $high )
 			);
+		}
+		if ( ! $this->with_posts ) {
+			return;
 		}
 		$this->wpdb->query( $this->wpdb->prepare( "DELETE FROM {$this->wpdb->posts} WHERE post_type = %s AND ID BETWEEN %d AND %d", Dataset::POST_TYPE, $low, $high ) );
 	}
@@ -184,6 +189,9 @@ final class NfStore implements StoreWriter {
 	 * @param array<int,array<string,mixed>> $records Records.
 	 */
 	private function insert_posts( array $records ): void {
+		if ( ! $this->with_posts ) {
+			return;
+		}
 		$tuples = array();
 		foreach ( $records as $record ) {
 			$tuples[] = $this->wpdb->prepare(

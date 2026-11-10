@@ -148,17 +148,17 @@ final class SpikeBenchmark {
 			$a   = array();
 			$n   = array();
 			for ( $i = 0; $i < self::RUNS; $i++ ) {
-				$t     = microtime( true );
-				$q     = new \WP_Query( $args );
-				$a[]   = ( microtime( true ) - $t ) * 1000;
-				$acf   = array(
+				$t   = microtime( true );
+				$q   = new \WP_Query( $args );
+				$a[] = ( microtime( true ) - $t ) * 1000;
+				$acf = array(
 					'ids'           => array_map( 'intval', $q->posts ),
 					'found_posts'   => (int) $q->found_posts,
 					'max_num_pages' => (int) $q->max_num_pages,
 				);
-				$t     = microtime( true );
-				$nf    = $spike->run( $args );
-				$n[]   = ( microtime( true ) - $t ) * 1000;
+				$t   = microtime( true );
+				$nf  = $spike->run( $args );
+				$n[] = ( microtime( true ) - $t ) * 1000;
 			}
 			sort( $a );
 			sort( $n );

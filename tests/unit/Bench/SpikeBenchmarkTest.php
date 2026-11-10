@@ -41,9 +41,9 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 		$posts         = absint( getenv( 'NF_BENCH_POSTS' ) ? getenv( 'NF_BENCH_POSTS' ) : 300 );
 		$this->dataset = new Dataset( $posts, 1, 1000000 );
 		$acf           = new AcfStore( $wpdb );
-		$nf            = new NfStore( $wpdb, nf_db() );
-		$acf->clear( $this->dataset );
+		$nf            = new NfStore( $wpdb, nf_db(), false );
 		$nf->clear( $this->dataset );
+		$acf->clear( $this->dataset );
 		$acf->write( $this->dataset );
 		$nf->write( $this->dataset );
 		wp_cache_flush();
@@ -54,8 +54,8 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 	 */
 	public function tear_down() {
 		global $wpdb;
+		( new NfStore( $wpdb, nf_db(), false ) )->clear( $this->dataset );
 		( new AcfStore( $wpdb ) )->clear( $this->dataset );
-		( new NfStore( $wpdb, nf_db() ) )->clear( $this->dataset );
 		parent::tear_down();
 	}
 

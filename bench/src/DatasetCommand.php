@@ -46,6 +46,9 @@ final class DatasetCommand {
 	 *   - nf
 	 * ---
 	 *
+	 * [--posts-exist]
+	 * : With `--store=nf`: the wp_posts rows were already written by the acf store; write only NF values.
+	 *
 	 * [--force]
 	 * : Replace data already in the ID range.
 	 *
@@ -162,7 +165,7 @@ final class DatasetCommand {
 		global $wpdb;
 		$name = (string) ( $assoc['store'] ?? 'acf' );
 		if ( 'nf' === $name ) {
-			return new NfStore( $wpdb, \NF\Plugin::db() );
+			return new NfStore( $wpdb, \NF\Plugin::db(), empty( $assoc['posts-exist'] ) );
 		}
 		if ( 'acf' !== $name ) {
 			\WP_CLI::error( "Unknown store '{$name}'." );
