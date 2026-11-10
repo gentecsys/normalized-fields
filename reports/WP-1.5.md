@@ -19,7 +19,9 @@ Agent: A12 (daily build agent). Branch `wp/1.5-spike-benchmark`.
 Zero diffs; NF is 10x-77x faster than stock ACF at 10k. Matches the design doc's order of magnitude (10k stock 974 / 21 ms). NOT run: 100k (CI time), the repeater-sub-field query and facets (not in the spike translator), ACF-tuned indexes.
 
 ## Verification
-php -l local; CI is authoritative (phpunit matrix, PHPCS, PHPStan).
+php -l local. CI on the PR head: 28/28 checks green (phpunit matrix, PHPCS, PHPStan, bench-spike). Numbers come from one shared-runner run (5-run median), so noisy.
+
+Review round 1: `equivalent()` made strict (equal sort-key sequence, interior equal-key runs must hold the same ID set; edge runs may straddle a page), tolerated tie order is reported, negative unit test added, teardown asserts after COMMIT. Non-blocking left: CI file is A1's (owner to confirm); `price`->n1 slot unused; `spike` command does not check both stores exist; a 100k dispatch run is a tracked follow-up before G1.
 
 ## Deviations / follow-ups
 - Only two spike query shapes exist (1.3), so the design doc's repeater and facet rows are not benchmarked.
