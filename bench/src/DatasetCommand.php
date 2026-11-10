@@ -60,7 +60,8 @@ final class DatasetCommand {
 		$dataset = self::dataset( $assoc );
 		$store   = self::store( $assoc );
 		$found   = $store->existing( $dataset );
-		if ( 0 < $found ) {
+		// --posts-exist writes NF values for posts the acf store already created; those posts are expected.
+		if ( 0 < $found && empty( $assoc['posts-exist'] ) ) {
 			if ( empty( $assoc['force'] ) ) {
 				\WP_CLI::error( "{$found} posts already exist in the ID range; pass --force to replace them." );
 			}

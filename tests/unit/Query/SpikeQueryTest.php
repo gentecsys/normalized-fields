@@ -158,6 +158,8 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( (int) $row['pivot_id'] ) );
 		}
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( self::TYPE ) );
+		// The test's fields too: left behind, a second top-level 'artists' makes the reverse lookup ambiguous elsewhere.
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field\\_t13\\_%' ) );
 	}
 
 	/**
@@ -168,6 +170,8 @@ class SpikeQueryTest extends WP_UnitTestCase {
 			$this->store->deleteObject( ObjectType::Post, $id );
 		}
 		$this->wipe();
+		global $wpdb;
+		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- DDL in set_up committed the NF rows; make the clean-up permanent too, the suite only rolls back.
 		unregister_post_type( self::TYPE );
 		parent::tear_down();
 	}
