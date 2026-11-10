@@ -137,7 +137,7 @@ final class SpikeBenchmark {
 	 * Run every query in both stores.
 	 *
 	 * @param Pivot $pivot Prepared pivot.
-	 * @return array<int,array{query:string,acf_ms:float,nf_ms:float,speedup:float,same:bool,found:int}>
+	 * @return array<int,array{query:string,acf_ms:float,nf_ms:float,speedup:float,same:bool,found:int,detail:string}>
 	 */
 	public function run( Pivot $pivot ): array {
 		$spike = new SpikeQuery( $this->db, $pivot );
@@ -171,6 +171,7 @@ final class SpikeBenchmark {
 				'speedup' => $nf_ms > 0 ? $acf_ms / $nf_ms : 0.0,
 				'same'    => null !== $nf && $nf === $acf,
 				'found'   => (int) ( $acf['found_posts'] ?? 0 ),
+				'detail'  => $nf === $acf ? '' : 'ACF ' . wp_json_encode( $acf ) . ' NF ' . wp_json_encode( $nf ),
 			);
 		}
 		return $out;
@@ -179,7 +180,7 @@ final class SpikeBenchmark {
 	/**
 	 * Markdown table of results.
 	 *
-	 * @param array<int,array{query:string,acf_ms:float,nf_ms:float,speedup:float,same:bool,found:int}> $rows Results.
+	 * @param array<int,array{query:string,acf_ms:float,nf_ms:float,speedup:float,same:bool,found:int,detail:string}> $rows Results.
 	 */
 	public static function markdown( array $rows ): string {
 		$md = "| Query | Matches | ACF (stock) ms | NF ms | Speed-up | Same result |\n| --- | --- | --- | --- | --- | --- |\n";
