@@ -27,4 +27,14 @@ class PluginLoadsTest extends WP_UnitTestCase {
 		NF\Core\Requirements::activate();
 		$this->assertSame( NF_VERSION, get_option( 'nf_version' ) );
 	}
+
+	/**
+	 * Activation takes the upgrade lock; DDL may have committed it (see UpgraderTest::clear_lock()).
+	 */
+	public function tear_down() {
+		global $wpdb;
+		delete_option( 'nf_upgrade_lock' );
+		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		parent::tear_down();
+	}
 }
