@@ -203,7 +203,7 @@ class SpikeQueryTest extends WP_UnitTestCase {
 		);
 		$core = new WP_Query( $args );
 		$nf   = $this->query->run( $args );
-		$this->assertNotNull( $nf, 'Arguments must be inside the spike subset. DEBUG ' . wp_json_encode( array( nf_db()->select( 'SELECT * FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_name = ?', array( 'artists' ) ), $this->query->translate( $args ), nf_db()->select( 'SELECT * FROM ' . nf_db()->table( 'nf_pivot_sets' ) ) ) ) );
+		$this->assertNotNull( $nf, 'Arguments must be inside the spike subset.' );
 		$this->assertSame( array_map( 'intval', $core->posts ), $nf['ids'], 'IDs and order' );
 		$this->assertSame( (int) $core->found_posts, $nf['found_posts'], 'found_posts' );
 		$this->assertSame( (int) $core->max_num_pages, $nf['max_num_pages'], 'max_num_pages' );
