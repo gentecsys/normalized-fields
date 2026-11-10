@@ -196,7 +196,7 @@ final class SpikeBenchmark {
 		}
 		$key = static fn( int $id ): string => 'meta' === $sort ? (string) get_post_meta( $id, 'event_date', true ) : (string) get_post_field( 'post_date', $id );
 		$ka  = array_map( $key, $acf['ids'] );
-		if ( $ka !== array_map( $key, $nf['ids'] ) ) {
+		if ( array_map( $key, $nf['ids'] ) !== $ka ) {
 			return false;
 		}
 		$last = count( $ka ) - 1;
