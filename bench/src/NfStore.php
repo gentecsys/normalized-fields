@@ -35,8 +35,9 @@ final class NfStore implements StoreWriter {
 	/**
 	 * Create the writer.
 	 *
-	 * @param \wpdb            $wpdb WordPress database object (core tables only).
-	 * @param BackendInterface $db   NF backend adapter.
+	 * @param \wpdb            $wpdb       WordPress database object (core tables only).
+	 * @param BackendInterface $db         NF backend adapter.
+	 * @param bool             $with_posts Write the wp_posts rows too (false when the ACF store already wrote them).
 	 */
 	public function __construct( private readonly \wpdb $wpdb, private readonly BackendInterface $db, private readonly bool $with_posts = true ) {}
 
