@@ -13,13 +13,31 @@ use NF\Install\Upgrader;
 class UpgraderTest extends WP_UnitTestCase {
 
 	/**
-	 * DDL in test_missing_table_is_created commits implicitly, so the lock row can outlive the
-	 * test's rollback. Remove it for good after every test.
+	 * Remove a lock left by an earlier test, before and after each test.
+	 *
+	 * The DDL that dbDelta runs (CREATE TABLE here; ALTER TABLE on MySQL 5.7 and MariaDB, where dbDelta sees
+	 * column differences) commits implicitly, so the lock row can be committed while its delete
+	 * in finally is rolled back with the test. Production runs outside a transaction.
 	 */
-	public function tear_down() {
+	public static function clear_lock(): void {
 		global $wpdb;
 		delete_option( Upgrader::LOCK );
 		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/**
+	 * Start each test without a lock.
+	 */
+	public function set_up() {
+		parent::set_up();
+		self::clear_lock();
+	}
+
+	/**
+	 * Leave no lock behind.
+	 */
+	public function tear_down() {
+		self::clear_lock();
 		parent::tear_down();
 	}
 
