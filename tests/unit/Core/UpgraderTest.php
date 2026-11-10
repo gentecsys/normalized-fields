@@ -51,9 +51,14 @@ class UpgraderTest extends WP_UnitTestCase {
 	public function test_migrations_run_in_order_once() {
 		require_once __DIR__ . '/UpgraderTestMigration.php';
 		$log = new ArrayObject();
-		$mk  = static fn( int $v ) => new UpgraderTestMigration( $v, $log );
 		update_option( Upgrader::OPTION, 0 );
-		$up = new Upgrader( array( $mk( 2 ), $mk( 1 ), $mk( 99 ) ) );
+		$up = new Upgrader(
+			array(
+				new UpgraderTestMigration( 2, $log ),
+				new UpgraderTestMigration( 1, $log ),
+				new UpgraderTestMigration( 99, $log ),
+			)
+		);
 		$up->maybe_upgrade();
 		$up->maybe_upgrade();
 		$this->assertSame( array( 1, 2 ), $log->getArrayCopy() );
