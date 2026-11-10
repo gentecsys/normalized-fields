@@ -7,6 +7,10 @@
  * @package NF
  */
 
+foreach ( array( 'Dataset', 'AcfMeta', 'AcfSchema', 'StoreWriter', 'AcfStore', 'NfLayout', 'NfStore', 'SpikeBenchmark' ) as $nf_bench_class ) {
+	require_once dirname( __DIR__, 3 ) . '/bench/src/' . $nf_bench_class . '.php';
+}
+
 use NF\Bench\AcfStore;
 use NF\Bench\Dataset;
 use NF\Bench\NfStore;

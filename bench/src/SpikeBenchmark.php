@@ -65,11 +65,11 @@ final class SpikeBenchmark {
 				'posts_per_page' => 20,
 				'paged'          => 1,
 			),
-			'Deep page: featured by date, page 20 + total'        => $base + $arch + array(
+			'Deep page: featured by date, page 20 + total' => $base + $arch + array(
 				'posts_per_page' => 20,
 				'paged'          => 20,
 			),
-			'Reverse relationship: events featuring artist 123'   => $base + array(
+			'Reverse relationship: events featuring artist 123' => $base + array(
 				'posts_per_page' => 20,
 				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery
 					array(
@@ -104,6 +104,7 @@ final class SpikeBenchmark {
 		$high = $dataset->start_id + $dataset->posts - 1;
 		$last = $dataset->start_id - 1;
 		do {
+			// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- core table name from $wpdb, values bound.
 			$rows = $this->wpdb->get_results(
 				$this->wpdb->prepare(
 					"SELECT ID, post_status, post_author, post_parent, post_date, post_modified, menu_order FROM {$this->wpdb->posts} WHERE post_type = %s AND ID > %d AND ID <= %d ORDER BY ID LIMIT 500",
@@ -112,6 +113,7 @@ final class SpikeBenchmark {
 					$high
 				)
 			);
+			// phpcs:enable
 			foreach ( $rows as $row ) {
 				$last = (int) $row->ID;
 				$pivot->sync(
@@ -146,17 +148,17 @@ final class SpikeBenchmark {
 			$a   = array();
 			$n   = array();
 			for ( $i = 0; $i < self::RUNS; $i++ ) {
-				$t      = microtime( true );
-				$q      = new \WP_Query( $args );
-				$a[]    = ( microtime( true ) - $t ) * 1000;
-				$acf    = array(
+				$t     = microtime( true );
+				$q     = new \WP_Query( $args );
+				$a[]   = ( microtime( true ) - $t ) * 1000;
+				$acf   = array(
 					'ids'           => array_map( 'intval', $q->posts ),
 					'found_posts'   => (int) $q->found_posts,
 					'max_num_pages' => (int) $q->max_num_pages,
 				);
-				$t      = microtime( true );
-				$nf     = $spike->run( $args );
-				$n[]    = ( microtime( true ) - $t ) * 1000;
+				$t     = microtime( true );
+				$nf    = $spike->run( $args );
+				$n[]   = ( microtime( true ) - $t ) * 1000;
 			}
 			sort( $a );
 			sort( $n );
