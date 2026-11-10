@@ -29,11 +29,18 @@ class UpgraderTest extends WP_UnitTestCase {
 	public function test_missing_table_is_created() {
 		global $wpdb;
 		$table = $wpdb->prefix . 'nf_pivot_sets';
+		// The test suite rewrites DROP/CREATE TABLE to TEMPORARY; lift that so the real table is dropped and recreated.
+		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 		update_option( Upgrader::OPTION, 1 );
 		$this->assertFalse( $this->table_exists( $table ) );
-		$this->assertTrue( ( new Upgrader() )->maybe_upgrade() );
-		$this->assertTrue( $this->table_exists( $table ) );
+		$upgraded = ( new Upgrader() )->maybe_upgrade();
+		$exists   = $this->table_exists( $table );
+		add_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		add_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		$this->assertTrue( $upgraded );
+		$this->assertTrue( $exists );
 		$this->assertSame( Upgrader::SCHEMA_VERSION, (int) get_option( Upgrader::OPTION ) );
 		$this->assertFalse( ( new Upgrader() )->maybe_upgrade() );
 	}
