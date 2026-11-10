@@ -171,7 +171,7 @@ final class SpikeBenchmark {
 				'nf_ms'   => $nf_ms,
 				'speedup' => $nf_ms > 0 ? $acf_ms / $nf_ms : 0.0,
 				'same'    => null !== $nf && self::equivalent( $acf, $nf ),
-				'found'   => (int) ( $acf['found_posts'] ?? 0 ),
+				'found'   => $acf['found_posts'],
 				'detail'  => $nf === $acf ? '' : 'ACF ' . wp_json_encode( $acf ) . ' NF ' . wp_json_encode( $nf ),
 			);
 		}
