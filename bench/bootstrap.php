@@ -17,6 +17,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/src/AcfStore.php';
 	require_once __DIR__ . '/src/NfLayout.php';
 	require_once __DIR__ . '/src/NfStore.php';
+	require_once __DIR__ . '/src/SpikeBenchmark.php';
 	require_once __DIR__ . '/src/DatasetCommand.php';
 	WP_CLI::add_command( 'nf-bench', NF\Bench\DatasetCommand::class );
 
