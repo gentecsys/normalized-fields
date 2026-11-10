@@ -90,7 +90,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array( new Acf\Bridge( self::store(), self::fields() ) );
+		return array( new Install\Upgrader(), new Acf\Bridge( self::store(), self::fields() ) );
 	}
 
 	/**
