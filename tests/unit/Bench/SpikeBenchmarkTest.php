@@ -64,6 +64,8 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_nfbench%' ) );
 		( new NfStore( $wpdb, nf_db(), false ) )->clear( $this->dataset );
 		( new AcfStore( $wpdb ) )->clear( $this->dataset );
+		$left = $db->select( 'SELECT field_id, field_key FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_name = ?', array( 'artists' ) );
+		$this->assertSame( array(), $left, 'Bench fields were not cleaned up.' );
 		parent::tear_down();
 	}
 
