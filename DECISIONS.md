@@ -103,6 +103,7 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
 
 - G0: approved 2026-11-06 (owner, after the contract changes below)
+- G1: approved 2026-11-10 (owner: go; `bench-spike` CI job confirmed; local nf-dev benchmark at 10k/100k follows in `reports/gate-G1.md`)
 
 ### Contracts v0 drafted (2026-11-06, WP 0.5, made by daily agent, owner to review at G0)
 - **Decision:** `contracts/schema.sql` (all NF tables, MySQL dialect, `{p}` prefix, no `site_id`), `contracts/backend.md` (new: `BackendInterface` / `DialectInterface` seam), `contracts/rest.md` (public `nf/v1` part) and `contracts/nf-json.schema.json` are drafted; `contracts/api.md` came from WP 0.4.
