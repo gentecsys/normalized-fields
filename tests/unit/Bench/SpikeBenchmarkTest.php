@@ -54,6 +54,14 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 	 */
 	public function tear_down() {
 		global $wpdb;
+		$db  = nf_db();
+		$set = $db->select( 'SELECT pivot_id FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( Dataset::POST_TYPE ) );
+		foreach ( $set as $row ) {
+			foreach ( array( 'nf_pivot', 'nf_pivot_slots', 'nf_pivot_sets' ) as $table ) {
+				$db->execute( 'DELETE FROM ' . $db->table( $table ) . ' WHERE pivot_id = ?', array( (int) $row['pivot_id'] ) );
+			}
+		}
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_nfbench%' ) );
 		( new NfStore( $wpdb, nf_db(), false ) )->clear( $this->dataset );
 		( new AcfStore( $wpdb ) )->clear( $this->dataset );
 		parent::tear_down();
@@ -68,7 +76,7 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 		$rows  = $bench->run( $bench->prepare( $this->dataset ) );
 		$this->assertCount( 3, $rows );
 		foreach ( $rows as $row ) {
-			$this->assertTrue( $row['same'], $row['query'] );
+			$this->assertTrue( $row['same'], $row['query'] . ' ' . $row['detail'] );
 		}
 		$out = getenv( 'NF_BENCH_OUT' );
 		if ( $out ) {
