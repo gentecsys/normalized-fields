@@ -50,18 +50,7 @@ class UpgraderTest extends WP_UnitTestCase {
 	 */
 	public function test_migrations_run_in_order_once() {
 		$log = new ArrayObject();
-		$mk  = static fn( int $v ) => new class( $v, $log ) implements NF\Install\Migrations\MigrationInterface {
-			// phpcs:ignore Squiz.Commenting
-			public function __construct( private int $v, private ArrayObject $log ) {}
-			// phpcs:ignore Squiz.Commenting
-			public function version(): int {
-				return $this->v;
-			}
-			// phpcs:ignore Squiz.Commenting
-			public function up(): void {
-				$this->log[] = $this->v;
-			}
-		};
+		$mk  = static fn( int $v ) => new UpgraderTestMigration( $v, $log );
 		update_option( Upgrader::OPTION, 0 );
 		$up = new Upgrader( array( $mk( 2 ), $mk( 1 ), $mk( 99 ) ) );
 		$up->maybe_upgrade();
@@ -70,11 +59,43 @@ class UpgraderTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * register() upgrades immediately, so non-admin requests repair the schema.
+	 * Register upgrades immediately, so non-admin requests repair the schema.
 	 */
 	public function test_register_upgrades_on_non_admin_request() {
 		update_option( Upgrader::OPTION, 1 );
 		( new Upgrader() )->register();
 		$this->assertSame( Upgrader::SCHEMA_VERSION, (int) get_option( Upgrader::OPTION ) );
+	}
+}
+
+/**
+ * Records its version when run.
+ */
+class UpgraderTestMigration implements NF\Install\Migrations\MigrationInterface {
+
+	/**
+	 * Constructor.
+	 *
+	 * @param int         $v   Version.
+	 * @param ArrayObject $log Run log.
+	 */
+	public function __construct( private int $v, private ArrayObject $log ) {}
+
+	/**
+	 * Version.
+	 *
+	 * @return int
+	 */
+	public function version(): int {
+		return $this->v;
+	}
+
+	/**
+	 * Record the run.
+	 *
+	 * @return void
+	 */
+	public function up(): void {
+		$this->log[] = $this->v;
 	}
 }
