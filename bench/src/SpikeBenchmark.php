@@ -39,8 +39,9 @@ final class SpikeBenchmark {
 	 */
 	public static function queries(): array {
 		$base = array(
-			'post_type' => Dataset::POST_TYPE,
-			'fields'    => 'ids',
+			'post_type'     => Dataset::POST_TYPE,
+			'fields'        => 'ids',
+			'cache_results' => false, // Also turns off core's query-result cache, which would make the second run a cache hit.
 		);
 		$arch = array(
 			'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery
@@ -157,7 +158,7 @@ final class SpikeBenchmark {
 					'max_num_pages' => (int) $q->max_num_pages,
 				);
 				$t   = microtime( true );
-				$nf  = $spike->run( $args );
+				$nf  = $spike->run( array_diff_key( $args, array( 'cache_results' => 1 ) ) );
 				$n[] = ( microtime( true ) - $t ) * 1000;
 			}
 			sort( $a );
