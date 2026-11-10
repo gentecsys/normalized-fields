@@ -117,12 +117,13 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
       - name: Run the benchmark
+        id: bench
         env:
           NF_BENCH_POSTS: '10000'
           NF_BENCH_OUT: ${{ runner.temp }}/spike.md
         run: |
           vendor/bin/phpunit --filter SpikeBenchmarkTest
-          cat "$NF_BENCH_OUT" | tee -a "$GITHUB_STEP_SUMMARY"
+          cat "$NF_BENCH_OUT" | tee -a "$GITHUB_STEP_SUMMARY" || true
 
   release-build:
     name: Release zip builds

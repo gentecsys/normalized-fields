@@ -170,30 +170,50 @@ final class SpikeBenchmark {
 				'acf_ms'  => $acf_ms,
 				'nf_ms'   => $nf_ms,
 				'speedup' => $nf_ms > 0 ? $acf_ms / $nf_ms : 0.0,
-				'same'    => null !== $nf && self::equivalent( $acf, $nf ),
+				'same'    => null !== $nf && self::equivalent( $acf, $nf, isset( $args['meta_key'] ) ? 'meta' : 'date' ),
 				'found'   => $acf['found_posts'],
-				'detail'  => $nf === $acf ? '' : 'ACF ' . wp_json_encode( $acf ) . ' NF ' . wp_json_encode( $nf ),
+				'detail'  => $nf === $acf ? '' : ( null !== $nf && self::equivalent( $acf, $nf, isset( $args['meta_key'] ) ? 'meta' : 'date' ) ? 'tie order differs (tolerated). ' : '' ) . 'ACF ' . wp_json_encode( $acf ) . ' NF ' . wp_json_encode( $nf ),
 			);
 		}
 		return $out;
 	}
 
 	/**
-	 * Same result? Core gives no tie-break for rows with equal sort values, so equal-date neighbours may swap:
-	 * accept a different ID order when found_posts, max_num_pages and the sort-date sequence are identical (ties may also straddle a page boundary).
+	 * Same result? Core gives no tie-break for equal sort values, so IDs may differ only inside a run of equal
+	 * sort values: found_posts, max_num_pages and the sort-key sequence must match, and every run that is not the
+	 * first or last on the page (those may straddle a page boundary) must hold the same ID set.
 	 *
-	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $acf Core result.
-	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $nf  NF result.
+	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $acf  Core result.
+	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $nf   NF result.
+	 * @param string                                             $sort Sort key: `meta` (event_date) or `date` (post_date).
 	 */
-	private static function equivalent( array $acf, array $nf ): bool {
+	public static function equivalent( array $acf, array $nf, string $sort = 'meta' ): bool {
 		if ( $acf === $nf ) {
 			return true;
 		}
-		if ( $acf['found_posts'] !== $nf['found_posts'] || $acf['max_num_pages'] !== $nf['max_num_pages'] ) {
+		if ( $acf['found_posts'] !== $nf['found_posts'] || $acf['max_num_pages'] !== $nf['max_num_pages'] || count( $acf['ids'] ) !== count( $nf['ids'] ) ) {
 			return false;
 		}
-		$dates = static fn( array $ids ): array => array_map( static fn( int $id ) => get_post_meta( $id, 'event_date', true ), $ids );
-		return $dates( $acf['ids'] ) === $dates( $nf['ids'] );
+		$key = static fn( int $id ): string => 'meta' === $sort ? (string) get_post_meta( $id, 'event_date', true ) : (string) get_post_field( 'post_date', $id );
+		$ka  = array_map( $key, $acf['ids'] );
+		if ( $ka !== array_map( $key, $nf['ids'] ) ) {
+			return false;
+		}
+		$last = count( $ka ) - 1;
+		foreach ( array_unique( $ka ) as $first => $value ) {
+			$run = array_keys( $ka, $value, true );
+			if ( 0 === $run[0] || end( $run ) === $last ) {
+				continue; // May straddle a page boundary.
+			}
+			$x = array_intersect_key( $acf['ids'], array_flip( $run ) );
+			$y = array_intersect_key( $nf['ids'], array_flip( $run ) );
+			sort( $x );
+			sort( $y );
+			if ( $x !== $y ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
