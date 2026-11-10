@@ -49,6 +49,7 @@ class UpgraderTest extends WP_UnitTestCase {
 	 * Only migrations newer than the stored version run, in order.
 	 */
 	public function test_migrations_run_in_order_once() {
+		require_once __DIR__ . '/UpgraderTestMigration.php';
 		$log = new ArrayObject();
 		$mk  = static fn( int $v ) => new UpgraderTestMigration( $v, $log );
 		update_option( Upgrader::OPTION, 0 );
@@ -65,37 +66,5 @@ class UpgraderTest extends WP_UnitTestCase {
 		update_option( Upgrader::OPTION, 1 );
 		( new Upgrader() )->register();
 		$this->assertSame( Upgrader::SCHEMA_VERSION, (int) get_option( Upgrader::OPTION ) );
-	}
-}
-
-/**
- * Records its version when run.
- */
-class UpgraderTestMigration implements NF\Install\Migrations\MigrationInterface {
-
-	/**
-	 * Constructor.
-	 *
-	 * @param int         $v   Version.
-	 * @param ArrayObject $log Run log.
-	 */
-	public function __construct( private int $v, private ArrayObject $log ) {}
-
-	/**
-	 * Version.
-	 *
-	 * @return int
-	 */
-	public function version(): int {
-		return $this->v;
-	}
-
-	/**
-	 * Record the run.
-	 *
-	 * @return void
-	 */
-	public function up(): void {
-		$this->log[] = $this->v;
 	}
 }
