@@ -55,7 +55,12 @@ final class Upgrader {
 	public function register(): void {
 		// Plugin::register() itself runs on plugins_loaded, so a hook at priority 5 would be too late: check now.
 		$this->maybe_upgrade();
-		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
+		add_action(
+			'admin_init',
+			function (): void {
+				$this->maybe_upgrade();
+			}
+		);
 	}
 
 	/**
