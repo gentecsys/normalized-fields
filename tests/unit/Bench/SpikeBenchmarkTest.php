@@ -74,15 +74,21 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 	 * The comparison rejects different ID sets and different counts.
 	 */
 	public function test_equivalent_rejects_mismatch(): void {
+		$p = array();
+		foreach ( array( '20260101', '20260102', '20260103', '20260109' ) as $day ) {
+			$id = self::factory()->post->create();
+			update_post_meta( $id, 'event_date', $day );
+			$p[] = $id;
+		}
 		$a = array(
-			'ids'           => array( 1, 2 ),
-			'found_posts'   => 2,
+			'ids'           => array( $p[0], $p[1], $p[2] ),
+			'found_posts'   => 3,
 			'max_num_pages' => 1,
 		);
 		$this->assertTrue( SpikeBenchmark::equivalent( $a, $a ) );
-		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'found_posts' => 3 ) ) ) );
-		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( 1 ) ) ) ) );
-		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( 1, 9999999 ) ) ) ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'found_posts' => 4 ) ) ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( $p[0] ) ) ) ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( $p[0], $p[1], $p[3] ) ) ) ) );
 	}
 
 	/**
