@@ -169,12 +169,37 @@ final class SpikeBenchmark {
 				'acf_ms'  => $acf_ms,
 				'nf_ms'   => $nf_ms,
 				'speedup' => $nf_ms > 0 ? $acf_ms / $nf_ms : 0.0,
-				'same'    => null !== $nf && $nf === $acf,
+				'same'    => null !== $nf && self::equivalent( $acf, $nf ),
 				'found'   => (int) ( $acf['found_posts'] ?? 0 ),
 				'detail'  => $nf === $acf ? '' : 'ACF ' . wp_json_encode( $acf ) . ' NF ' . wp_json_encode( $nf ),
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Same result? Core gives no tie-break for rows with equal sort values, so equal-date neighbours may swap:
+	 * accept a different ID order only when the sorted ID sets match and the sort-date sequence is identical.
+	 *
+	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $acf Core result.
+	 * @param array{ids:int[],found_posts:int,max_num_pages:int} $nf  NF result.
+	 */
+	private static function equivalent( array $acf, array $nf ): bool {
+		if ( $acf === $nf ) {
+			return true;
+		}
+		if ( $acf['found_posts'] !== $nf['found_posts'] || $acf['max_num_pages'] !== $nf['max_num_pages'] ) {
+			return false;
+		}
+		$a = $acf['ids'];
+		$b = $nf['ids'];
+		sort( $a );
+		sort( $b );
+		if ( $a !== $b ) {
+			return false;
+		}
+		$dates = static fn( array $ids ): array => array_map( static fn( int $id ) => get_post_meta( $id, 'event_date', true ), $ids );
+		return $dates( $acf['ids'] ) === $dates( $nf['ids'] );
 	}
 
 	/**
