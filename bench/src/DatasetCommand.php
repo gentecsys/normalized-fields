@@ -46,6 +46,9 @@ final class DatasetCommand {
 	 *   - nf
 	 * ---
 	 *
+	 * [--posts-exist]
+	 * : With `--store=nf`: the wp_posts rows were already written by the acf store; write only NF values.
+	 *
 	 * [--force]
 	 * : Replace data already in the ID range.
 	 *
@@ -93,6 +96,33 @@ final class DatasetCommand {
 	}
 
 	/**
+	 * Spike benchmark: WP_Query on wp_postmeta vs the NF pivot, on a dataset present in both stores.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--posts=<n>]
+	 * [--seed=<n>]
+	 * [--start-id=<id>]
+	 *
+	 * @param string[]              $args  Positional args.
+	 * @param array<string, string> $assoc Named args.
+	 */
+	public function spike( array $args, array $assoc ): void {
+		unset( $args );
+		global $wpdb;
+		$dataset = self::dataset( $assoc );
+		$bench   = new SpikeBenchmark( $wpdb, \NF\Plugin::db() );
+		$rows    = $bench->run( $bench->prepare( $dataset ) );
+		\WP_CLI::line( SpikeBenchmark::markdown( $rows ) );
+		foreach ( $rows as $row ) {
+			if ( ! $row['same'] ) {
+				\WP_CLI::error( 'NF and WP_Query differ on: ' . $row['query'] );
+			}
+		}
+		\WP_CLI::success( 'All results identical.' );
+	}
+
+	/**
 	 * Print the dataset fingerprint (sha256 of the logical records).
 	 *
 	 * ## OPTIONS
@@ -135,7 +165,7 @@ final class DatasetCommand {
 		global $wpdb;
 		$name = (string) ( $assoc['store'] ?? 'acf' );
 		if ( 'nf' === $name ) {
-			return new NfStore( $wpdb, \NF\Plugin::db() );
+			return new NfStore( $wpdb, \NF\Plugin::db(), empty( $assoc['posts-exist'] ) );
 		}
 		if ( 'acf' !== $name ) {
 			\WP_CLI::error( "Unknown store '{$name}'." );
