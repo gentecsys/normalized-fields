@@ -43,6 +43,7 @@ class BridgeTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
 		$db = nf_db();
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t12%' ) );
 		$fields       = new FieldMap( $db );
@@ -496,5 +497,38 @@ class BridgeTest extends WP_UnitTestCase {
 		} else {
 			$_SERVER['REQUEST_METHOD'] = $old;
 		}
+	}
+
+	/**
+	 * While the schema is behind, the bridge skips its writes instead of touching NF tables.
+	 */
+	public function test_schema_behind_skips_write(): void {
+		$meta = array(
+			'rs'        => 2,
+			'rs_0_room' => 'Room A',
+			'rs_1_room' => 'Room B',
+		);
+		$this->resync_fixture( $meta );
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION - 1 );
+		$skipped = 0;
+		$count   = static function () use ( &$skipped ): void {
+			++$skipped;
+		};
+		add_action( 'nf/bridge/schema_behind', $count ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$meta['rs_1_room'] = 'Room C';
+		$this->bridge->onUpdate(
+			'Room C',
+			7,
+			array(
+				'key'    => 'field_t12_rs_room',
+				'name'   => 'rs_1_room',
+				'type'   => 'text',
+				'parent' => 'field_t12_rs',
+			)
+		);
+		$this->bridge->flush();
+		remove_action( 'nf/bridge/schema_behind', $count ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$this->assertSame( 1, $skipped );
+		$this->assertSame( 'Room A', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
 	}
 }
