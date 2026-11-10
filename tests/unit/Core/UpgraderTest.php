@@ -1,0 +1,64 @@
+<?php
+/**
+ * Schema upgrade tests.
+ *
+ * @package NF
+ */
+
+use NF\Install\Upgrader;
+
+/**
+ * A lower stored version recreates missing tables and runs migrations once.
+ */
+class UpgraderTest extends WP_UnitTestCase {
+
+	/**
+	 * Whether a table exists.
+	 *
+	 * @param string $name Table name.
+	 * @return bool
+	 */
+	private function table_exists( string $name ): bool {
+		global $wpdb;
+		return $name === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/**
+	 * Dropped table comes back when the stored version is lower.
+	 */
+	public function test_missing_table_is_created() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'nf_pivot_sets';
+		$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+		update_option( Upgrader::OPTION, 1 );
+		$this->assertFalse( $this->table_exists( $table ) );
+		$this->assertTrue( ( new Upgrader() )->maybe_upgrade() );
+		$this->assertTrue( $this->table_exists( $table ) );
+		$this->assertSame( Upgrader::SCHEMA_VERSION, (int) get_option( Upgrader::OPTION ) );
+		$this->assertFalse( ( new Upgrader() )->maybe_upgrade() );
+	}
+
+	/**
+	 * Only migrations newer than the stored version run, in order.
+	 */
+	public function test_migrations_run_in_order_once() {
+		$log = new ArrayObject();
+		$mk  = static fn( int $v ) => new class( $v, $log ) implements NF\Install\Migrations\MigrationInterface {
+			// phpcs:ignore Squiz.Commenting
+			public function __construct( private int $v, private ArrayObject $log ) {}
+			// phpcs:ignore Squiz.Commenting
+			public function version(): int {
+				return $this->v;
+			}
+			// phpcs:ignore Squiz.Commenting
+			public function up(): void {
+				$this->log[] = $this->v;
+			}
+		};
+		update_option( Upgrader::OPTION, 0 );
+		$up = new Upgrader( array( $mk( 2 ), $mk( 1 ), $mk( 99 ) ) );
+		$up->maybe_upgrade();
+		$up->maybe_upgrade();
+		$this->assertSame( array( 1, 2 ), $log->getArrayCopy() );
+	}
+}
