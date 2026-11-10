@@ -93,6 +93,38 @@ jobs:
       - name: ACF vs ACF baseline on the bench dataset
         run: vendor/bin/phpunit -c phpunit-acf.xml.dist
 
+  bench-spike:
+    name: Spike benchmark (10k posts, ACF meta vs NF pivot)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp_test
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli
+          tools: composer
+      - run: sudo apt-get install -y subversion
+      - run: composer install --no-interaction --prefer-dist
+      - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
+      - name: Run the benchmark
+        id: bench
+        env:
+          NF_BENCH_POSTS: '10000'
+          NF_BENCH_OUT: ${{ runner.temp }}/spike.md
+        run: |
+          vendor/bin/phpunit --filter SpikeBenchmarkTest
+          cat "$NF_BENCH_OUT" | tee -a "$GITHUB_STEP_SUMMARY" || true
+
   release-build:
     name: Release zip builds
     runs-on: ubuntu-latest

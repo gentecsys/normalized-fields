@@ -33,7 +33,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 1.2b | Bridge: re-sync a Series after a lone sub-field save | A5 | S | 1.2 | merged | wp/1.2b-series-resync | **Do this before 1.3.** See `reports/WP-1.2b.md`. After `update_sub_field()` or `update_field( 'outer_0_name' )` on real ACF PRO, NF holds the same rows as ACF; tests cover sub-field, row add/remove via `add_row()`/`delete_row()`, and no write when ACF's save fails |
 | 1.3 | Minimal pivot + two translated queries | A3 + A4 | M | 1.1 | merged | wp/1.3-pivot-queries | Same IDs, order, `found_posts` and `max_num_pages` as `WP_Query` on `wp_postmeta`, incl. the design doc's pagination cases (`paged`, `offset`, `-1`) |
 | 1.4 | Differential check | A11 | S | 1.2, 1.2b | merged | | Zero diffs |
-| 1.5 | Spike benchmark | A12 | S | 1.3 | ready | | Report in `reports/` |
+| 1.5 | Spike benchmark | A12 | S | 1.3 | in-review | wp/1.5-spike-benchmark | Report in `reports/` |
 | 0.3b | Dataset generator: NF store writer | A12 | S | 0.3a, 1.1 | merged | wp/0.3b-nf-store-writer | Same post IDs and values in ACF and NF stores (10k, 100k); `nf` store verifies against the same fingerprint |
 
 0.3b sits here because it needs 1.1, which needs G0; it stays numbered 0.3b so existing reports still match.
