@@ -18,3 +18,4 @@
 2026-11-09 | WP 1.3 | labelled nf:ready | Minimal pivot (sets, slots, write-through, rebuild) and SpikeQuery translating two WP_Query shapes; WP_Query differential tests green; reviewer blockers fixed; CI 27/27 green; 1.2b marked merged, 1.4 ready | PR #20 (wp/1.3-pivot-queries)
 2026-11-09 | WP 1.4 | labelled nf:ready | NF-vs-ACF differential check (ACF writes, reads from ACF storage vs NF tables) on the spike types; reviewer no blockers; CI 27/27 green; 1.3 marked merged, 1.5 ready | PR #21 (wp/1.4-differential-check)
 2026-11-10 | WP 1.5 | labelled nf:ready | Spike benchmark: 10k posts, NF 10-77x faster than stock ACF meta on 3 spike queries, identical results; 1.4 marked merged; CI 28/28 green; CI file edit (bench-spike job) for owner to confirm | PR #24 (wp/1.5-spike-benchmark)
+2026-11-10 | gate G1 | waiting for owner approval of G1 | Phase 1 complete, 1.5 marked merged, gate-G1.md written | main
