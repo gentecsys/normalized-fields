@@ -44,7 +44,8 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2.1 | All field types | A2 | L | G1 | todo | | Differential suite passes for every type |
+| 2.0 | Schema upgrades on plugin update | A1 | S | G1 | ready | | **Do this first.** A stored schema version (`nf_db_version`) is compared on `plugins_loaded`/`admin_init`; when it is lower, the installer creates missing tables (dbDelta) and runs versioned migrations in `NF\Install\Migrations\`, per site on multisite. Found on nf-dev 2026-11-10: the 1.3 pivot tables were missing on a site where NF was already active. Test: drop a table, bump the version, load, table exists |
+| 2.1 | All field types | A2 | L | G1 | todo | | Differential suite passes for every type. **`Acf\TypeMap` follows the design doc's type table** and is the one mapping used by the bridge and the bench writer (`bench/src/NfLayout.php`): time picker `int` seconds, date-time picker `date`, `text` in `str` with values over 191 chars spilling to `text` (prefix kept in `str`). See `reports/gate-G1.md` |
 | 2.2 | Pivot, row pivot, dictionary, bitmasks, rollups | A3 | L | G1 | todo | | Rebuild equals write-through, byte for byte |
 | 2.3 | Archive and revisions | A2 | M | 2.1 | todo | | Preview and restore tests pass |
 | 2.4 | Meta API interception | A5 | M | 2.1 | todo | | Duplicate-post and copy tests keep NF fields |
