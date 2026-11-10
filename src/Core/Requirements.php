@@ -62,7 +62,7 @@ final class Requirements {
 		}
 		update_option( 'nf_version', NF_VERSION, false );
 		if ( class_exists( 'NF\Install\Schema' ) ) {
-			\NF\Install\Schema::install();
+			( new \NF\Install\Upgrader() )->maybe_upgrade();
 		}
 	}
 
