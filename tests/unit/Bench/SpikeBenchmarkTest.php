@@ -66,7 +66,7 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 		( new AcfStore( $wpdb ) )->clear( $this->dataset );
 		$left = $db->select( 'SELECT field_id, field_key FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_name = ?', array( 'artists' ) );
 		$this->assertSame( array(), $left, 'Bench fields were not cleaned up.' );
-		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery // NfStore commits its writes; make the clean-up permanent too, the suite only rolls back.
+		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- NfStore commits its writes; make the clean-up permanent too, the suite only rolls back.
 		parent::tear_down();
 	}
 
