@@ -64,10 +64,25 @@ class SpikeBenchmarkTest extends WP_UnitTestCase {
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_nfbench%' ) );
 		( new NfStore( $wpdb, nf_db(), false ) )->clear( $this->dataset );
 		( new AcfStore( $wpdb ) )->clear( $this->dataset );
+		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- NfStore commits its writes; make the clean-up permanent too, the suite only rolls back.
 		$left = $db->select( 'SELECT field_id, field_key FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_name = ?', array( 'artists' ) );
 		$this->assertSame( array(), $left, 'Bench fields were not cleaned up.' );
-		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- NfStore commits its writes; make the clean-up permanent too, the suite only rolls back.
 		parent::tear_down();
+	}
+
+	/**
+	 * The comparison rejects different ID sets and different counts.
+	 */
+	public function test_equivalent_rejects_mismatch(): void {
+		$a = array(
+			'ids'           => array( 1, 2 ),
+			'found_posts'   => 2,
+			'max_num_pages' => 1,
+		);
+		$this->assertTrue( SpikeBenchmark::equivalent( $a, $a ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'found_posts' => 3 ) ) ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( 1 ) ) ) ) );
+		$this->assertFalse( SpikeBenchmark::equivalent( $a, array_merge( $a, array( 'ids' => array( 1, 9999999 ) ) ) ) );
 	}
 
 	/**
