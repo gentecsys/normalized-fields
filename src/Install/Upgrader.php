@@ -48,12 +48,13 @@ final class Upgrader {
 	}
 
 	/**
-	 * Hook the check on load and in the admin.
+	 * Check now (called from plugins_loaded) and again in the admin.
 	 *
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'plugins_loaded', array( $this, 'maybe_upgrade' ), 5 );
+		// Plugin::register() itself runs on plugins_loaded, so a hook at priority 5 would be too late: check now.
+		$this->maybe_upgrade();
 		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 	}
 
@@ -73,7 +74,7 @@ final class Upgrader {
 				$migration->up();
 			}
 		}
-		update_option( self::OPTION, self::SCHEMA_VERSION, false );
+		update_option( self::OPTION, self::SCHEMA_VERSION, true );
 		return true;
 	}
 }

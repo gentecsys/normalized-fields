@@ -61,4 +61,13 @@ class UpgraderTest extends WP_UnitTestCase {
 		$up->maybe_upgrade();
 		$this->assertSame( array( 1, 2 ), $log->getArrayCopy() );
 	}
+
+	/**
+	 * register() upgrades immediately, so non-admin requests repair the schema.
+	 */
+	public function test_register_upgrades_on_non_admin_request() {
+		update_option( Upgrader::OPTION, 1 );
+		( new Upgrader() )->register();
+		$this->assertSame( Upgrader::SCHEMA_VERSION, (int) get_option( Upgrader::OPTION ) );
+	}
 }
