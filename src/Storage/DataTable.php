@@ -84,7 +84,7 @@ enum DataTable: string {
 				return $json;
 			case self::Str:
 				if ( ! is_scalar( $value ) || ( ! $allowLong && mb_strlen( (string) $value ) > 191 ) ) {
-					throw new \InvalidArgumentException( 'String value is longer than 191 characters; use a text field.' );
+					throw new \InvalidArgumentException( 'String value is longer than 191 characters; the Store spills long values to nf_text.' );
 				}
 				return (string) $value;
 			default:

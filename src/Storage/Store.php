@@ -235,11 +235,11 @@ final class Store {
 	/**
 	 * Replace 191-char prefixes with the full value from nf_text.
 	 *
-	 * @param FieldDef            $def    Field.
-	 * @param ObjectType          $type   Object type.
-	 * @param int                 $id     Object ID.
-	 * @param int                 $row_id Row ID.
-	 * @param array<int,array<string,mixed>> $rows nf_str rows in position order.
+	 * @param FieldDef                       $def    Field.
+	 * @param ObjectType                     $type   Object type.
+	 * @param int                            $id     Object ID.
+	 * @param int                            $row_id Row ID.
+	 * @param array<int,array<string,mixed>> $rows   nf_str rows in position order.
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function withSpill( FieldDef $def, ObjectType $type, int $id, int $row_id, array $rows ): array {
