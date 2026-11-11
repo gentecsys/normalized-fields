@@ -20,6 +20,11 @@ defined( 'ABSPATH' ) || exit;
 final class Store {
 
 	/**
+	 * Longest value kept whole in nf_str; longer values keep this prefix there and the full value in nf_text.
+	 */
+	private const STR_MAX = 191;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackendInterface $db     Backend.
@@ -221,7 +226,47 @@ final class Store {
 			'SELECT value FROM ' . $this->db->table( $def->table->table() ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ? ORDER BY position',
 			array( $type->value, $id, $def->id, $row_id )
 		);
+		if ( DataTable::Str === $def->table ) {
+			$rows = $this->withSpill( $def, $type, $id, $row_id, $rows );
+		}
 		return array_map( fn( array $r ): mixed => $def->table->fromDb( $r['value'] ), $rows );
+	}
+
+	/**
+	 * Replace 191-char prefixes with the full value from nf_text.
+	 *
+	 * @param FieldDef            $def    Field.
+	 * @param ObjectType          $type   Object type.
+	 * @param int                 $id     Object ID.
+	 * @param int                 $row_id Row ID.
+	 * @param array<int,array<string,mixed>> $rows nf_str rows in position order.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function withSpill( FieldDef $def, ObjectType $type, int $id, int $row_id, array $rows ): array {
+		$long = false;
+		foreach ( $rows as $r ) {
+			if ( mb_strlen( (string) $r['value'] ) >= self::STR_MAX ) {
+				$long = true;
+				break;
+			}
+		}
+		if ( ! $long ) {
+			return $rows;
+		}
+		$full = $this->db->select(
+			'SELECT position, value FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ?',
+			array( $type->value, $id, $def->id, $row_id )
+		);
+		$by   = array();
+		foreach ( $full as $f ) {
+			$by[ (int) $f['position'] ] = $f['value'];
+		}
+		foreach ( $rows as $i => $r ) {
+			if ( isset( $by[ $i ] ) ) {
+				$rows[ $i ]['value'] = $by[ $i ];
+			}
+		}
+		return $rows;
 	}
 
 	/**
@@ -239,9 +284,17 @@ final class Store {
 		$list = $def->multi ? ( is_array( $value ) ? array_values( $value ) : ( null === $value ? array() : array( $value ) ) ) : ( null === $value ? array() : array( $value ) );
 		$t    = $this->db->table( $def->table->table() );
 		foreach ( $list as $pos => $v ) {
+			$db_value = $def->table->toDb( $v, true );
+			if ( DataTable::Str === $def->table && mb_strlen( (string) $db_value ) > self::STR_MAX ) {
+				$this->db->execute(
+					'INSERT INTO ' . $this->db->table( 'nf_text' ) . ' (object_type, object_id, field_id, row_id, position, value) VALUES (?, ?, ?, ?, ?, ?)',
+					array( $type->value, $id, $def->id, $row_id, $pos, (string) $db_value )
+				);
+				$db_value = mb_substr( (string) $db_value, 0, self::STR_MAX );
+			}
 			$this->db->execute(
 				'INSERT INTO ' . $t . ' (object_type, object_id, field_id, row_id, position, value) VALUES (?, ?, ?, ?, ?, ?)',
-				array( $type->value, $id, $def->id, $row_id, $pos, $def->table->toDb( $v ) )
+				array( $type->value, $id, $def->id, $row_id, $pos, $db_value )
 			);
 		}
 	}
@@ -260,6 +313,12 @@ final class Store {
 			'DELETE FROM ' . $this->db->table( $def->table->table() ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ?',
 			array( $type->value, $id, $def->id, $row_id )
 		);
+		if ( DataTable::Str === $def->table ) {
+			$this->db->execute(
+				'DELETE FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ?',
+				array( $type->value, $id, $def->id, $row_id )
+			);
+		}
 	}
 
 	/**
@@ -288,6 +347,13 @@ final class Store {
 					'DELETE FROM ' . $this->db->table( $sub->table->table() ) . ' WHERE object_type = ? AND object_id = ? AND row_id IN (' . $marks . ')',
 					array_merge( array( $type->value, $id ), $ids )
 				);
+				if ( DataTable::Str === $sub->table && ! isset( $seen['text'] ) ) {
+					$seen['text'] = true;
+					$this->db->execute(
+						'DELETE FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND object_id = ? AND row_id IN (' . $marks . ')',
+						array_merge( array( $type->value, $id ), $ids )
+					);
+				}
 			}
 		}
 		$this->db->execute(

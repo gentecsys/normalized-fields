@@ -194,7 +194,57 @@ class StoreTest extends WP_UnitTestCase {
 	 */
 	public function test_validation() {
 		$this->expectException( InvalidArgumentException::class );
-		$this->store->set( ObjectType::Post, 101, 'field_t11_title', str_repeat( 'y', 192 ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_cap', 'not a number' );
+	}
+
+	/**
+	 * A value over 191 chars keeps a prefix in nf_str and the full value in nf_text; update and delete clean both.
+	 */
+	public function test_long_string_spills_to_text() {
+		$db   = nf_db();
+		$long = str_repeat( 'é', 300 );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', $long );
+		$this->assertSame( $long, $this->store->get( ObjectType::Post, 101, 'field_t11_title' ) );
+		$prefix = $db->select( 'SELECT value FROM ' . $db->table( 'nf_str' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ?', array( ObjectType::Post->value, 101, $this->fields->byKey( 'field_t11_title' )->id ) );
+		$this->assertSame( str_repeat( 'é', 191 ), $prefix[0]['value'] );
+
+		$exact = str_repeat( 'x', 191 );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', $exact );
+		$this->assertSame( $exact, $this->store->get( ObjectType::Post, 101, 'field_t11_title' ) );
+		$this->assertSame( 0, $this->textRows( 101 ) );
+
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', $long );
+		$this->assertSame( 1, $this->textRows( 101 ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', 'short' );
+		$this->assertSame( 0, $this->textRows( 101 ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', $long );
+		$this->store->deleteObject( ObjectType::Post, 101 );
+		$this->assertSame( 0, $this->textRows( 101 ) );
+	}
+
+	/**
+	 * A long string inside a Series row spills too, and is removed with the Series.
+	 */
+	public function test_long_string_in_series_row() {
+		$long = str_repeat( 'z', 250 );
+		$this->store->setRows( ObjectType::Post, 101, 'field_t11_sessions', array( array( 'name' => $long, 'length' => 5 ) ) );
+		$rows = $this->store->getRows( ObjectType::Post, 101, 'field_t11_sessions' );
+		$this->assertSame( $long, $rows[0]['name'] );
+		$this->assertSame( 1, $this->textRows( 101 ) );
+		$this->store->delete( ObjectType::Post, 101, 'field_t11_sessions' );
+		$this->assertSame( 0, $this->textRows( 101 ) );
+	}
+
+	/**
+	 * Count nf_text rows of a post.
+	 *
+	 * @param int $id Post ID.
+	 * @return int
+	 */
+	private function textRows( int $id ): int {
+		$db  = nf_db();
+		$row = $db->select( 'SELECT COUNT(*) AS c FROM ' . $db->table( 'nf_text' ) . ' WHERE object_type = ? AND object_id = ?', array( ObjectType::Post->value, $id ) );
+		return (int) $row[0]['c'];
 	}
 
 	/**
