@@ -22,3 +22,4 @@
 2026-11-10 | WP 2.0 | labelled nf:ready | Upgrader (nf_db_version, dbDelta, versioned migrations); reviewer blocker fixed; CI 28/28 green | PR #26 (wp/2.0-schema-upgrades)
 2026-11-11 | WP 2.1a | in-review | Type map follows design doc (time=int seconds, date-time=date, text=str) and >191-char strings spill to nf_text; reviewer no blockers; CI green; nf:ready label NOT applied (permission denied in sandbox), owner must label PR #28 | PR #28 (wp/2.1a-typemap-spill)
 2026-11-11 | WP 2.1a | labelled nf:ready | Bookkeeping only (no new WP, token budget): 2.0 marked merged; PR #28 CI 28/28 green, nf:ready label applied now (worked on retry) | PR #28 (wp/2.1a-typemap-spill)
+2026-11-11 | WP 2.1b | in-review | Scalar/multi-valued TypeMap fixes (oembed, checkbox, multi-select, page_link), composite types split to 2.1c; 2.1a marked merged; all CI jobs red twice from runner DNS outage (apt), no nf:ready label yet | PR #29 (wp/2.1b-field-types)
