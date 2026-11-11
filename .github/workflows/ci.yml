@@ -60,7 +60,6 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: mysqli
           tools: composer
-      - run: sudo apt-get install -y subversion
       - run: composer install --no-interaction --prefer-dist
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 ${{ matrix.wp }}
       - run: vendor/bin/phpunit
@@ -85,7 +84,6 @@ jobs:
           php-version: '8.3'
           extensions: mysqli
           tools: composer
-      - run: sudo apt-get install -y subversion
       - run: composer install --no-interaction --prefer-dist
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
       - name: Install Secure Custom Fields (free ACF fork incl. the repeater)
@@ -113,7 +111,6 @@ jobs:
           php-version: '8.3'
           extensions: mysqli
           tools: composer
-      - run: sudo apt-get install -y subversion
       - run: composer install --no-interaction --prefer-dist
       - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
       - name: Run the benchmark
