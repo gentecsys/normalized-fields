@@ -77,7 +77,7 @@ class BridgeTest extends WP_UnitTestCase {
 	 */
 	public function test_type_map(): void {
 		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( array( 'type' => 'relationship' ) ) );
-		$this->assertSame( array( DataTable::Text, false ), TypeMap::storage( array( 'type' => 'text' ) ) );
+		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( array( 'type' => 'text' ) ) );
 		$short = array(
 			'type'      => 'text',
 			'maxlength' => 100,

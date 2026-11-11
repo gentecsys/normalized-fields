@@ -94,7 +94,14 @@ final class NfProbe {
 		}
 		$rows = Plugin::store()->getRows( ObjectType::Post, $post_id, $def->key );
 		return array_map(
-			static fn( array $row ): array => array_intersect_key( $row, array_flip( self::SUBS ) ),
+			static function ( array $row ): array {
+				$row = array_intersect_key( $row, array_flip( self::SUBS ) );
+				if ( isset( $row['time'] ) && is_numeric( $row['time'] ) ) {
+					// Time pickers are stored as seconds since midnight (design doc); ACF returns H:i:s.
+					$row['time'] = sprintf( '%02d:%02d:%02d', intdiv( (int) $row['time'], 3600 ), intdiv( (int) $row['time'] % 3600, 60 ), (int) $row['time'] % 60 );
+				}
+				return $row;
+			},
 			$rows
 		);
 	}
