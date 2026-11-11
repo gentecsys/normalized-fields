@@ -227,7 +227,17 @@ class StoreTest extends WP_UnitTestCase {
 	 */
 	public function test_long_string_in_series_row() {
 		$long = str_repeat( 'z', 250 );
-		$this->store->setRows( ObjectType::Post, 101, 'field_t11_sessions', array( array( 'name' => $long, 'length' => 5 ) ) );
+		$this->store->setRows(
+			ObjectType::Post,
+			101,
+			'field_t11_sessions',
+			array(
+				array(
+					'name'   => $long,
+					'length' => 5,
+				),
+			)
+		);
 		$rows = $this->store->getRows( ObjectType::Post, 101, 'field_t11_sessions' );
 		$this->assertSame( $long, $rows[0]['name'] );
 		$this->assertSame( 1, $this->textRows( 101 ) );

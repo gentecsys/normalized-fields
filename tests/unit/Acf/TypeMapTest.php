@@ -34,8 +34,18 @@ class TypeMapTest extends WP_UnitTestCase {
 		foreach ( $expected as $type => $want ) {
 			$this->assertSame( $want, TypeMap::storage( array( 'type' => $type ) ), $type );
 		}
-		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( array( 'type' => 'text', 'maxlength' => 500 ) ) );
-		$this->assertSame( array( DataTable::Json, false ), TypeMap::storage( array( 'type' => 'select', 'multiple' => 1 ) ) );
+		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage(
+				array(
+					'type'      => 'text',
+					'maxlength' => 500,
+				)
+			) );
+		$this->assertSame( array( DataTable::Json, false ), TypeMap::storage(
+				array(
+					'type'     => 'select',
+					'multiple' => 1,
+				)
+			) );
 	}
 
 	/**
