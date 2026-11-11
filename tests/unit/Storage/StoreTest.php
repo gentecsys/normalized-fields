@@ -291,4 +291,34 @@ class StoreTest extends WP_UnitTestCase {
 		$this->store->set( ObjectType::Post, 101, 'field_t11_embed', $url );
 		$this->assertSame( $url, $this->store->get( ObjectType::Post, 101, 'field_t11_embed' ) );
 	}
+
+	/**
+	 * A link (pseudo sub-fields on a `none` parent) round-trips, updates and deletes; a nested group works too.
+	 */
+	public function test_group_like_round_trip() {
+		$link = $this->fields->register( 'field_t11_link', 'link', DataTable::None );
+		$this->fields->register( 'field_t11_link__url', 'url', DataTable::Str, false, $link->id );
+		$this->fields->register( 'field_t11_link__title', 'title', DataTable::Str, false, $link->id );
+		$inner = $this->fields->register( 'field_t11_inner', 'inner', DataTable::None, false, $link->id );
+		$this->fields->register( 'field_t11_inner_n', 'n', DataTable::Int, false, $inner->id );
+
+		$full = array(
+			'url'   => 'https://a.test',
+			'title' => 'A',
+			'inner' => array( 'n' => 5 ),
+		);
+		$this->store->set( ObjectType::Post, 101, 'field_t11_link', $full );
+		$this->assertSame( $full, $this->store->get( ObjectType::Post, 101, 'field_t11_link' ) );
+
+		$empty = array(
+			'url'   => null,
+			'title' => null,
+			'inner' => array( 'n' => null ),
+		);
+		$this->store->set( ObjectType::Post, 101, 'field_t11_link', array( 'url' => 'https://b.test' ) );
+		$this->assertSame( array_merge( $empty, array( 'url' => 'https://b.test' ) ), $this->store->get( ObjectType::Post, 101, 'field_t11_link' ) );
+
+		$this->store->delete( ObjectType::Post, 101, 'field_t11_link' );
+		$this->assertSame( $empty, $this->store->get( ObjectType::Post, 101, 'field_t11_link' ) );
+	}
 }
