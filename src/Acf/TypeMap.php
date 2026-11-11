@@ -43,6 +43,7 @@ final class TypeMap {
 			case 'relationship':
 				return array( DataTable::Int, true );
 			case 'post_object':
+			case 'page_link':
 			case 'user':
 			case 'taxonomy':
 				return array( DataTable::Int, $multiple || 'taxonomy' === $type );
@@ -51,6 +52,7 @@ final class TypeMap {
 				return array( DataTable::Date, false );
 			case 'textarea':
 			case 'wysiwyg':
+			case 'oembed':
 				return array( DataTable::Text, false );
 			case 'text':
 			case 'email':
@@ -62,7 +64,10 @@ final class TypeMap {
 				// Values over 191 chars spill to nf_text inside the Store; the field stays in nf_str.
 				return array( DataTable::Str, false );
 			case 'select':
-				return $multiple ? array( DataTable::Json, false ) : array( DataTable::Str, false );
+				// Multi-select: one nf_str row per chosen value, position = order.
+				return array( DataTable::Str, $multiple );
+			case 'checkbox':
+				return array( DataTable::Str, true );
 			default:
 				return array( DataTable::Json, false );
 		}
@@ -93,6 +98,11 @@ final class TypeMap {
 		}
 		if ( DataTable::Int === $table && is_array( $value ) ) {
 			return isset( $value['ID'] ) ? (int) $value['ID'] : null;
+		}
+		if ( DataTable::Int === $table && is_object( $value ) ) {
+			// WP_Post, WP_User or WP_Term passed instead of an ID.
+			$id = $value->ID ?? $value->term_id ?? null;
+			return null === $id ? null : (int) $id;
 		}
 		if ( DataTable::Int === $table && is_string( $value ) && preg_match( '/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $value, $m ) ) {
 			// Time picker: seconds since midnight.
