@@ -42,6 +42,9 @@ final class Store {
 	 */
 	public function get( ObjectType $type, int $id, string $key ): mixed {
 		$def = $this->valueField( $key );
+		if ( DataTable::None === $def->table ) {
+			return $this->readGroup( $def, $type, $id );
+		}
 		$out = $this->readValues( $def, $type, $id, 0 );
 		return $def->multi ? $out : ( $out[0] ?? null );
 	}
@@ -59,6 +62,10 @@ final class Store {
 		$def = $this->valueField( $key );
 		$this->db->transaction(
 			function () use ( $def, $type, $id, $value ): void {
+				if ( DataTable::None === $def->table ) {
+					$this->writeGroup( $def, $type, $id, $value );
+					return;
+				}
 				$this->writeValues( $def, $type, $id, 0, $value );
 			}
 		);
@@ -81,6 +88,8 @@ final class Store {
 			function () use ( $def, $type, $id ): void {
 				if ( DataTable::Rows === $def->table ) {
 					$this->deleteRows( $def, $type, $id );
+				} elseif ( DataTable::None === $def->table ) {
+					$this->writeGroup( $def, $type, $id, null );
 				} else {
 					$this->deleteValues( $def, $type, $id, 0 );
 				}
@@ -191,7 +200,7 @@ final class Store {
 	 */
 	private function valueField( string $key ): FieldDef {
 		$def = $this->fields->byKey( $key );
-		if ( null === $def || ! $def->table->hasValues() ) {
+		if ( null === $def || ( ! $def->table->hasValues() && DataTable::None !== $def->table ) ) {
 			throw new \InvalidArgumentException( 'Not a value field: ' . sanitize_key( $key ) );
 		}
 		return $def;
@@ -210,6 +219,48 @@ final class Store {
 			throw new \InvalidArgumentException( 'Not a Series field: ' . sanitize_key( $key ) );
 		}
 		return $def;
+	}
+
+	/**
+	 * Read a group-like field (group, link, Google Map): its children keyed by name, stored on row 0 of the parent.
+	 *
+	 * @param FieldDef   $def  Parent field (data table `none`).
+	 * @param ObjectType $type Object type.
+	 * @param int        $id   Object ID.
+	 * @return array<string,mixed>
+	 */
+	private function readGroup( FieldDef $def, ObjectType $type, int $id ): array {
+		$out = array();
+		foreach ( $this->fields->children( $def->id ) as $child ) {
+			if ( DataTable::None === $child->table ) {
+				$out[ $child->name ] = $this->readGroup( $child, $type, $id );
+				continue;
+			}
+			$vals                = $this->readValues( $child, $type, $id, 0 );
+			$out[ $child->name ] = $child->multi ? $vals : ( $vals[0] ?? null );
+		}
+		return $out;
+	}
+
+	/**
+	 * Replace a group-like field. Children missing from $value (or a null value) are removed.
+	 *
+	 * @param FieldDef   $def   Parent field (data table `none`).
+	 * @param ObjectType $type  Object type.
+	 * @param int        $id    Object ID.
+	 * @param mixed      $value Array keyed by child name, or null.
+	 * @return void
+	 */
+	private function writeGroup( FieldDef $def, ObjectType $type, int $id, mixed $value ): void {
+		$map = is_array( $value ) ? $value : array();
+		foreach ( $this->fields->children( $def->id ) as $child ) {
+			$part = $map[ $child->name ] ?? null;
+			if ( DataTable::None === $child->table ) {
+				$this->writeGroup( $child, $type, $id, $part );
+			} else {
+				$this->writeValues( $child, $type, $id, 0, $part );
+			}
+		}
 	}
 
 	/**
