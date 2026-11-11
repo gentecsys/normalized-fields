@@ -59,6 +59,8 @@ final class Bridge {
 		add_action( 'shutdown', array( $this, 'flush' ), 5 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'beforeSeries' ), 1, 3 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'afterSeries' ), 99, 1 );
+		// Before ACF's group handler (priority 10), which saves each sub-field and passes '' on.
+		add_filter( 'acf/update_value/type=group', array( $this, 'beforeGroup' ), 1, 3 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
 		add_action( 'acf/delete_value', array( $this, 'onDelete' ), 10, 3 );
 	}
@@ -134,6 +136,35 @@ final class Bridge {
 	}
 
 	/**
+	 * Filter: mirror a top-level Group (with nested Groups) from the array ACF is about to save.
+	 *
+	 * ACF's own group handler runs at priority 10: it saves each sub-field and returns '', so by
+	 * onUpdate (priority 99) the value is gone, and the sub-field saves are skipped as sub-fields.
+	 * Groups inside a Series are stored with the Series rows.
+	 *
+	 * @param mixed               $value   Group value, keyed by sub-field key or name.
+	 * @param mixed               $post_id ACF post ID.
+	 * @param array<string,mixed> $field   Group field.
+	 * @return mixed Unchanged value.
+	 */
+	public function beforeGroup( mixed $value, mixed $post_id, array $field ): mixed {
+		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || $this->isSubField( $field ) ) {
+			return $value;
+		}
+		$target = self::decode( $post_id );
+		if ( null === $target ) {
+			return $value;
+		}
+		try {
+			$def = $this->ensure( $field );
+			$this->store->set( $target[0], $target[1], $def->key, TypeMap::normalizeComposite( $field, $value ) );
+		} catch ( \Throwable $e ) {
+			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		}
+		return $value;
+	}
+
+	/**
 	 * Filter: the Series save finished.
 	 *
 	 * @param mixed $value ACF's return value.
@@ -153,7 +184,8 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || 'repeater' === ( $field['type'] ?? '' ) || empty( $field['key'] ) ) {
+		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group' ), true ) || empty( $field['key'] ) ) {
+			// Series and Groups were mirrored at priority 1 (beforeSeries, beforeGroup).
 			return $value;
 		}
 		if ( $this->isSubField( $field ) ) {
