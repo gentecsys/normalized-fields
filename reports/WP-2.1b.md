@@ -16,3 +16,6 @@
 ## Deviations
 - Differential (ACF vs NF) coverage for these types is not added here; it belongs to A11's harness. Tests were not run locally (CI only).
 - Reviewer notes carried forward: no Bridge-level `update_field` test for checkbox/multi-select/page_link yet; time-picker strings in formats other than `H:i[:S]` are rejected by `toDb` (Bridge logs `nf/bridge/error`); seconds -> `H:i:s` read-back belongs to the loader/return-format work (2.1c or A5/A6).
+
+## Resume from
+CI on PR #29 (head c26de5b) failed on every job twice (initial run and one re-run) with `Temporary failure resolving 'archive.ubuntu.com'` during `apt-get` (exit 100): a GitHub runner network outage, not the code. PHPCS formatting fix was pushed earlier (the PHPCS job passed apart from that). Next: re-run the failed jobs when DNS is back; if green and the reviewer's remaining notes are fine, add the `nf:ready` label to #29.
