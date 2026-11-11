@@ -166,7 +166,8 @@ final class Bridge {
 		}
 		try {
 			$def = $this->ensure( $field );
-			$this->store->set( $target[0], $target[1], $def->key, TypeMap::normalize( $value, $def->table, $def->multi ) );
+			$normal = DataTable::None === $def->table ? TypeMap::normalizeComposite( $field, $value ) : TypeMap::normalize( $value, $def->table, $def->multi );
+			$this->store->set( $target[0], $target[1], $def->key, $normal );
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
@@ -428,6 +429,26 @@ final class Bridge {
 				$this->fields->register( (string) $sub['key'], (string) ( $sub['name'] ?? '' ), $sub_table, $sub_multi, $def->id );
 			}
 		}
+		$this->registerParts( $def, $field );
 		return $def;
+	}
+
+	/**
+	 * Register the children of a group, link or Google Map field (recursively for nested groups).
+	 *
+	 * @param \NF\Storage\FieldDef  $parent Parent definition.
+	 * @param array<string,mixed> $field  ACF field.
+	 * @return void
+	 */
+	private function registerParts( \NF\Storage\FieldDef $parent, array $field ): void {
+		if ( DataTable::None !== $parent->table ) {
+			return;
+		}
+		foreach ( TypeMap::composite( $field ) ?? array() as $part ) {
+			$child = $this->fields->register( $part['key'], $part['name'], $part['table'], $part['multi'], $parent->id );
+			if ( is_array( $part['field'] ) ) {
+				$this->registerParts( $child, $part['field'] );
+			}
+		}
 	}
 }

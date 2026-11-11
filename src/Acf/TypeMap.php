@@ -30,6 +30,11 @@ final class TypeMap {
 		switch ( $type ) {
 			case 'repeater':
 				return array( DataTable::Rows, false );
+			case 'group':
+			case 'link':
+			case 'google_map':
+				// Stored as child fields on the parent (see composite()); the parent itself holds no value.
+				return array( DataTable::None, false );
 			case 'number':
 			case 'range':
 				return array( DataTable::Dec, false );
@@ -71,6 +76,91 @@ final class TypeMap {
 			default:
 				return array( DataTable::Json, false );
 		}
+	}
+
+	/**
+	 * Child fields of a group-like type.
+	 *
+	 * Link and Google Map become pseudo sub-fields with fixed names; a Group uses its own sub-fields, which are
+	 * stored on the parent's row (design: "Field type to table").
+	 *
+	 * @param array<string,mixed> $field ACF field.
+	 * @return array<int,array{key:string,name:string,table:DataTable,multi:bool,field:array<string,mixed>|null}>|null Null when the type is not group-like.
+	 */
+	public static function composite( array $field ): ?array {
+		$type = (string) ( $field['type'] ?? '' );
+		$key  = (string) ( $field['key'] ?? '' );
+		if ( 'link' === $type ) {
+			$parts = array(
+				'url'    => DataTable::Str,
+				'title'  => DataTable::Str,
+				'target' => DataTable::Str,
+			);
+		} elseif ( 'google_map' === $type ) {
+			$parts = array(
+				'lat'     => DataTable::Dec,
+				'lng'     => DataTable::Dec,
+				'address' => DataTable::Str,
+				'zoom'    => DataTable::Int,
+			);
+		} elseif ( 'group' === $type ) {
+			$out = array();
+			foreach ( (array) ( $field['sub_fields'] ?? array() ) as $sub ) {
+				if ( ! is_array( $sub ) || empty( $sub['key'] ) || 'repeater' === ( $sub['type'] ?? '' ) ) {
+					continue;
+				}
+				[ $table, $multi ] = self::storage( $sub );
+				$out[]             = array(
+					'key'   => (string) $sub['key'],
+					'name'  => (string) ( $sub['name'] ?? '' ),
+					'table' => $table,
+					'multi' => $multi,
+					'field' => $sub,
+				);
+			}
+			return $out;
+		} else {
+			return null;
+		}
+		$out = array();
+		foreach ( $parts as $name => $table ) {
+			$out[] = array(
+				'key'   => substr( $key, 0, 64 - strlen( $name ) - 2 ) . '__' . $name,
+				'name'  => $name,
+				'table' => $table,
+				'multi' => false,
+				'field' => null,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Normalise a group-like value (see composite()) into an array keyed by child name.
+	 *
+	 * Link: {url,title,target}. Google Map: {lat,lng,address,zoom}; extra keys are dropped.
+	 *
+	 * @param array<string,mixed> $field ACF field.
+	 * @param mixed               $value Raw ACF value.
+	 * @return array<string,mixed>|null Null when empty.
+	 */
+	public static function normalizeComposite( array $field, mixed $value ): ?array {
+		$parts = self::composite( $field );
+		if ( null === $parts || ! is_array( $value ) ) {
+			return null;
+		}
+		$out = array();
+		foreach ( $parts as $part ) {
+			$raw = $value[ $part['name'] ] ?? $value[ $part['key'] ] ?? null;
+			if ( is_array( $part['field'] ) && null !== $raw ) {
+				$sub_parts = self::composite( $part['field'] );
+				$raw       = null !== $sub_parts ? self::normalizeComposite( $part['field'], $raw ) : self::normalize( $raw, $part['table'], $part['multi'] );
+			} else {
+				$raw = self::normalize( $raw, $part['table'], $part['multi'] );
+			}
+			$out[ $part['name'] ] = $raw;
+		}
+		return array() === array_filter( $out, static fn( $v ) => null !== $v ) ? null : $out;
 	}
 
 	/**

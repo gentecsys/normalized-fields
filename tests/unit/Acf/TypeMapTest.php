@@ -33,7 +33,7 @@ class TypeMapTest extends WP_UnitTestCase {
 			'checkbox'         => array( DataTable::Str, true ),
 			'page_link'        => array( DataTable::Int, false ),
 			'select'           => array( DataTable::Str, false ),
-			'link'             => array( DataTable::Json, false ),
+			'link'             => array( DataTable::None, false ),
 		);
 		foreach ( $expected as $type => $want ) {
 			$this->assertSame( $want, TypeMap::storage( array( 'type' => $type ) ), $type );
@@ -76,5 +76,61 @@ class TypeMapTest extends WP_UnitTestCase {
 		$this->assertSame( array( 5, 7 ), TypeMap::normalize( array( (object) array( 'ID' => 5 ), array( 'ID' => '7' ) ), DataTable::Int, true ) );
 		$this->assertSame( 9, TypeMap::normalize( (object) array( 'term_id' => 9 ), DataTable::Int, false ) );
 		$this->assertNull( TypeMap::normalize( array(), DataTable::Str, true ) );
+	}
+
+	/**
+	 * Link and Google Map decompose into fixed pseudo sub-fields; a group uses its own sub-fields.
+	 */
+	public function test_composite_parts() {
+		$link = TypeMap::composite( $this->field( 'field_l', 'link' ) );
+		$this->assertSame( array( 'url', 'title', 'target' ), array_column( $link, 'name' ) );
+		$this->assertSame( 'field_l__url', $link[0]['key'] );
+		$map = TypeMap::composite( $this->field( 'field_m', 'google_map' ) );
+		$this->assertSame( array( 'lat', 'lng', 'address', 'zoom' ), array_column( $map, 'name' ) );
+		$this->assertSame( DataTable::Dec, $map[0]['table'] );
+		$this->assertSame( DataTable::Int, $map[3]['table'] );
+		$group               = $this->field( 'field_g', 'group' );
+		$group['sub_fields'] = array( $this->field( 'field_g1', 'number', 'a' ) );
+		$parts               = TypeMap::composite( $group );
+		$this->assertSame( DataTable::Dec, $parts[0]['table'] );
+		$this->assertNull( TypeMap::composite( $this->field( 'x', 'text' ) ) );
+		$this->assertSame( DataTable::None, TypeMap::storage( $group )[0] );
+	}
+
+	/**
+	 * Composite values keep known keys only and empty ones become null.
+	 */
+	public function test_normalize_composite() {
+		$field = $this->field( 'field_l', 'link' );
+		$value = array(
+			'url'    => 'https://a.test',
+			'title'  => 'A',
+			'target' => '',
+			'junk'   => 1,
+		);
+		$want  = array(
+			'url'    => 'https://a.test',
+			'title'  => 'A',
+			'target' => null,
+		);
+		$this->assertSame( $want, TypeMap::normalizeComposite( $field, $value ) );
+		$this->assertNull( TypeMap::normalizeComposite( $field, array( 'url' => '' ) ) );
+		$this->assertNull( TypeMap::normalizeComposite( $field, '' ) );
+	}
+
+	/**
+	 * Minimal ACF field array.
+	 *
+	 * @param string $key  Key.
+	 * @param string $type Type.
+	 * @param string $name Name.
+	 * @return array<string,mixed>
+	 */
+	private function field( string $key, string $type, string $name = '' ): array {
+		return array(
+			'key'  => $key,
+			'type' => $type,
+			'name' => $name,
+		);
 	}
 }
