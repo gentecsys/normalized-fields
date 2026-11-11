@@ -24,3 +24,4 @@
 2026-11-11 | WP 2.1a | labelled nf:ready | Bookkeeping only (no new WP, token budget): 2.0 marked merged; PR #28 CI 28/28 green, nf:ready label applied now (worked on retry) | PR #28 (wp/2.1a-typemap-spill)
 2026-11-11 | WP 2.1b | in-review | Scalar/multi-valued TypeMap fixes (oembed, checkbox, multi-select, page_link), composite types split to 2.1c; 2.1a marked merged; all CI jobs red twice from runner DNS outage (apt), no nf:ready label yet | PR #29 (wp/2.1b-field-types)
 2026-11-11 | WP 2.1b | in-review | CI now green 28/28 on b1bdba8 after runner DNS outage cleared; nf:ready label DENIED by sandbox classifier, owner must label PR #29 | PR #29 (wp/2.1b-field-types)
+2026-11-11 | WP 2.1c | in-review | link/google_map/group stored as child fields on a none parent; reviewer blockers fixed; 27/28 CI green, 1 running; nf:ready label DENIED by sandbox classifier, owner must label PR #30; clone split to 2.1d; 2.1b marked merged | PR #30 (wp/2.1c-composite-types)
