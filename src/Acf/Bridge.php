@@ -165,8 +165,9 @@ final class Bridge {
 			return $value;
 		}
 		try {
-			$def = $this->ensure( $field );
-			$this->store->set( $target[0], $target[1], $def->key, TypeMap::normalize( $value, $def->table, $def->multi ) );
+			$def    = $this->ensure( $field );
+			$normal = DataTable::None === $def->table ? TypeMap::normalizeComposite( $field, $value ) : TypeMap::normalize( $value, $def->table, $def->multi );
+			$this->store->set( $target[0], $target[1], $def->key, $normal );
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/bridge/error', $e, $field, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		}
@@ -425,9 +426,33 @@ final class Bridge {
 					continue;
 				}
 				[ $sub_table, $sub_multi ] = TypeMap::storage( $sub );
+				if ( DataTable::None === $sub_table ) {
+					// Link, Google Map and Group inside a Series are kept as JSON until Series rows recurse into children.
+					$sub_table = DataTable::Json;
+				}
 				$this->fields->register( (string) $sub['key'], (string) ( $sub['name'] ?? '' ), $sub_table, $sub_multi, $def->id );
 			}
 		}
+		$this->registerParts( $def, $field );
 		return $def;
+	}
+
+	/**
+	 * Register the children of a group, link or Google Map field (recursively for nested groups).
+	 *
+	 * @param \NF\Storage\FieldDef $owner Parent definition.
+	 * @param array<string,mixed>  $field ACF field.
+	 * @return void
+	 */
+	private function registerParts( \NF\Storage\FieldDef $owner, array $field ): void {
+		if ( DataTable::None !== $owner->table ) {
+			return;
+		}
+		foreach ( TypeMap::composite( $field ) ?? array() as $part ) {
+			$child = $this->fields->register( $part['key'], $part['name'], $part['table'], $part['multi'], $owner->id );
+			if ( is_array( $part['field'] ) ) {
+				$this->registerParts( $child, $part['field'] );
+			}
+		}
 	}
 }
