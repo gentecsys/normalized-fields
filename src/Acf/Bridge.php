@@ -165,7 +165,7 @@ final class Bridge {
 			return $value;
 		}
 		try {
-			$def = $this->ensure( $field );
+			$def    = $this->ensure( $field );
 			$normal = DataTable::None === $def->table ? TypeMap::normalizeComposite( $field, $value ) : TypeMap::normalize( $value, $def->table, $def->multi );
 			$this->store->set( $target[0], $target[1], $def->key, $normal );
 		} catch ( \Throwable $e ) {
@@ -436,16 +436,16 @@ final class Bridge {
 	/**
 	 * Register the children of a group, link or Google Map field (recursively for nested groups).
 	 *
-	 * @param \NF\Storage\FieldDef  $parent Parent definition.
-	 * @param array<string,mixed> $field  ACF field.
+	 * @param \NF\Storage\FieldDef $owner Parent definition.
+	 * @param array<string,mixed>  $field ACF field.
 	 * @return void
 	 */
-	private function registerParts( \NF\Storage\FieldDef $parent, array $field ): void {
-		if ( DataTable::None !== $parent->table ) {
+	private function registerParts( \NF\Storage\FieldDef $owner, array $field ): void {
+		if ( DataTable::None !== $owner->table ) {
 			return;
 		}
 		foreach ( TypeMap::composite( $field ) ?? array() as $part ) {
-			$child = $this->fields->register( $part['key'], $part['name'], $part['table'], $part['multi'], $parent->id );
+			$child = $this->fields->register( $part['key'], $part['name'], $part['table'], $part['multi'], $owner->id );
 			if ( is_array( $part['field'] ) ) {
 				$this->registerParts( $child, $part['field'] );
 			}
