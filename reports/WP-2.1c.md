@@ -14,3 +14,9 @@
 - Groups inside a Series (repeater) are not handled: `Store::getRows/setRows` do not recurse into `none` children yet. Follow-up.
 - Group sub-fields saved via `update_sub_field` on their own are not re-synced by the Bridge (only Series are); the group's own `update_value` mirrors the full array.
 - Differential coverage belongs to A11.
+
+## Review fixes
+- `Store::valueField()` now accepts `none` parents (get/set were unreachable).
+- Series sub-fields of type link/google_map/group stay `json` (no regression for a Series of links); recursion into Series rows is a follow-up.
+- Existing data: a field already registered as `json` (e.g. link) conflicts with the new `none` type in `FieldMap::register`; the Bridge logs `nf/bridge/error`. Pre-release, so no migration; a dev site needs its `nf_fields` rows for these keys cleared and re-synced.
+- Not covered yet: Bridge-level tests, google_map Store test, `return_format` handling (A5/A6, differential by A11).
