@@ -200,7 +200,7 @@ final class Store {
 	 */
 	private function valueField( string $key ): FieldDef {
 		$def = $this->fields->byKey( $key );
-		if ( null === $def || ! $def->table->hasValues() ) {
+		if ( null === $def || ( ! $def->table->hasValues() && DataTable::None !== $def->table ) ) {
 			throw new \InvalidArgumentException( 'Not a value field: ' . sanitize_key( $key ) );
 		}
 		return $def;

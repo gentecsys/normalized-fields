@@ -426,6 +426,10 @@ final class Bridge {
 					continue;
 				}
 				[ $sub_table, $sub_multi ] = TypeMap::storage( $sub );
+				if ( DataTable::None === $sub_table ) {
+					// Link, Google Map and Group inside a Series are kept as JSON until Series rows recurse into children.
+					$sub_table = DataTable::Json;
+				}
 				$this->fields->register( (string) $sub['key'], (string) ( $sub['name'] ?? '' ), $sub_table, $sub_multi, $def->id );
 			}
 		}
