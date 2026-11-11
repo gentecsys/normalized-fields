@@ -47,8 +47,12 @@ class TypeMapTest extends WP_UnitTestCase {
 			'multiple' => 1,
 		);
 		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( $long_text ) );
+		$page_link = array(
+			'type'     => 'page_link',
+			'multiple' => 1,
+		);
 		$this->assertSame( array( DataTable::Str, true ), TypeMap::storage( $multi_sel ) );
-		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( array( 'type' => 'page_link', 'multiple' => 1 ) ) );
+		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( $page_link ) );
 	}
 
 	/**
