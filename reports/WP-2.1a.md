@@ -13,3 +13,4 @@
 ## Notes / follow-ups
 - Reading time/date-time values back into ACF's display form (`H:i:s`) belongs to the loader/return-format work (2.1b/A5); the Bridge only writes.
 - Existing sites that mirrored `text` fields in `nf_text` or time pickers in `nf_str` need the backfill/rebuild to move them; no migration added (pre-release, G1 data is spike data).
+- Reviewer follow-ups: other readers of `nf_str` (query compiler, loader primers, sorter) see only the 191-char prefix of a spilled value; A4/A6/2.1b must resolve `nf_text` for equality/LIKE/read. Test gaps for 2.1b: multi-valued Str spill, emoji, mixed spill/no-spill Series rows, Bridge time_picker end to end. A non-`HH:MM[:SS]` time string still throws in `toDb`. `bench/src/NfLayout.php` already matched the type table and is untouched.
