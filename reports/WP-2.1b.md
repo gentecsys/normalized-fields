@@ -12,3 +12,7 @@
 ## Follow-ups
 - 2.1c as above. Differential suite for these types belongs to A11.
 - Existing data for checkbox/multi-select/oembed written to `nf_json`/earlier tables needs the backfill/rebuild (pre-release, none expected).
+
+## Deviations
+- Differential (ACF vs NF) coverage for these types is not added here; it belongs to A11's harness. Tests were not run locally (CI only).
+- Reviewer notes carried forward: no Bridge-level `update_field` test for checkbox/multi-select/page_link yet; time-picker strings in formats other than `H:i[:S]` are rejected by `toDb` (Bridge logs `nf/bridge/error`); seconds -> `H:i:s` read-back belongs to the loader/return-format work (2.1c or A5/A6).
