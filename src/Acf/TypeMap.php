@@ -33,6 +33,8 @@ final class TypeMap {
 			case 'number':
 			case 'range':
 				return array( DataTable::Dec, false );
+			case 'time_picker':
+				return array( DataTable::Int, false );
 			case 'true_false':
 			case 'image':
 			case 'file':
@@ -45,6 +47,7 @@ final class TypeMap {
 			case 'taxonomy':
 				return array( DataTable::Int, $multiple || 'taxonomy' === $type );
 			case 'date_picker':
+			case 'date_time_picker':
 				return array( DataTable::Date, false );
 			case 'textarea':
 			case 'wysiwyg':
@@ -55,11 +58,9 @@ final class TypeMap {
 			case 'password':
 			case 'radio':
 			case 'button_group':
-			case 'time_picker':
-			case 'date_time_picker':
 			case 'color_picker':
-				$max = (int) ( $field['maxlength'] ?? 0 );
-				return ( 'text' === $type && ( $max < 1 || $max > 191 ) ) ? array( DataTable::Text, false ) : array( DataTable::Str, false );
+				// Values over 191 chars spill to nf_text inside the Store; the field stays in nf_str.
+				return array( DataTable::Str, false );
 			case 'select':
 				return $multiple ? array( DataTable::Json, false ) : array( DataTable::Str, false );
 			default:
@@ -92,6 +93,10 @@ final class TypeMap {
 		}
 		if ( DataTable::Int === $table && is_array( $value ) ) {
 			return isset( $value['ID'] ) ? (int) $value['ID'] : null;
+		}
+		if ( DataTable::Int === $table && is_string( $value ) && preg_match( '/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $value, $m ) ) {
+			// Time picker: seconds since midnight.
+			return (int) $m[1] * 3600 + (int) $m[2] * 60 + (int) ( $m[3] ?? 0 );
 		}
 		return $value;
 	}

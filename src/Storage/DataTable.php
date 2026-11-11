@@ -59,11 +59,12 @@ enum DataTable: string {
 	/**
 	 * Convert a PHP value to a bindable one.
 	 *
-	 * @param mixed $value Value.
+	 * @param mixed $value     Value.
+	 * @param bool  $allowLong Let a Str value pass over 191 chars (the Store spills it to nf_text).
 	 * @return int|string
 	 * @throws \InvalidArgumentException When the value does not fit the table.
 	 */
-	public function toDb( mixed $value ): int|string {
+	public function toDb( mixed $value, bool $allowLong = false ): int|string {
 		switch ( $this ) {
 			case self::Int:
 				if ( ! is_numeric( $value ) && ! is_bool( $value ) ) {
@@ -82,7 +83,7 @@ enum DataTable: string {
 				}
 				return $json;
 			case self::Str:
-				if ( ! is_scalar( $value ) || mb_strlen( (string) $value ) > 191 ) {
+				if ( ! is_scalar( $value ) || ( ! $allowLong && mb_strlen( (string) $value ) > 191 ) ) {
 					throw new \InvalidArgumentException( 'String value is longer than 191 characters; use a text field.' );
 				}
 				return (string) $value;
