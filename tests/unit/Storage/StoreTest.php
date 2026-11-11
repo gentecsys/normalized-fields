@@ -274,4 +274,21 @@ class StoreTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'ON DUPLICATE KEY UPDATE', $d->upsert( 'wp_nf_int', array( 'object_id' ), array( 'value' ) ) );
 		$this->assertSame( '`c` IS NULL ASC, `c` DESC', $d->nullsOrder( 'c', 'DESC', 'LAST' ) );
 	}
+
+	/**
+	 * Multi-valued strings (checkbox, multi-select) keep order; oEmbed-style text round-trips.
+	 */
+	public function test_multi_str_and_text_round_trip() {
+		$this->fields->register( 'field_t11_chk', 'chk', DataTable::Str, true );
+		$this->fields->register( 'field_t11_embed', 'embed', DataTable::Text );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_chk', array( 'b', 'a', 'c' ) );
+		$this->assertSame( array( 'b', 'a', 'c' ), $this->store->get( ObjectType::Post, 101, 'field_t11_chk' ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_chk', array( 'z' ) );
+		$this->assertSame( array( 'z' ), $this->store->get( ObjectType::Post, 101, 'field_t11_chk' ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_chk', null );
+		$this->assertSame( array(), $this->store->get( ObjectType::Post, 101, 'field_t11_chk' ) );
+		$url = 'https://www.youtube.com/watch?v=' . str_repeat( 'x', 300 );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_embed', $url );
+		$this->assertSame( $url, $this->store->get( ObjectType::Post, 101, 'field_t11_embed' ) );
+	}
 }

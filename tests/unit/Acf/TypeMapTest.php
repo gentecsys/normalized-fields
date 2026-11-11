@@ -29,7 +29,11 @@ class TypeMapTest extends WP_UnitTestCase {
 			'gallery'          => array( DataTable::Int, true ),
 			'taxonomy'         => array( DataTable::Int, true ),
 			'repeater'         => array( DataTable::Rows, false ),
-			'oembed'           => array( DataTable::Json, false ),
+			'oembed'           => array( DataTable::Text, false ),
+			'checkbox'         => array( DataTable::Str, true ),
+			'page_link'        => array( DataTable::Int, false ),
+			'select'           => array( DataTable::Str, false ),
+			'link'             => array( DataTable::Json, false ),
 		);
 		foreach ( $expected as $type => $want ) {
 			$this->assertSame( $want, TypeMap::storage( array( 'type' => $type ) ), $type );
@@ -43,7 +47,12 @@ class TypeMapTest extends WP_UnitTestCase {
 			'multiple' => 1,
 		);
 		$this->assertSame( array( DataTable::Str, false ), TypeMap::storage( $long_text ) );
-		$this->assertSame( array( DataTable::Json, false ), TypeMap::storage( $multi_sel ) );
+		$page_link = array(
+			'type'     => 'page_link',
+			'multiple' => 1,
+		);
+		$this->assertSame( array( DataTable::Str, true ), TypeMap::storage( $multi_sel ) );
+		$this->assertSame( array( DataTable::Int, true ), TypeMap::storage( $page_link ) );
 	}
 
 	/**
@@ -57,5 +66,15 @@ class TypeMapTest extends WP_UnitTestCase {
 		$this->assertSame( '2026-11-11 08:15:00', TypeMap::normalize( '2026-11-11 08:15:00', DataTable::Date, false ) );
 		$this->assertSame( '2026-11-11 00:00:00', TypeMap::normalize( '20261111', DataTable::Date, false ) );
 		$this->assertNull( TypeMap::normalize( '', DataTable::Int, false ) );
+	}
+
+	/**
+	 * Multi-valued strings keep order; objects and arrays collapse to IDs.
+	 */
+	public function test_normalize_multi_and_objects() {
+		$this->assertSame( array( 'b', 'a' ), TypeMap::normalize( array( 'b', 'a' ), DataTable::Str, true ) );
+		$this->assertSame( array( 5, 7 ), TypeMap::normalize( array( (object) array( 'ID' => 5 ), array( 'ID' => '7' ) ), DataTable::Int, true ) );
+		$this->assertSame( 9, TypeMap::normalize( (object) array( 'term_id' => 9 ), DataTable::Int, false ) );
+		$this->assertNull( TypeMap::normalize( array(), DataTable::Str, true ) );
 	}
 }
