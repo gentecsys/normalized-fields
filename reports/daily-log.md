@@ -21,3 +21,4 @@
 2026-11-10 | gate G1 | waiting for owner approval of G1 | Phase 1 complete, 1.5 marked merged, gate-G1.md written | main
 2026-11-10 | WP 2.0 | labelled nf:ready | Upgrader (nf_db_version, dbDelta, versioned migrations); reviewer blocker fixed; CI 28/28 green | PR #26 (wp/2.0-schema-upgrades)
 2026-11-11 | WP 2.1a | in-review | Type map follows design doc (time=int seconds, date-time=date, text=str) and >191-char strings spill to nf_text; reviewer no blockers; CI green; nf:ready label NOT applied (permission denied in sandbox), owner must label PR #28 | PR #28 (wp/2.1a-typemap-spill)
+2026-11-11 | WP 2.1a | labelled nf:ready | Bookkeeping only (no new WP, token budget): 2.0 marked merged; PR #28 CI 28/28 green, nf:ready label applied now (worked on retry) | PR #28 (wp/2.1a-typemap-spill)
