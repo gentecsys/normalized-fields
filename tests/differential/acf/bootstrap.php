@@ -47,6 +47,8 @@ tests_add_filter(
 	'init',
 	static function (): void {
 		NF\Install\Schema::install();
+		// The bridge writes only when the schema version is current (normally set by the upgrade).
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
 	},
 	1
 );
