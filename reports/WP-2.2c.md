@@ -7,6 +7,8 @@ Agent: A3 (daily build agent). Branch `wp/2.2c-row-pivot`.
 - `src/Pivot/Pivot.php`: owns a `RowPivot` (`rows()`); `sync()` writes rollup slots and syncs row-pivot rows in the same transaction, `remove()` clears them, `slots()` returns `rollup` and `parent`. `rebuild()` therefore rebuilds rows and rollups.
 - `tests/unit/Pivot/RowPivotTest.php`: rows and slots, NULL for missing values, shared dictionary ids, min / max / count incl. empty Series, update and remove, rebuild equals write-through, rollup count equals a live `COUNT(*)`, refused assignments.
 
+- `src/Install/Schema.php` (A1 path, small and contract-consistent): CREATE for `nf_row_pivot` was missing, so it is added and `Upgrader::SCHEMA_VERSION` is 6. Owner to review at next gate.
+
 ## Deviations / notes
 - `count` counts rows that have a value for the chosen sub-field (not all rows); pick a required sub-field for a row count.
 - Multi-valued sub-fields and nested Series have no row-pivot slot yet (`m1` on `nf_row_pivot` is unused); string min / max is refused (dictionary ids are unordered).
