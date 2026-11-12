@@ -85,12 +85,28 @@ final class Plugin {
 	}
 
 	/**
+	 * ACF bridge, created on first use.
+	 *
+	 * @var Acf\Bridge|null
+	 */
+	private static ?Acf\Bridge $bridge = null;
+
+	/**
+	 * The ACF bridge (the instance whose hooks are registered).
+	 *
+	 * @return Acf\Bridge
+	 */
+	public static function bridge(): Acf\Bridge {
+		return self::$bridge ??= new Acf\Bridge( self::store(), self::fields() );
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array( new Install\Upgrader(), new Acf\Bridge( self::store(), self::fields() ) );
+		return array( new Install\Upgrader(), self::bridge() );
 	}
 
 	/**

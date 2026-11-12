@@ -78,7 +78,8 @@ final class Upgrader {
 	public const FAILED = 'nf_upgrade_failed';
 
 	/**
-	 * Option set when NF skipped a write because the schema was behind; a re-sync from ACF is needed.
+	 * Option set when NF skipped a write because the schema was behind: array{since:int,objects:string[],overflow:bool}.
+	 * `objects` lists ACF post IDs (12, 'user_3', 'term_5', 'option') to re-copy from ACF after the upgrade.
 	 */
 	public const NEEDS_RESYNC = 'nf_needs_resync';
 
@@ -125,8 +126,14 @@ final class Upgrader {
 		if ( self::isCurrent() ) {
 			if ( 'done' === $result ) {
 				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'The Normalized Fields database is up to date.', 'normalized-fields' ) . '</p>';
-				if ( get_option( self::NEEDS_RESYNC ) ) {
-					echo '<p>' . esc_html__( 'Some ACF values were saved while the update was pending and were not copied to NF. A re-sync is needed.', 'normalized-fields' ) . '</p>';
+				$pending = self::resyncPending();
+				if ( null !== $pending ) {
+					echo '<p>' . esc_html(
+						$pending['all']
+							? __( 'More ACF values were saved while the update was pending than NF could list. Copy them again from ACF with wp nf resync --all.', 'normalized-fields' )
+							/* translators: %d: number of objects (posts, terms, users, options) still to re-sync. */
+							: sprintf( _n( '%d object saved while the update was pending still needs a re-sync from ACF. Run wp nf resync.', '%d objects saved while the update was pending still need a re-sync from ACF. Run wp nf resync.', $pending['count'], 'normalized-fields' ), $pending['count'] )
+					) . '</p>';
 				}
 				echo '</div>';
 			}
@@ -227,6 +234,29 @@ final class Upgrader {
 	}
 
 	/**
+	 * What still needs a re-sync from ACF, or null when nothing does.
+	 *
+	 * @return array{count:int,all:bool}|null
+	 */
+	public static function resyncPending(): ?array {
+		$flag = get_option( self::NEEDS_RESYNC );
+		if ( false === $flag ) {
+			return null;
+		}
+		if ( ! is_array( $flag ) ) {
+			// Recorded before objects were listed: which objects is unknown.
+			return array(
+				'count' => 0,
+				'all'   => true,
+			);
+		}
+		return array(
+			'count' => count( (array) ( $flag['objects'] ?? array() ) ),
+			'all'   => ! empty( $flag['overflow'] ),
+		);
+	}
+
+	/**
 	 * Whether the stored schema version is current. Code that writes NF tables checks this and skips
 	 * the write instead of creating tables itself.
 	 *
@@ -241,9 +271,25 @@ final class Upgrader {
 	 * button and `wp nf upgrade` only; see register(). A failure is recorded (FAILED) and not retried
 	 * until someone runs the upgrade again.
 	 *
+	 * After a successful run, `nf/upgraded` fires (outside the lock): the ACF bridge re-syncs what it had to skip.
+	 *
 	 * @return bool True when an upgrade ran; false when current, locked by another request, or failed.
 	 */
 	public function maybe_upgrade(): bool {
+		$from = (int) get_option( self::OPTION, 0 );
+		$ran  = $this->runUpgrade();
+		if ( $ran ) {
+			do_action( 'nf/upgraded', $from, self::SCHEMA_VERSION ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		}
+		return $ran;
+	}
+
+	/**
+	 * The upgrade itself, under the lock.
+	 *
+	 * @return bool
+	 */
+	private function runUpgrade(): bool {
 		$this->error = null;
 		if ( self::isCurrent() ) {
 			return false;
