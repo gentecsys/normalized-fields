@@ -48,13 +48,13 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.1a | Type map per design doc + long-text spill | A2 | S | 2.0 | merged | wp/2.1a-typemap-spill | `Acf\TypeMap` follows the design doc's type table: time picker `int` seconds, date-time picker `date`, `text` always `str`; a value over 191 chars keeps a 191-char prefix in `nf_str` and the full value in `nf_text` (Store reads, deletes and `deleteObject` cover it). Unit tests round-trip every mapped type. Bench writer and bridge agree. See `reports/gate-G1.md` |
 | 2.1b | Scalar and multi-valued field types per design table | A2 | S | 2.1a | merged | wp/2.1b-field-types | TypeMap matches the design table for these types; unit tests for mapping and Store round-trip; differential coverage is added by A11 |
 | 2.1c | Composite field types: link, google_map, group | A2 | M | 2.1b | merged | wp/2.1c-composite-types | Link/Google Map decomposed into pseudo sub-fields (`url`/`title`/`target` in `str`; `lat`/`lng` in `dec`, `address` in `str`, `zoom` in `int`); group sub-fields stored on the parent row (parent has data table `none`); round-trip tests per type |
-| 2.1d | Clone field resolves to cloned fields' storage | A2 | S | 2.1c | in-review | wp/2.1d-clone | `seamless` clone registers the cloned fields at the clone's level (prefixed names per `prefix_name`); `group` display behaves as a group; unit tests |
-| 2.2 | Pivot, row pivot, dictionary, bitmasks, rollups | A3 | L | G1 | todo | | Rebuild equals write-through, byte for byte |
-| 2.3 | Archive and revisions | A2 | M | 2.1 | todo | | Preview and restore tests pass |
-| 2.4 | Meta API interception | A5 | M | 2.1 | todo | | Duplicate-post and copy tests keep NF fields |
-| 2.5 | Background jobs | A1 | M | G1 | todo | | Survives killed requests and PHP timeouts |
+| 2.1d | Clone field resolves to cloned fields' storage | A2 | S | 2.1c | merged | wp/2.1d-clone | `seamless` clone registers the cloned fields at the clone's level (prefixed names per `prefix_name`); `group` display behaves as a group; unit tests |
+| 2.2 | Pivot, row pivot, dictionary, bitmasks, rollups | A3 | L | G1 | ready | | Rebuild equals write-through, byte for byte |
+| 2.3 | Archive and revisions | A2 | M | 2.1 | ready | | Preview and restore tests pass |
+| 2.4 | Meta API interception | A5 | M | 2.1 | ready | | Duplicate-post and copy tests keep NF fields |
+| 2.5 | Background jobs | A1 | M | G1 | ready | | Survives killed requests and PHP timeouts |
 | 2.6 | Port pipeline (no UI) | A9 | L | 2.1, 2.5 | todo | | Zero mismatches on a copy of a real site |
-| 2.7 | Repeater sorting | A2 | S | 2.1 | todo | | Unit tests for all three modes |
+| 2.7 | Repeater sorting | A2 | S | 2.1 | ready | | Unit tests for all three modes |
 
 **Gate G2 [owner]:** verify reports zero mismatches on a staging copy of a real site.
 
