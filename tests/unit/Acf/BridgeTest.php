@@ -530,5 +530,18 @@ class BridgeTest extends WP_UnitTestCase {
 		remove_action( 'nf/bridge/schema_behind', $count ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$this->assertSame( 1, $skipped );
 		$this->assertSame( 'Room A', $this->store->getRows( ObjectType::Post, 7, 'field_t12_rs' )[1]['room'] );
+		$this->assertNotFalse( get_option( NF\Install\Upgrader::NEEDS_RESYNC ), 'A skipped write is recorded for a re-sync' );
+
+		// A top-level value is not written either.
+		$this->bridge->onUpdate(
+			'new',
+			7,
+			array(
+				'key'  => 'field_t12_behind',
+				'name' => 'behind',
+				'type' => 'text',
+			)
+		);
+		$this->assertNull( NF\Plugin::fields()->byKey( 'field_t12_behind' ), 'No field registered while behind' );
 	}
 }

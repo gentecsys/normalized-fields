@@ -114,6 +114,9 @@ final class Bridge {
 		$field  = self::scoped( $field );
 		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
+		if ( ! $nested && $this->schemaBehind( $post_id, $field ) ) {
+			return $value;
+		}
 		$target = self::decode( $post_id );
 		if ( $nested || null === $target || empty( $field['key'] ) ) {
 			return $value;
@@ -151,6 +154,9 @@ final class Bridge {
 	 */
 	public function beforeGroup( mixed $value, mixed $post_id, array $field ): mixed {
 		$field = self::scoped( $field );
+		if ( 0 === $this->seriesDepth && $this->schemaBehind( $post_id, $field ) ) {
+			return $value;
+		}
 		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || ( 'clone' === ( $field['type'] ?? '' ) && ! TypeMap::isGroupClone( $field ) ) || $this->isSubField( $field ) ) {
 			return $value;
 		}
@@ -188,6 +194,9 @@ final class Bridge {
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
 		$field = self::scoped( $field );
+		if ( 0 === $this->seriesDepth && $this->schemaBehind( $post_id, $field ) ) {
+			return $value;
+		}
 		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) || empty( $field['key'] ) ) {
 			// Series, Groups and group-display clones were mirrored at priority 1; a seamless clone's fields save themselves.
 			return $value;
@@ -224,6 +233,9 @@ final class Bridge {
 			return;
 		}
 		$field = self::scoped( $field );
+		if ( $this->schemaBehind( $post_id, $field ) ) {
+			return;
+		}
 		if ( $this->isSubField( $field ) ) {
 			$this->queue( $post_id, $field );
 			return;
@@ -255,8 +267,9 @@ final class Bridge {
 		if ( $this->isAnonymousRead() ) {
 			return;
 		}
-		// Tables may be missing until a trusted request runs the upgrade; never create them here.
+		// Tables may be missing until the upgrade runs (admin button or wp nf upgrade); never create them here.
 		if ( ! Upgrader::isCurrent() ) {
+			$this->markResync();
 			do_action( 'nf/bridge/schema_behind', $queue ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			return;
 		}
@@ -273,6 +286,34 @@ final class Bridge {
 			} catch ( \Throwable $e ) {
 				do_action( 'nf/bridge/error', $e, $series, $post_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			}
+		}
+	}
+
+	/**
+	 * Whether NF's schema is behind this code. Then the write is skipped (no DDL, no NF table write),
+	 * a re-sync is recorded and `nf/bridge/schema_behind` fires.
+	 *
+	 * @param mixed               $post_id ACF post ID.
+	 * @param array<string,mixed> $field   Field.
+	 * @return bool
+	 */
+	private function schemaBehind( mixed $post_id, array $field ): bool {
+		if ( Upgrader::isCurrent() ) {
+			return false;
+		}
+		$this->markResync();
+		do_action( 'nf/bridge/schema_behind', array( array( $post_id, $field ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		return true;
+	}
+
+	/**
+	 * Record once that ACF saved values NF did not copy, so they can be re-synced after the upgrade.
+	 *
+	 * @return void
+	 */
+	private function markResync(): void {
+		if ( false === get_option( Upgrader::NEEDS_RESYNC ) ) {
+			add_option( Upgrader::NEEDS_RESYNC, (string) time(), '', false );
 		}
 	}
 
