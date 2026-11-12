@@ -60,7 +60,7 @@ final class Schema {
 ) {$charset};";
 		$typed = array(
 			'int'  => array( 'BIGINT NOT NULL', true ),
-			'dec'  => array( 'DECIMAL(20,6) NOT NULL', true ),
+			'dec'  => array( 'DECIMAL(24,10) NOT NULL', true ),
 			'date' => array( 'DATETIME NOT NULL', true ),
 			'str'  => array( 'VARCHAR(191) NOT NULL', true ),
 			'text' => array( 'MEDIUMTEXT NOT NULL', false ),
@@ -109,7 +109,7 @@ final class Schema {
   KEY parent (object_type, parent_id)
 ) {$charset};";
 		foreach ( $sql as $statement ) {
-			dbDelta( $statement );
+			dbDelta( self::withDisplayWidths( $statement ) );
 		}
 	}
 
@@ -125,7 +125,7 @@ final class Schema {
 		$keys = '';
 		$defs = array(
 			'i' => array( 8, 'BIGINT NULL' ),
-			'n' => array( 4, 'DECIMAL(20,6) NULL' ),
+			'n' => array( 4, 'DECIMAL(24,10) NULL' ),
 			't' => array( 6, 'DATETIME NULL' ),
 			's' => array( 8, 'INT UNSIGNED NULL' ),
 			'm' => array( 4, 'BIGINT UNSIGNED NOT NULL DEFAULT 0' ),
@@ -152,5 +152,34 @@ final class Schema {
   KEY by_modified (pivot_id, status, modified),
   KEY by_author (pivot_id, author_id){$keys}
 ) {$charset};";
+	}
+
+	/**
+	 * Spell integer types with the display widths MySQL 5.7 and MariaDB report (`bigint(20) unsigned`), as WordPress
+	 * core does. dbDelta compares the declared type with the reported one and ignores a width-only difference only on
+	 * MySQL 8.0.17+, so without widths it altered every integer column (a table rebuild each) on every upgrade on
+	 * MySQL 5.7 and MariaDB. Types that already have a width (`TINYINT(1)`) are kept.
+	 *
+	 * @param string $sql CREATE TABLE statement.
+	 * @return string
+	 */
+	public static function withDisplayWidths( string $sql ): string {
+		$widths = array(
+			'TINYINT'   => array( 4, 3 ),
+			'SMALLINT'  => array( 6, 5 ),
+			'MEDIUMINT' => array( 9, 8 ),
+			'INT'       => array( 11, 10 ),
+			'BIGINT'    => array( 20, 20 ),
+		);
+		return (string) preg_replace_callback(
+			// Only the type of a column definition ("  name TYPE ..."), never words inside ENUM values or comments.
+			'/^(\\s*`?\\w+`?\\s+)(TINYINT|SMALLINT|MEDIUMINT|BIGINT|INT)\\b(?!\\s*\\()(\\s+UNSIGNED)?/im',
+			static function ( array $m ) use ( $widths ): string {
+				$type     = strtoupper( $m[2] );
+				$unsigned = ! empty( $m[3] );
+				return $m[1] . $type . '(' . $widths[ $type ][ $unsigned ? 1 : 0 ] . ')' . ( $unsigned ? ' UNSIGNED' : '' );
+			},
+			$sql
+		);
 	}
 }

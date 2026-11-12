@@ -78,6 +78,58 @@ class UpgraderTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Installing over an up-to-date schema changes nothing, on every server: dbDelta used to alter every integer
+	 * column on MySQL 5.7 and MariaDB because NF declared no display widths.
+	 */
+	public function test_reinstall_issues_no_alter() {
+		NF\Install\Schema::install();
+		$alters = array();
+		$log    = static function ( string $sql ) use ( &$alters ): string {
+			if ( 0 === stripos( ltrim( $sql ), 'ALTER TABLE' ) ) {
+				$alters[] = $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $log );
+		NF\Install\Schema::install();
+		remove_filter( 'query', $log );
+		$this->assertSame( array(), $alters );
+		// Display widths go on column types only, never on ENUM values.
+		$this->assertStringContainsString( "ENUM('int','dec'", NF\Install\Schema::withDisplayWidths( "CREATE TABLE t (\n  data_table ENUM('int','dec') NOT NULL,\n  a INT UNSIGNED NOT NULL\n)" ) );
+		$this->assertStringContainsString( 'a INT(10) UNSIGNED', NF\Install\Schema::withDisplayWidths( "CREATE TABLE t (\n  a INT UNSIGNED NOT NULL\n)" ) );
+	}
+
+	/**
+	 * Schema 5: an existing DECIMAL(20,6) value column is widened to DECIMAL(24,10) by the upgrade.
+	 */
+	public function test_decimal_columns_are_widened() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'nf_dec';
+		NF\Install\Schema::install();
+		$pivot = $wpdb->prefix . 'nf_pivot';
+		$wpdb->query( "ALTER TABLE {$table} MODIFY value DECIMAL(20,6) NOT NULL" ); // phpcs:ignore WordPress.DB
+		$wpdb->query( "ALTER TABLE {$pivot} MODIFY n1 DECIMAL(20,6) NULL, MODIFY n4 DECIMAL(20,6) NULL" ); // phpcs:ignore WordPress.DB
+		update_option( Upgrader::OPTION, 4 );
+		$alters = array();
+		$log    = static function ( string $sql ) use ( &$alters ): string {
+			if ( 0 === stripos( ltrim( $sql ), 'ALTER TABLE' ) ) {
+				$alters[] = $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $log );
+		$this->assertTrue( ( new Upgrader() )->maybe_upgrade() );
+		remove_filter( 'query', $log );
+		foreach ( array( array( $table, 'value' ), array( $pivot, 'n1' ), array( $pivot, 'n4' ) ) as [ $t, $c ] ) {
+			$type = $wpdb->get_var( $wpdb->prepare( 'SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s', $t, $c ) ); // phpcs:ignore WordPress.DB
+			$this->assertSame( 'decimal(24,10)', strtolower( (string) $type ), "{$t}.{$c}" );
+		}
+		// One ALTER per table (the migration), not one per column from dbDelta.
+		$pivot_alters = array_filter( $alters, static fn( string $q ): bool => str_contains( $q, $pivot . ' ' ) || str_contains( $q, $pivot . '`' ) );
+		$this->assertCount( 1, $pivot_alters, implode( "\n", $alters ) );
+	}
+
+	/**
 	 * Only migrations newer than the stored version run, in order.
 	 */
 	public function test_migrations_run_in_order_once() {
