@@ -106,7 +106,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array( new Install\Upgrader(), self::bridge() );
+		return array( new Install\Upgrader(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
 	}
 
 	/**
