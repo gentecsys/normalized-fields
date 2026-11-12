@@ -296,8 +296,8 @@ final class Pivot {
 			'n' => 4,
 			't' => 6,
 			's' => 8,
+			'm' => 4,
 		);
-		$max['m'] = 4;
 		return (int) substr( $slot, 1 ) <= ( $max[ $slot[0] ] ?? 0 );
 	}
 }
