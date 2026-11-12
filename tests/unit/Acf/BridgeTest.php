@@ -543,5 +543,13 @@ class BridgeTest extends WP_UnitTestCase {
 			)
 		);
 		$this->assertNull( NF\Plugin::fields()->byKey( 'field_t12_behind' ), 'No field registered while behind' );
+		$this->assertSame( array( '7' ), get_option( NF\Install\Upgrader::NEEDS_RESYNC )['objects'], 'The object is listed for a re-sync' );
+
+		// Without ACF (a site that moved to NF) there is nothing to copy from: the flag is dropped.
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
+		if ( ! function_exists( 'acf_get_field_groups' ) ) {
+			$this->assertSame( 0, $this->bridge->resync( 0 ) );
+			$this->assertFalse( get_option( NF\Install\Upgrader::NEEDS_RESYNC ) );
+		}
 	}
 }
