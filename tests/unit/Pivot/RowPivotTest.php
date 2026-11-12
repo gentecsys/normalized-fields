@@ -66,6 +66,7 @@ class RowPivotTest extends WP_UnitTestCase {
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t22c%' ) );
 		$fields = new FieldMap( $db );
 		$fields->flush();
+		$fields->register( 'field_t22c_top', 'top', DataTable::Int );
 		$series          = $fields->register( 'field_t22c_sessions', 'sessions', DataTable::Rows );
 		$this->series_id = $series->id;
 		$fields->register( 'field_t22c_date', 'date', DataTable::Date, false, $series->id );
@@ -227,6 +228,8 @@ class RowPivotTest extends WP_UnitTestCase {
 		$rows   = nf_db()->select( $q1, array( $this->pivot_id ) );
 		$pivots = nf_db()->select( $q2, array( $this->pivot_id ) );
 		$this->assertSame( 4, count( $rows ) );
+		nf_db()->execute( 'DELETE FROM ' . nf_db()->table( 'nf_row_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $this->pivot_id, $a ) );
+		nf_db()->execute( 'UPDATE ' . nf_db()->table( 'nf_pivot' ) . ' SET i1 = 99 WHERE pivot_id = ? AND object_id = ?', array( $this->pivot_id, $a ) );
 		$this->assertSame( 3, $this->pivot->rebuild( $this->pivot_id ) );
 		$this->assertSame( $rows, nf_db()->select( $q1, array( $this->pivot_id ) ) );
 		$this->assertSame( $pivots, nf_db()->select( $q2, array( $this->pivot_id ) ) );
@@ -235,6 +238,14 @@ class RowPivotTest extends WP_UnitTestCase {
 			array( ObjectType::Post->value, $a, (int) nf_db()->select( 'SELECT field_id FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_key = ?', array( 'field_t22c_seats' ) )[0]['field_id'] )
 		);
 		$this->assertSame( (string) $live[0]['n'], (string) $this->rollups( $a )['i1'] );
+	}
+
+	/**
+	 * Reassigning a rollup slot to a plain field clears the rollup mode.
+	 */
+	public function test_reassigning_a_rollup_slot_resets_it(): void {
+		$this->pivot->assignSlot( $this->pivot_id, 'field_t22c_top', 'i1' );
+		$this->assertSame( 'none', nf_db()->select( 'SELECT rollup FROM ' . nf_db()->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ? AND repeater_id = 0 AND slot = ?', array( $this->pivot_id, 'i1' ) )[0]['rollup'] );
 	}
 
 	/**
