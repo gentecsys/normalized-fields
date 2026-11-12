@@ -21,9 +21,9 @@ defined( 'ABSPATH' ) || exit;
 final class Upgrader {
 
 	/**
-	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added.
+	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added; 4 = 2.3 nf_archive added.
 	 */
-	public const SCHEMA_VERSION = 3;
+	public const SCHEMA_VERSION = 4;
 
 	/**
 	 * Option holding the installed schema version for the current site.
