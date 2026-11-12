@@ -64,6 +64,10 @@ final class Bridge {
 		add_filter( 'acf/update_value/type=clone', array( $this, 'beforeGroup' ), 1, 3 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
 		add_action( 'acf/delete_value', array( $this, 'onDelete' ), 10, 3 );
+		add_action( 'nf/upgraded', array( $this, 'resyncAfterUpgrade' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( '\\WP_CLI' ) ) {
+			\WP_CLI::add_command( 'nf resync', array( $this, 'cliResync' ) );
+		}
 	}
 
 	/**
@@ -269,7 +273,9 @@ final class Bridge {
 		}
 		// Tables may be missing until the upgrade runs (admin button or wp nf upgrade); never create them here.
 		if ( ! Upgrader::isCurrent() ) {
-			$this->markResync();
+			foreach ( $queue as [ $post_id ] ) {
+				$this->markResync( $post_id );
+			}
 			do_action( 'nf/bridge/schema_behind', $queue ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			return;
 		}
@@ -301,20 +307,263 @@ final class Bridge {
 		if ( Upgrader::isCurrent() ) {
 			return false;
 		}
-		$this->markResync();
+		$this->markResync( $post_id );
 		do_action( 'nf/bridge/schema_behind', array( array( $post_id, $field ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		return true;
 	}
 
 	/**
-	 * Record once that ACF saved values NF did not copy, so they can be re-synced after the upgrade.
+	 * Most objects listed for a re-sync; past it the list stops and a full re-copy is asked for.
+	 */
+	public const RESYNC_LIST_MAX = 5000;
+
+	/**
+	 * Objects re-synced per call when the upgrade ran from wp-admin; `wp nf resync` does the rest.
+	 */
+	public const RESYNC_ADMIN_BATCH = 200;
+
+	/**
+	 * Record that ACF saved values for an object that NF did not copy, so the object is re-synced after the upgrade.
+	 *
+	 * @param mixed $post_id ACF post ID.
+	 * @return void
+	 */
+	private function markResync( mixed $post_id ): void {
+		$id   = is_scalar( $post_id ) ? (string) $post_id : '';
+		$flag = get_option( Upgrader::NEEDS_RESYNC );
+		if ( false === $flag ) {
+			$flag = array(
+				'since'    => time(),
+				'objects'  => array(),
+				'overflow' => false,
+			);
+		} elseif ( ! is_array( $flag ) ) {
+			return; // Already asking for a full re-copy.
+		}
+		if ( '' === $id || null === self::decode( $post_id ) ) {
+			return;
+		}
+		$objects = (array) ( $flag['objects'] ?? array() );
+		if ( in_array( $id, $objects, true ) || ! empty( $flag['overflow'] ) ) {
+			return;
+		}
+		if ( count( $objects ) >= self::RESYNC_LIST_MAX ) {
+			$flag['overflow'] = true;
+		} else {
+			$objects[]       = $id;
+			$flag['objects'] = $objects;
+		}
+		update_option( Upgrader::NEEDS_RESYNC, $flag, false );
+	}
+
+	/**
+	 * Action `nf/upgraded`: re-copy, from ACF, the objects whose writes were skipped while the schema was behind.
+	 *
+	 * Only while ACF is active: a site that has moved to NF no longer writes through ACF, so there is nothing to
+	 * copy, and the flag is dropped. From wp-admin a batch of RESYNC_ADMIN_BATCH objects runs; the notice asks
+	 * for `wp nf resync` when more remain.
 	 *
 	 * @return void
 	 */
-	private function markResync(): void {
-		if ( false === get_option( Upgrader::NEEDS_RESYNC ) ) {
-			add_option( Upgrader::NEEDS_RESYNC, (string) time(), '', false );
+	public function resyncAfterUpgrade(): void {
+		$this->resync( ( defined( 'WP_CLI' ) && WP_CLI ) ? 0 : self::RESYNC_ADMIN_BATCH );
+	}
+
+	/**
+	 * Re-sync the objects NF skipped while its schema was behind, from ACF.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--all]
+	 * : Also needed when NF could not list every object; re-copies every post that has ACF values.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp nf resync
+	 *
+	 * @param string[]             $args       Positional arguments.
+	 * @param array<string,string> $assoc_args Options.
+	 * @return void
+	 */
+	public function cliResync( array $args = array(), array $assoc_args = array() ): void {
+		unset( $args );
+		if ( ! Upgrader::isCurrent() ) {
+			\WP_CLI::error( 'The NF schema is behind; run wp nf upgrade first.' );
 		}
+		if ( ! empty( $assoc_args['all'] ) ) {
+			$this->listAllPosts();
+		}
+		$done = $this->resync( 0 );
+		\WP_CLI::success( sprintf( 'Re-synced %d object(s) from ACF.', $done ) );
+	}
+
+	/**
+	 * Re-sync listed objects.
+	 *
+	 * @param int $limit Most objects to handle; 0 for all.
+	 * @return int Objects re-synced.
+	 */
+	public function resync( int $limit ): int {
+		$flag = get_option( Upgrader::NEEDS_RESYNC );
+		if ( false === $flag || ! Upgrader::isCurrent() ) {
+			return 0;
+		}
+		if ( ! function_exists( 'acf_get_field_groups' ) || ! function_exists( 'acf_get_value' ) ) {
+			// ACF is gone (the site moved to NF): nothing left to copy from.
+			delete_option( Upgrader::NEEDS_RESYNC );
+			return 0;
+		}
+		$objects = is_array( $flag ) ? array_values( (array) ( $flag['objects'] ?? array() ) ) : array();
+		$batch   = $limit > 0 ? array_slice( $objects, 0, $limit ) : $objects;
+		$fields  = $this->acfFields();
+		$covered = $this->coveredKeys( $fields );
+		$kept    = array();
+		foreach ( $batch as $id ) {
+			if ( ! $this->resyncObject( ctype_digit( (string) $id ) ? (int) $id : (string) $id, $fields, $covered ) ) {
+				// Some of its values belong to fields this request doesn't load; keep it for wp nf resync.
+				$kept[] = $id;
+			}
+		}
+		$this->flush();
+		$rest = array_merge( $kept, array_slice( $objects, count( $batch ) ) );
+		if ( array() === $rest && is_array( $flag ) && empty( $flag['overflow'] ) ) {
+			delete_option( Upgrader::NEEDS_RESYNC );
+		} else {
+			$flag            = is_array( $flag ) ? $flag : array(
+				'since'    => time(),
+				'overflow' => true,
+			);
+			$flag['objects'] = $rest;
+			update_option( Upgrader::NEEDS_RESYNC, $flag, false );
+		}
+		return count( $batch ) - count( $kept );
+	}
+
+	/**
+	 * Every field key (and cloned source key) among the fields and their sub-fields.
+	 *
+	 * @param array<int,array<string,mixed>> $fields Fields.
+	 * @return array<string,true>
+	 */
+	private function coveredKeys( array $fields ): array {
+		$out = array();
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+			foreach ( array( 'key', '__key', '_clone' ) as $k ) {
+				if ( ! empty( $field[ $k ] ) && is_string( $field[ $k ] ) ) {
+					$out[ $field[ $k ] ] = true;
+				}
+			}
+			if ( ! empty( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ) {
+				$out += $this->coveredKeys( $field['sub_fields'] );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * List every post with ACF values for a re-sync (`wp nf resync --all`), and clear the overflow mark.
+	 *
+	 * @return void
+	 */
+	private function listAllPosts(): void {
+		global $wpdb;
+		$ids  = $wpdb->get_col( "SELECT DISTINCT post_id FROM {$wpdb->postmeta} WHERE meta_key LIKE '\\_%' AND meta_value LIKE 'field\\_%'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$flag = array(
+			'since'    => time(),
+			'objects'  => array_map( 'strval', $ids ),
+			'overflow' => false,
+		);
+		update_option( Upgrader::NEEDS_RESYNC, $flag, false );
+	}
+
+	/**
+	 * Top-level ACF fields of every field group, as ACF resolves them (seamless clones expanded).
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function acfFields(): array {
+		$out = array();
+		foreach ( (array) acf_get_field_groups() as $group ) {
+			foreach ( (array) acf_get_fields( $group ) as $field ) {
+				if ( is_array( $field ) && ! empty( $field['key'] ) && ! empty( $field['name'] ) ) {
+					$out[] = $field;
+				}
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Copy one object's ACF values into NF again, as if each were saved now.
+	 *
+	 * A field is copied when ACF holds a value for it on this object (its `_name` reference points at the
+	 * field's key, or its source key for a cloned field). A field NF knows but ACF has no value for is deleted.
+	 *
+	 * @param int|string                     $acf_id  ACF post ID.
+	 * @param array<int,array<string,mixed>> $fields  Top-level ACF fields.
+	 * @param array<string,true>             $covered Keys of those fields and their sub-fields.
+	 * @return bool False when the object has ACF values for fields this request does not load.
+	 */
+	private function resyncObject( int|string $acf_id, array $fields, array $covered ): bool {
+		$target = self::decode( $acf_id );
+		if ( null === $target ) {
+			return true;
+		}
+		foreach ( $fields as $field ) {
+			$ref    = acf_get_metadata( $acf_id, (string) $field['name'], true );
+			$source = (string) ( $field['__key'] ?? $field['key'] );
+			if ( $ref !== $field['key'] && $ref !== $source ) {
+				$known = $this->fields->byKey( (string) $field['key'] );
+				if ( null !== $known && 0 === $known->parentId && ! $this->ownedByOther( $field, $fields ) ) {
+					try {
+						$this->store->delete( $target[0], $target[1], $known->key );
+					} catch ( \Throwable $e ) {
+						do_action( 'nf/bridge/error', $e, $field, $acf_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+					}
+				}
+				continue;
+			}
+			$value = acf_get_value( $acf_id, $field );
+			switch ( $field['type'] ?? '' ) {
+				case 'repeater':
+					$this->beforeSeries( $value, $acf_id, $field );
+					$this->afterSeries( $value );
+					break;
+				case 'group':
+				case 'clone':
+					$this->beforeGroup( $value, $acf_id, $field );
+					break;
+				default:
+					$this->onUpdate( $value, $acf_id, $field );
+			}
+		}
+		// Every value ACF holds for the object must belong to a field seen above.
+		foreach ( array_keys( (array) acf_get_meta( $acf_id ) ) as $name ) {
+			$ref = acf_get_metadata( $acf_id, (string) $name, true );
+			if ( is_string( $ref ) && str_starts_with( $ref, 'field_' ) && ! isset( $covered[ $ref ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether another field with the same name holds this object's value (two groups can reuse a name).
+	 *
+	 * @param array<string,mixed>            $field  Field without a value here.
+	 * @param array<int,array<string,mixed>> $fields All top-level fields.
+	 * @return bool
+	 */
+	private function ownedByOther( array $field, array $fields ): bool {
+		foreach ( $fields as $other ) {
+			if ( $other['name'] === $field['name'] && $other['key'] !== $field['key'] ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
