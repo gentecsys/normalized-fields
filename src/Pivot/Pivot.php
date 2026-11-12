@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * One flat nf_pivot row per object (design: "Pivot and lookup tables"). Object pivot only,
- * single-valued int / dec / date / str fields (str through the dictionary); bitmasks cover multi-valued str fields only; row pivot and rollups are not included yet. The pivot is derived: the typed
+ * single-valued int / dec / date / str fields (str through the dictionary); bitmasks cover multi-valued str fields; Series rows go to RowPivot with min / max / count rollups. The pivot is derived: the typed
  * tables stay the source of truth and rebuild() recreates every row.
  */
 final class Pivot {
@@ -45,6 +45,13 @@ final class Pivot {
 	public const CORE = array( 'status', 'author_id', 'parent_id', 'published', 'modified', 'menu_order' );
 
 	/**
+	 * Row pivot.
+	 *
+	 * @var RowPivot
+	 */
+	private RowPivot $rows;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackendInterface $db     Backend.
@@ -54,6 +61,16 @@ final class Pivot {
 	 */
 	public function __construct( private BackendInterface $db, private FieldMap $fields, private Store $store, private ?Dictionary $dictionary = null ) {
 		$this->dictionary ??= new Dictionary( $db );
+		$this->rows         = new RowPivot( $db, $fields, $store, $this->dictionary );
+	}
+
+	/**
+	 * Row pivot and rollups (Series rows).
+	 *
+	 * @return RowPivot
+	 */
+	public function rows(): RowPivot {
+		return $this->rows;
 	}
 
 	/**
@@ -121,8 +138,8 @@ final class Pivot {
 			throw new \InvalidArgumentException( 'Slot does not exist or does not match the field type.' );
 		}
 		$this->db->execute(
-			$this->db->dialect()->upsert( $this->db->table( 'nf_pivot_slots' ), array( 'pivot_id', 'repeater_id', 'slot' ), array( 'field_id' ) ),
-			array( $pivotId, 0, $slot, $def->id )
+			$this->db->dialect()->upsert( $this->db->table( 'nf_pivot_slots' ), array( 'pivot_id', 'repeater_id', 'slot' ), array( 'field_id', 'rollup' ) ),
+			array( $pivotId, 0, $slot, $def->id, 'none' )
 		);
 	}
 
@@ -130,21 +147,23 @@ final class Pivot {
 	 * Slots of a set: slot name => field (key, name, table).
 	 *
 	 * @param int $pivotId Pivot set id.
-	 * @return array<string,array{id:int,key:string,name:string,table:DataTable}>
+	 * @return array<string,array{id:int,key:string,name:string,table:DataTable,rollup:string,parent:string}>
 	 */
 	public function slots( int $pivotId ): array {
 		$rows = $this->db->select(
-			'SELECT s.slot, f.field_id, f.field_key, f.field_name, f.data_table FROM ' . $this->db->table( 'nf_pivot_slots' ) . ' s JOIN ' . $this->db->table( 'nf_fields' ) .
-			' f ON f.field_id = s.field_id WHERE s.pivot_id = ? AND s.repeater_id = 0 ORDER BY s.slot',
+			'SELECT s.slot, s.rollup, f.field_id, f.field_key, f.field_name, f.data_table, p.field_key AS parent_key FROM ' . $this->db->table( 'nf_pivot_slots' ) . ' s JOIN ' . $this->db->table( 'nf_fields' ) .
+			' f ON f.field_id = s.field_id LEFT JOIN ' . $this->db->table( 'nf_fields' ) . ' p ON p.field_id = f.parent_id WHERE s.pivot_id = ? AND s.repeater_id = 0 ORDER BY s.slot',
 			array( $pivotId )
 		);
 		$out  = array();
 		foreach ( $rows as $r ) {
 			$out[ (string) $r['slot'] ] = array(
-				'id'    => (int) $r['field_id'],
-				'key'   => (string) $r['field_key'],
-				'name'  => (string) $r['field_name'],
-				'table' => DataTable::from( (string) $r['data_table'] ),
+				'id'     => (int) $r['field_id'],
+				'key'    => (string) $r['field_key'],
+				'name'   => (string) $r['field_name'],
+				'table'  => DataTable::from( (string) $r['data_table'] ),
+				'rollup' => (string) $r['rollup'],
+				'parent' => (string) ( $r['parent_key'] ?? '' ),
 			);
 		}
 		return $out;
@@ -176,6 +195,16 @@ final class Pivot {
 					$values[] = $val;
 				}
 				foreach ( $this->slots( $pivotId ) as $slot => $field ) {
+					if ( 'none' !== $field['rollup'] ) {
+						$v = $this->rows->rollup( $objectId, $field['parent'], $field['name'], $field['rollup'] );
+						if ( null === $v ) {
+							$nulls[] = $slot;
+							continue;
+						}
+						$cols[]   = $slot;
+						$values[] = is_int( $v ) ? $v : (string) $v;
+						continue;
+					}
 					$v = $this->store->get( ObjectType::Post, $objectId, $field['key'] );
 					if ( self::MASK_LETTER === $slot[0] ) {
 						// Bitmask: OR of the value bits, NOT NULL (0 when empty); sent unsigned so bit 63 survives.
@@ -204,6 +233,7 @@ final class Pivot {
 					$set = implode( ', ', array_map( fn( string $c ): string => $d->quoteIdentifier( $c ) . ' = NULL', $nulls ) );
 					$this->db->execute( "UPDATE {$t} SET {$set} WHERE pivot_id = ? AND object_id = ?", array( $pivotId, $objectId ) );
 				}
+				$this->rows->syncRows( $pivotId, $objectId );
 				$this->bump( $pivotId );
 			}
 		);
@@ -238,6 +268,7 @@ final class Pivot {
 		$this->db->transaction(
 			function () use ( $pivotId, $objectId ): void {
 				$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $pivotId, $objectId ) );
+				$this->rows->removeRows( $pivotId, $objectId );
 				$this->bump( $pivotId );
 			}
 		);
