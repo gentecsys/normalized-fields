@@ -38,8 +38,8 @@ class ArchiveTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
-		$db      = nf_db();
-		$fields  = new FieldMap( $db );
+		$db     = nf_db();
+		$fields = new FieldMap( $db );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t23%' ) );
 		$fields->flush();
 		$fields->register( 'field_t23_title', 'title', DataTable::Str );
