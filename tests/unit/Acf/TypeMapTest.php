@@ -98,6 +98,27 @@ class TypeMapTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A seamless clone adds its cloned fields at its own level (prefixed on request); a group clone is a group.
+	 */
+	public function test_clone_resolution() {
+		$clone                = $this->field( 'field_c', 'clone', 'hero' );
+		$clone['sub_fields']  = array( $this->field( 'field_c1', 'text', 'title' ), $this->field( 'field_c2', 'text', 'hero_sub' ) );
+		$clone['display']     = 'seamless';
+		$clone['prefix_name'] = 0;
+		$this->assertSame( DataTable::None, TypeMap::storage( $clone )[0] );
+		$this->assertFalse( TypeMap::isGroupClone( $clone ) );
+		$this->assertNull( TypeMap::composite( $clone ) );
+		$this->assertSame( array( 'title', 'hero_sub' ), array_column( TypeMap::seamlessFields( $clone ), 'name' ) );
+		$clone['prefix_name'] = 1;
+		$this->assertSame( array( 'hero_title', 'hero_sub' ), array_column( TypeMap::seamlessFields( $clone ), 'name' ) );
+		$this->assertSame( 'field_c1', TypeMap::seamlessFields( $clone )[0]['key'] );
+		$clone['display'] = 'group';
+		$this->assertTrue( TypeMap::isGroupClone( $clone ) );
+		$this->assertSame( array(), TypeMap::seamlessFields( $clone ) );
+		$this->assertSame( array( 'title', 'hero_sub' ), array_column( TypeMap::composite( $clone ), 'name' ) );
+	}
+
+	/**
 	 * Composite values keep known keys only and empty ones become null.
 	 */
 	public function test_normalize_composite() {
