@@ -6,6 +6,8 @@
 #   - every check run on the head commit has finished with success, skipped or neutral
 #   - the head commit is the one that was checked (no newer push since)
 #
+# After a merge it starts CI on main: a merge made with GITHUB_TOKEN triggers no push workflows.
+#
 # Remove the label to stop a merge. No PR code is checked out or run here.
 name: NF auto-merge
 
@@ -20,6 +22,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: write
 
 concurrency:
   group: nf-auto-merge-${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
@@ -74,3 +77,7 @@ jobs:
             -f merge_method=merge -f sha="$sha" \
             -f commit_title="Merge pull request #$number from $OWNER/$BRANCH"
           echo "Merged PR #$number."
+
+          # The merge commit gets no push-triggered CI (GITHUB_TOKEN); run CI on main explicitly.
+          gh workflow run ci.yml --repo "$REPO" --ref main
+          echo "Dispatched CI on main."

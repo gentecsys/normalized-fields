@@ -4,6 +4,8 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # nf-auto-merge dispatches this on main after a merge: pushes made with GITHUB_TOKEN start no workflows.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
