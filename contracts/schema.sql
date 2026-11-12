@@ -68,7 +68,7 @@ CREATE TABLE {p}nf_dec (
   field_id    INT UNSIGNED NOT NULL,
   row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
   position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  value       DECIMAL(20,6) NOT NULL,
+  value       DECIMAL(24,10) NOT NULL,
   PRIMARY KEY  (object_type, object_id, field_id, row_id, position),
   KEY by_value (field_id, value, object_type, object_id)
 );
@@ -149,10 +149,10 @@ CREATE TABLE {p}nf_pivot (
   i6 BIGINT NULL,
   i7 BIGINT NULL,
   i8 BIGINT NULL,
-  n1 DECIMAL(20,6) NULL,
-  n2 DECIMAL(20,6) NULL,
-  n3 DECIMAL(20,6) NULL,
-  n4 DECIMAL(20,6) NULL,
+  n1 DECIMAL(24,10) NULL,
+  n2 DECIMAL(24,10) NULL,
+  n3 DECIMAL(24,10) NULL,
+  n4 DECIMAL(24,10) NULL,
   t1 DATETIME NULL,
   t2 DATETIME NULL,
   t3 DATETIME NULL,
@@ -211,8 +211,8 @@ CREATE TABLE {p}nf_row_pivot (
   i2 BIGINT NULL,
   i3 BIGINT NULL,
   i4 BIGINT NULL,
-  n1 DECIMAL(20,6) NULL,
-  n2 DECIMAL(20,6) NULL,
+  n1 DECIMAL(24,10) NULL,
+  n2 DECIMAL(24,10) NULL,
   t1 DATETIME NULL,
   t2 DATETIME NULL,
   t3 DATETIME NULL,
@@ -333,7 +333,7 @@ CREATE TABLE {bp}nf_user_dec (
   field_id    INT UNSIGNED NOT NULL,
   row_id      BIGINT UNSIGNED NOT NULL DEFAULT 0,
   position    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  value       DECIMAL(20,6) NOT NULL,
+  value       DECIMAL(24,10) NOT NULL,
   PRIMARY KEY  (user_id, field_id, row_id, position),
   KEY by_value (field_id, value, user_id)
 );
