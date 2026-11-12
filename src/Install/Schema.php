@@ -60,7 +60,7 @@ final class Schema {
 ) {$charset};";
 		$typed = array(
 			'int'  => array( 'BIGINT NOT NULL', true ),
-			'dec'  => array( 'DECIMAL(20,6) NOT NULL', true ),
+			'dec'  => array( 'DECIMAL(24,10) NOT NULL', true ),
 			'date' => array( 'DATETIME NOT NULL', true ),
 			'str'  => array( 'VARCHAR(191) NOT NULL', true ),
 			'text' => array( 'MEDIUMTEXT NOT NULL', false ),
@@ -125,7 +125,7 @@ final class Schema {
 		$keys = '';
 		$defs = array(
 			'i' => array( 8, 'BIGINT NULL' ),
-			'n' => array( 4, 'DECIMAL(20,6) NULL' ),
+			'n' => array( 4, 'DECIMAL(24,10) NULL' ),
 			't' => array( 6, 'DATETIME NULL' ),
 			's' => array( 8, 'INT UNSIGNED NULL' ),
 			'm' => array( 4, 'BIGINT UNSIGNED NOT NULL DEFAULT 0' ),
