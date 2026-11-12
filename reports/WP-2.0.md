@@ -22,3 +22,12 @@ The first version upgraded on every request at `plugins_loaded`, so a visitor's 
 ## Notes / follow-ups
 - Multisite: each site upgrades on its own first load (options are per site). Network-activation loop over existing sites is not added; sites upgrade lazily.
 - Raise `Upgrader::SCHEMA_VERSION` whenever `contracts/schema.sql` changes.
+
+## Follow-up: manual upgrades only (fix/2.0-manual-upgrade, 2026-11-12)
+nf-dev showed a bare anonymous `GET /wp-cron.php` ran the schema 2 → 3 upgrade (DDL), with no cron event due and regardless of `DISABLE_WP_CRON`: `wp-cron.php` defines `DOING_CRON` before WordPress loads, so `wp_doing_cron()` is true for anyone. A failed migration was also retried on every such request. Owner decision: no automatic upgrades.
+- `Upgrader::register()` adds only the admin notice and the `admin_post_nf_upgrade` handler (plus `wp nf upgrade` under WP-CLI). Removed: the cron path, the WP-CLI-at-load upgrade, and the upgrade on any admin request at `init`.
+- Notice: shown to users with `activate_plugins` while `nf_db_version` is behind; a POST form with a nonce; shows the last failure; a success notice after the redirect, with a re-sync warning when writes were skipped.
+- `maybe_upgrade()` catches failures, records `nf_upgrade_failed` and returns false; a successful run clears it.
+- `Bridge` blocks every write path (`beforeSeries`, `beforeGroup`, `onUpdate`, `onDelete`, `flush`) while behind, fires `nf/bridge/schema_behind` and sets `nf_needs_resync` once. The re-sync itself is not built yet.
+- Tests: no request context upgrades (anonymous, editor, admin; only the notice and button hooks are registered); notice; button needs capability and nonce; button upgrades; failure recorded and cleared; bridge skips top-level writes and records the re-sync. The differential bootstrap sets `nf_db_version`.
+- Verified on nf-dev at schema 2: anonymous `/`, `/wp-json/`, `/wp-cron.php` (also with a due event), admin-ajax and unrelated WP-CLI commands don't upgrade; an ACF save while behind writes nothing to NF and sets `nf_needs_resync`; the notice shows; bad nonce → 403, anonymous POST → 400; the button upgrades to 3 and shows the re-sync warning; `wp nf upgrade` upgrades and reports "current" on a second run.
