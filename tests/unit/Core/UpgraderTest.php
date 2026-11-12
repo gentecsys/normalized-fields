@@ -78,6 +78,28 @@ class UpgraderTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Installing over an up-to-date schema changes nothing, on every server: dbDelta used to alter every integer
+	 * column on MySQL 5.7 and MariaDB because NF declared no display widths.
+	 */
+	public function test_reinstall_issues_no_alter() {
+		NF\Install\Schema::install();
+		$alters = array();
+		$log    = static function ( string $sql ) use ( &$alters ): string {
+			if ( 0 === stripos( ltrim( $sql ), 'ALTER TABLE' ) ) {
+				$alters[] = $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $log );
+		NF\Install\Schema::install();
+		remove_filter( 'query', $log );
+		$this->assertSame( array(), $alters );
+		// Display widths go on column types only, never on ENUM values.
+		$this->assertStringContainsString( "ENUM('int','dec'", NF\Install\Schema::withDisplayWidths( "CREATE TABLE t (\n  data_table ENUM('int','dec') NOT NULL,\n  a INT UNSIGNED NOT NULL\n)" ) );
+		$this->assertStringContainsString( 'a INT(10) UNSIGNED', NF\Install\Schema::withDisplayWidths( "CREATE TABLE t (\n  a INT UNSIGNED NOT NULL\n)" ) );
+	}
+
+	/**
 	 * Schema 5: an existing DECIMAL(20,6) value column is widened to DECIMAL(24,10) by the upgrade.
 	 */
 	public function test_decimal_columns_are_widened() {
