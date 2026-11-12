@@ -16,6 +16,7 @@ jobs:
   lint:
     name: PHPCS + PHPStan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
@@ -29,6 +30,7 @@ jobs:
   test:
     name: PHP ${{ matrix.php }} / WP ${{ matrix.wp }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -70,6 +72,7 @@ jobs:
   differential:
     name: Differential baseline (ACF vs ACF, SCF)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       db:
         image: mysql:8.0
@@ -97,6 +100,7 @@ jobs:
   bench-spike:
     name: Spike benchmark (10k posts, ACF meta vs NF pivot)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       db:
         image: mysql:8.0
@@ -128,6 +132,7 @@ jobs:
   release-build:
     name: Release zip builds
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2

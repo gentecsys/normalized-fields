@@ -33,6 +33,13 @@ final class Bridge {
 	private int $seriesDepth = 0;
 
 	/**
+	 * Group saves in progress (ACF saves each sub-field itself; the group was mirrored at priority 1).
+	 *
+	 * @var bool[]
+	 */
+	private array $groupStack = array();
+
+	/**
 	 * Top-level Series to re-copy from ACF once its sub-fields were saved on their own.
 	 *
 	 * @var array<string,array{0:mixed,1:array<string,mixed>}>
@@ -60,8 +67,12 @@ final class Bridge {
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'beforeSeries' ), 1, 3 );
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'afterSeries' ), 99, 1 );
 		// Before ACF's group handler (priority 10), which saves each sub-field and passes '' on.
+		add_filter( 'acf/update_value/type=group', array( $this, 'groupStart' ), 0, 3 );
 		add_filter( 'acf/update_value/type=group', array( $this, 'beforeGroup' ), 1, 3 );
+		add_filter( 'acf/update_value/type=group', array( $this, 'groupEnd' ), 99, 1 );
+		add_filter( 'acf/update_value/type=clone', array( $this, 'groupStart' ), 0, 3 );
 		add_filter( 'acf/update_value/type=clone', array( $this, 'beforeGroup' ), 1, 3 );
+		add_filter( 'acf/update_value/type=clone', array( $this, 'groupEnd' ), 99, 1 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
 		add_action( 'acf/delete_value', array( $this, 'onDelete' ), 10, 3 );
 		add_action( 'nf/upgraded', array( $this, 'resyncAfterUpgrade' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
@@ -77,6 +88,41 @@ final class Bridge {
 	 */
 	public function reset(): void {
 		$this->seriesDepth = 0;
+		$this->groupStack  = array();
+	}
+
+	/**
+	 * Filter (priority 0): a group or group-display clone save starts. Its sub-field saves that follow are skipped.
+	 *
+	 * @param mixed               $value   Value.
+	 * @param mixed               $post_id ACF post ID.
+	 * @param array<string,mixed> $field   Field.
+	 * @return mixed Unchanged value.
+	 */
+	public function groupStart( mixed $value, mixed $post_id, array $field ): mixed {
+		unset( $post_id );
+		$this->groupStack[] = 'group' === ( $field['type'] ?? '' ) || TypeMap::isGroupClone( $field );
+		return $value;
+	}
+
+	/**
+	 * Filter (priority 99): the group save finished.
+	 *
+	 * @param mixed $value Value.
+	 * @return mixed
+	 */
+	public function groupEnd( mixed $value ): mixed {
+		array_pop( $this->groupStack );
+		return $value;
+	}
+
+	/**
+	 * Whether a group's own save is in progress.
+	 *
+	 * @return bool
+	 */
+	private function inGroupSave(): bool {
+		return in_array( true, $this->groupStack, true );
 	}
 
 	/**
@@ -206,7 +252,10 @@ final class Bridge {
 			return $value;
 		}
 		if ( $this->isSubField( $field ) ) {
-			$this->queue( $post_id, $field );
+			if ( ! $this->inGroupSave() ) {
+				// Saved on its own (update_sub_field(), update_field( 'group_name' )): re-copy its top-level parent.
+				$this->queue( $post_id, $field );
+			}
 			return $value;
 		}
 		$target = self::decode( $post_id );
@@ -260,6 +309,7 @@ final class Bridge {
 	 * A logged-out GET or HEAD never writes (D-18); WP-CLI and WP-Cron are server-side and do.
 	 *
 	 * @return void
+	 * @throws \RuntimeException Caught per item and reported through `nf/bridge/error`; never escapes.
 	 */
 	public function flush(): void {
 		// Cleared first: a failed or skipped re-sync is not retried within the request.
@@ -285,7 +335,19 @@ final class Bridge {
 				continue;
 			}
 			try {
-				$def  = $this->ensure( $series );
+				$def = $this->ensure( $series );
+				if ( DataTable::Rows !== $def->table ) {
+					// A group: read its current value back from ACF, which saved the sub-field already.
+					if ( ! function_exists( 'acf_get_value' ) ) {
+						throw new \RuntimeException( 'ACF unavailable to re-read group ' . esc_html( (string) ( $series['name'] ?? '' ) ) );
+					}
+					// ACF caches loaded values per request; a sub-field saved on its own leaves the group's entry stale.
+					if ( function_exists( 'acf_get_store' ) ) {
+						acf_get_store( 'values' )->reset();
+					}
+					$this->store->set( $target[0], $target[1], $def->key, TypeMap::normalizeComposite( $series, acf_get_value( $post_id, $series ) ) );
+					continue;
+				}
 				$name = '' !== $def->name ? $def->name : (string) ( $series['name'] ?? '' );
 				$rows = $this->readRows( $post_id, $name, $def );
 				$this->store->setRows( $target[0], $target[1], $def->key, $rows );
@@ -595,14 +657,18 @@ final class Bridge {
 	}
 
 	/**
-	 * Queue a Series (only a repeater, never a Group or other parent) for a re-sync.
+	 * Queue a top-level Series or Group (also a group-display clone) for a re-copy from ACF.
 	 *
 	 * @param mixed                    $post_id ACF post ID.
 	 * @param array<string,mixed>|null $top     Top-level Series.
 	 * @return void
 	 */
 	private function queueSeries( mixed $post_id, ?array $top ): void {
-		if ( null === $top || empty( $top['key'] ) || 'repeater' !== ( $top['type'] ?? '' ) ) {
+		if ( null === $top || empty( $top['key'] ) ) {
+			return;
+		}
+		$type = (string) ( $top['type'] ?? '' );
+		if ( 'repeater' !== $type && 'group' !== $type && ! TypeMap::isGroupClone( $top ) ) {
 			return;
 		}
 		$id                                       = is_scalar( $post_id ) ? (string) $post_id : '';
