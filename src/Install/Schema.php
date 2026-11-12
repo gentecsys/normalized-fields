@@ -100,6 +100,14 @@ final class Schema {
   UNIQUE KEY field_value (field_id, value),
   UNIQUE KEY field_bit (field_id, bit)
 ) {$charset};";
+		$sql[] = "CREATE TABLE {$p}nf_archive (
+  object_type TINYINT UNSIGNED NOT NULL,
+  object_id BIGINT UNSIGNED NOT NULL,
+  parent_id BIGINT UNSIGNED NOT NULL,
+  snapshot LONGTEXT NOT NULL,
+  PRIMARY KEY  (object_type, object_id),
+  KEY parent (object_type, parent_id)
+) {$charset};";
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}
