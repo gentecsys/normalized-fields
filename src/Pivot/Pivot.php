@@ -158,9 +158,9 @@ final class Pivot {
 		$out  = array();
 		foreach ( $rows as $r ) {
 			$out[ (string) $r['slot'] ] = array(
-				'id'    => (int) $r['field_id'],
-				'key'   => (string) $r['field_key'],
-				'name'  => (string) $r['field_name'],
+				'id'     => (int) $r['field_id'],
+				'key'    => (string) $r['field_key'],
+				'name'   => (string) $r['field_name'],
 				'table'  => DataTable::from( (string) $r['data_table'] ),
 				'rollup' => (string) $r['rollup'],
 				'parent' => (string) ( $r['parent_key'] ?? '' ),
