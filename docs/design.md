@@ -183,7 +183,7 @@ CREATE TABLE wp_nf_int (
   KEY by_value (field_id, value, object_type, object_id)
 ) ENGINE=InnoDB;
 
--- wp_nf_dec   value DECIMAL(20,6)     + by_value index
+-- wp_nf_dec   value DECIMAL(24,10)     + by_value index
 -- wp_nf_date  value DATETIME          + by_value index
 -- wp_nf_str   value VARCHAR(191)      + by_value index
 -- wp_nf_text  value MEDIUMTEXT        no value index; optional FULLTEXT(value)
@@ -288,7 +288,7 @@ CREATE TABLE wp_nf_pivot (
   published  DATETIME NULL,
   menu_order INT NOT NULL DEFAULT 0,
   i1 BIGINT NULL,  -- … i8: true/false, integers, single post/user/image IDs
-  n1 DECIMAL(20,6) NULL,  -- … n4: numbers, prices
+  n1 DECIMAL(24,10) NULL,  -- … n4: numbers, prices
   t1 DATETIME NULL,  -- … t6: dates and date-times
   s1 INT UNSIGNED NULL,  -- … s8: dictionary IDs for select, radio, short text
   m1 BIGINT UNSIGNED NOT NULL DEFAULT 0,  -- … m4: bitmasks for multi-valued fields, 64 values each
@@ -304,7 +304,7 @@ CREATE TABLE wp_nf_row_pivot (
   object_id BIGINT UNSIGNED NOT NULL,
   field_id  INT UNSIGNED NOT NULL,           -- the repeater field
   i1 BIGINT NULL,  -- … i4
-  n1 DECIMAL(20,6) NULL,  -- … n2
+  n1 DECIMAL(24,10) NULL,  -- … n2
   t1 DATETIME NULL,  -- … t4
   s1 INT UNSIGNED NULL,  -- … s4
   m1 BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -1350,7 +1350,7 @@ All NF table access goes through one backend adapter (`nf_db()`) with a MySQL an
 | `TINYINT` / `SMALLINT UNSIGNED` | `smallint` / `integer` | Widened where unsigned would overflow |
 | `AUTO_INCREMENT` | `bigint GENERATED ALWAYS AS IDENTITY` | New row IDs come back through `RETURNING` |
 | `DATETIME` | `timestamp` (no time zone) | WordPress stores local time; values round-trip as the same strings |
-| `DECIMAL(20,6)` | `numeric(20,6)` | Same precision |
+| `DECIMAL(24,10)` | `numeric(24,10)` | Same precision |
 | `VARCHAR(191)` with prefix rule | `text`, full-length btree | 191 was a MySQL index limit; the `str` contract keeps it so both backends behave alike |
 | `LONGTEXT` | `text` | |
 | `nf_json` (`JSON` / `LONGTEXT`) | `jsonb` | GIN index available for filterable JSON paths |

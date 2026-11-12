@@ -152,8 +152,8 @@ final class NfCompositeDifferentialTest extends TestCase {
 			'nfcomp_map',
 			array(
 				'address' => '1 Main St',
-				'lat'     => 42.697708,
-				'lng'     => 23.321868,
+				'lat'     => 42.6977082,
+				'lng'     => 23.3218689,
 				'zoom'    => 14,
 			),
 			self::$id
@@ -161,8 +161,8 @@ final class NfCompositeDifferentialTest extends TestCase {
 		$nf = $this->nf( 'field_nfcomp_map' );
 		$this->assertSame( '1 Main St', $nf['address'] );
 		$this->assertSame( 14, $nf['zoom'] );
-		$this->assertEqualsWithDelta( 42.697708, (float) $nf['lat'], 1e-9 );
-		$this->assertEqualsWithDelta( 23.321868, (float) $nf['lng'], 1e-9 );
+		$this->assertEqualsWithDelta( 42.6977082, (float) $nf['lat'], 1e-10 ); // DECIMAL(24,10): exact for 7-decimal coordinates.
+		$this->assertEqualsWithDelta( 23.3218689, (float) $nf['lng'], 1e-10 );
 	}
 
 	public function test_group_with_nested_group(): void {

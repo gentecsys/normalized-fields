@@ -89,7 +89,7 @@ final class MysqlDialect implements DialectInterface {
 	public function cast( string $expr, string $dataType ): string {
 		return match ( $dataType ) {
 			'int'   => "CAST({$expr} AS SIGNED)",
-			'dec'   => "CAST({$expr} AS DECIMAL(20,6))",
+			'dec'   => "CAST({$expr} AS DECIMAL(24,10))",
 			'date'  => "CAST({$expr} AS DATETIME)",
 			'str'   => "CAST({$expr} AS CHAR)",
 			default => throw new \InvalidArgumentException( 'Unknown data type.' ),

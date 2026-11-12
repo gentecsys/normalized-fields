@@ -98,6 +98,9 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 | D-18 | Anti-bot plan for anonymous REST (with and without a WAF) | Before WP 3.9 | **Decided by owner 2026-11-06** | Bound the work, don't identify bots: profiles, early guard, cold slots, degradation |
 | D-19 | Licence | Release | **Decided by owner 2026-11-09** | GPL v3 or later (`GPL-3.0-or-later`); `LICENSE` holds the GPL v3 text. Every bundled dependency must be GPL v3 compatible |
 
+### Decimal precision: DECIMAL(24,10) (2026-11-12, owner)
+Owner agreed to more decimal places after Google Map `lat`/`lng` read back rounded (`42.6977082` → `42.697708`, about 10 cm). Every decimal column (`nf_dec`, `nf_user_dec`, pivot `n` slots, row pivot `n` slots) and the MySQL `dec` cast move from `DECIMAL(20,6)` to `DECIMAL(24,10)`: 10 decimal places as agreed, and the same 14 integer digits as before (`DECIMAL(20,10)` would have cut them to 10). PostgreSQL uses `numeric(24,10)`. Schema version 5; `dbDelta` alters the existing columns when the owner runs the upgrade.
+
 ## Gate approvals
 
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
