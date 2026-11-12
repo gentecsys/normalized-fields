@@ -93,4 +93,69 @@ final class Dictionary {
 		$rows = $this->db->select( 'SELECT value FROM ' . $this->db->table( 'nf_dict' ) . ' WHERE dict_id = ?', array( $dictId ) );
 		return $rows ? (string) $rows[0]['value'] : null;
 	}
+
+	/**
+	 * Highest bit position a bitmask slot holds.
+	 */
+	public const MAX_BIT = 63;
+
+	/**
+	 * Bit position of a value in its field's bitmask, assigned when missing (write paths only).
+	 * Bits are never reused. Returns null when the value is too long or all 64 bits of the field are taken.
+	 *
+	 * @param int    $fieldId Field id.
+	 * @param string $value   Value.
+	 * @return int|null
+	 */
+	public function bit( int $fieldId, string $value ): ?int {
+		if ( ! self::fits( $value ) ) {
+			return null;
+		}
+		$known = $this->findBit( $fieldId, $value );
+		if ( null !== $known ) {
+			return $known;
+		}
+		$t    = $this->db->table( 'nf_dict' );
+		$used = array_map( 'intval', array_column( $this->db->select( "SELECT bit FROM {$t} WHERE field_id = ? AND bit IS NOT NULL", array( $fieldId ) ), 'bit' ) );
+		if ( count( $used ) > self::MAX_BIT ) {
+			return null;
+		}
+		$dictId = $this->id( $fieldId, $value );
+		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+			$existing = $this->findBit( $fieldId, $value );
+			if ( null !== $existing ) {
+				return $existing;
+			}
+			$used = array_map( 'intval', array_column( $this->db->select( "SELECT bit FROM {$t} WHERE field_id = ? AND bit IS NOT NULL", array( $fieldId ) ), 'bit' ) );
+			$free = null;
+			for ( $b = 0; $b <= self::MAX_BIT; $b++ ) {
+				if ( ! in_array( $b, $used, true ) ) {
+					$free = $b;
+					break;
+				}
+			}
+			if ( null === $free ) {
+				return null;
+			}
+			// A concurrent writer may take the same bit; the unique key rejects one of us, then we look again.
+			try {
+				$this->db->execute( "UPDATE {$t} SET bit = ? WHERE dict_id = ? AND bit IS NULL", array( $free, $dictId ) );
+			} catch ( \RuntimeException $e ) {
+				unset( $e );
+			}
+		}
+		return $this->findBit( $fieldId, $value );
+	}
+
+	/**
+	 * Bit position of a value, or null when it has none. Never writes.
+	 *
+	 * @param int    $fieldId Field id.
+	 * @param string $value   Value.
+	 * @return int|null
+	 */
+	public function findBit( int $fieldId, string $value ): ?int {
+		$rows = $this->db->select( 'SELECT bit FROM ' . $this->db->table( 'nf_dict' ) . ' WHERE field_id = ? AND value = ? AND bit IS NOT NULL', array( $fieldId, $value ) );
+		return $rows ? (int) $rows[0]['bit'] : null;
+	}
 }
