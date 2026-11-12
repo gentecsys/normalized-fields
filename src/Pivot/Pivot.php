@@ -45,6 +45,7 @@ final class Pivot {
 	 * @param BackendInterface $db     Backend.
 	 * @param FieldMap         $fields Field map.
 	 * @param Store            $store  Store.
+	 * @param Dictionary|null  $dictionary Dictionary for s-slots; defaults to one on the same backend.
 	 */
 	public function __construct( private BackendInterface $db, private FieldMap $fields, private Store $store, private ?Dictionary $dictionary = null ) {
 		$this->dictionary ??= new Dictionary( $db );

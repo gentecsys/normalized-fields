@@ -48,6 +48,7 @@ final class Dictionary {
 	 * @param string $value   Value of at most MAX_LENGTH characters.
 	 * @return int
 	 * @throws \InvalidArgumentException When the value is too long.
+	 * @throws \RuntimeException When the insert failed.
 	 */
 	public function id( int $fieldId, string $value ): int {
 		if ( ! self::fits( $value ) ) {

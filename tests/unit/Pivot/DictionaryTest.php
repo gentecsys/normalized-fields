@@ -135,7 +135,7 @@ class DictionaryTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * find() is read-only; id() rejects values the column cannot hold.
+	 * The find method is read-only; the id method rejects values the column cannot hold.
 	 */
 	public function test_find_never_writes_and_long_values_are_refused(): void {
 		$dict = new Dictionary( nf_db() );
