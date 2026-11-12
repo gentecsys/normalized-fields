@@ -138,8 +138,8 @@ final class Pivot {
 			throw new \InvalidArgumentException( 'Slot does not exist or does not match the field type.' );
 		}
 		$this->db->execute(
-			$this->db->dialect()->upsert( $this->db->table( 'nf_pivot_slots' ), array( 'pivot_id', 'repeater_id', 'slot' ), array( 'field_id' ) ),
-			array( $pivotId, 0, $slot, $def->id )
+			$this->db->dialect()->upsert( $this->db->table( 'nf_pivot_slots' ), array( 'pivot_id', 'repeater_id', 'slot' ), array( 'field_id', 'rollup' ) ),
+			array( $pivotId, 0, $slot, $def->id, 'none' )
 		);
 	}
 
