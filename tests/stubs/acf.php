@@ -47,3 +47,23 @@ function acf_get_value( $post_id, $field ) {}
  * @return array<string,mixed>
  */
 function acf_get_meta( $post_id = 0 ) {}
+
+/**
+ * ACF data store.
+ *
+ * @param string $name Store name.
+ * @return ACF_Data
+ */
+function acf_get_store( $name = '' ) {}
+
+/**
+ * ACF data store.
+ */
+class ACF_Data {
+	/**
+	 * Empty the store.
+	 *
+	 * @return void
+	 */
+	public function reset() {}
+}
