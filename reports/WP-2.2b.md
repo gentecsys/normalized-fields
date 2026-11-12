@@ -9,6 +9,7 @@ Agent: A3 (daily build agent). Branch `wp/2.2b-bitmasks`.
 
 ## Deviations / notes
 - A value with no bit (65th value of a field) is left out of the mask. Design says to spill into a second m-slot or demote the field; that is not built here (follow-up, with the admin notice).
+- Overflow values (65th, over 191 chars) are left out silently; spill or demotion plus a hook belongs in 2.2d or 3.x (reviewer follow-up).
 - Queries do not use `m` slots yet (compiler, 3.1). Rollups of bits are 2.2c/3.4.
 
 ## Contract change requested

@@ -111,8 +111,16 @@ final class Dictionary {
 		if ( ! self::fits( $value ) ) {
 			return null;
 		}
+		$known = $this->findBit( $fieldId, $value );
+		if ( null !== $known ) {
+			return $known;
+		}
+		$t    = $this->db->table( 'nf_dict' );
+		$used = array_map( 'intval', array_column( $this->db->select( "SELECT bit FROM {$t} WHERE field_id = ? AND bit IS NOT NULL", array( $fieldId ) ), 'bit' ) );
+		if ( count( $used ) > self::MAX_BIT ) {
+			return null;
+		}
 		$dictId = $this->id( $fieldId, $value );
-		$t      = $this->db->table( 'nf_dict' );
 		for ( $attempt = 0; $attempt < 3; $attempt++ ) {
 			$existing = $this->findBit( $fieldId, $value );
 			if ( null !== $existing ) {
