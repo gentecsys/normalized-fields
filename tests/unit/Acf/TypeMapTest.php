@@ -111,11 +111,52 @@ class TypeMapTest extends WP_UnitTestCase {
 		$this->assertSame( array( 'title', 'hero_sub' ), array_column( TypeMap::seamlessFields( $clone ), 'name' ) );
 		$clone['prefix_name'] = 1;
 		$this->assertSame( array( 'hero_title', 'hero_sub' ), array_column( TypeMap::seamlessFields( $clone ), 'name' ) );
-		$this->assertSame( 'field_c1', TypeMap::seamlessFields( $clone )[0]['key'] );
+		$this->assertSame( 'field_c_field_c1', TypeMap::seamlessFields( $clone )[0]['key'] );
 		$clone['display'] = 'group';
 		$this->assertTrue( TypeMap::isGroupClone( $clone ) );
 		$this->assertSame( array(), TypeMap::seamlessFields( $clone ) );
 		$this->assertSame( array( 'title', 'hero_sub' ), array_column( TypeMap::composite( $clone ), 'name' ) );
+		$this->assertSame( array( 'field_c_field_c1', 'field_c_field_c2' ), array_column( TypeMap::composite( $clone ), 'key' ) );
+		$prefixed                            = $clone;
+		$prefixed['sub_fields'][0]['name']   = 'hero_title';
+		$prefixed['sub_fields'][0]['__name'] = 'title';
+		$this->assertSame( 'title', TypeMap::composite( $prefixed )[0]['name'] );
+		$this->assertSame(
+			array(
+				'title'    => 'T',
+				'hero_sub' => 'S',
+			),
+			TypeMap::normalizeComposite(
+				$clone,
+				array(
+					'field_c1' => 'T',
+					'field_c2' => 'S',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Cloned fields get one NF key per clone, whichever form ACF passes, and nested sub-fields follow.
+	 */
+	public function test_clone_scope() {
+		$saved           = $this->field( 'field_src1', 'text', 'pref_title' );
+		$saved['_clone'] = 'field_cl';
+		$loaded          = $this->field( 'field_cl_field_src1', 'text', 'pref_title' );
+		$loaded['__key'] = 'field_src1';
+		$this->assertSame( 'field_cl_field_src1', TypeMap::scope( $saved, 'field_cl' )['key'] );
+		$this->assertSame( 'field_cl_field_src1', TypeMap::scope( $loaded, 'field_cl' )['key'] );
+		$this->assertSame( 'field_cl_field_src1', TypeMap::scope( TypeMap::scope( $saved, 'field_cl' ), 'field_cl' )['key'] );
+		$this->assertSame( 'field_other_field_src1', TypeMap::scope( $saved, 'field_other' )['key'] );
+
+		$group               = $this->field( 'field_srcg', 'group', 'box' );
+		$group['sub_fields'] = array( $this->field( 'field_srcg1', 'text', 'note' ) );
+		$this->assertSame( 'field_cl_field_srcg1', TypeMap::scope( $group, 'field_cl' )['sub_fields'][0]['key'] );
+
+		$long = TypeMap::cloneKey( str_repeat( 'a', 40 ), str_repeat( 'b', 40 ) );
+		$this->assertSame( 50, strlen( $long ) );
+		$this->assertStringStartsWith( 'field_', $long );
+		$this->assertSame( $long, TypeMap::cloneKey( str_repeat( 'a', 40 ), str_repeat( 'b', 40 ) ) );
 	}
 
 	/**
