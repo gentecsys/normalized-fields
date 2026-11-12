@@ -58,51 +58,134 @@ final class Upgrader {
 	public const LOCK_TTL = 600;
 
 	/**
-	 * Capability a logged-in user needs for their request to run the upgrade.
+	 * Capability needed to run the upgrade from wp-admin.
 	 */
 	public const CAPABILITY = 'activate_plugins';
 
 	/**
-	 * Schema version found when register() upgraded at load (WP-CLI/cron), for the CLI report.
-	 *
-	 * @var int|null
+	 * Option recording the last failed upgrade: array{version:int,time:int,message:string}.
 	 */
-	private ?int $upgradedFrom = null;
+	public const FAILED = 'nf_upgrade_failed';
 
 	/**
-	 * Hook the upgrade into trusted contexts only.
+	 * Option set when NF skipped a write because the schema was behind; a re-sync from ACF is needed.
+	 */
+	public const NEEDS_RESYNC = 'nf_needs_resync';
+
+	/**
+	 * Action name (admin-post.php and nonce) of the update button.
+	 */
+	public const ACTION = 'nf_upgrade';
+
+	/**
+	 * Message of the last failed upgrade in this request.
 	 *
-	 * Visitor requests never upgrade (D-18: logged-out GET/HEAD never writes; no DDL from the front end).
-	 * The upgrade runs from WP-CLI, WP-Cron (which also follows auto-updates), and any request by a
-	 * user who can activate plugins (wp-admin, REST, front end). admin_init alone is not enough: it also
-	 * fires for logged-out admin-ajax.php requests, and REST saves never reach it.
+	 * @var string|null
+	 */
+	private ?string $error = null;
+
+	/**
+	 * Add the update notice, the button handler and `wp nf upgrade`.
+	 *
+	 * The upgrade never runs on its own: not on visitor, REST, admin-ajax, cron or admin page requests.
+	 * Only plugin activation, the button and `wp nf upgrade` run it. Until then NF skips its writes
+	 * (Bridge) and records that a re-sync is needed. wp-cron.php is public, so cron is not trusted.
 	 *
 	 * @return void
 	 */
 	public function register(): void {
-		if ( ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() ) {
-			$before = (int) get_option( self::OPTION, 0 );
-			if ( $this->maybe_upgrade() ) {
-				$this->upgradedFrom = $before;
-			}
-		} else {
-			// init: the current user is known; still before any NF write in the request.
-			add_action( 'init', array( $this, 'upgradeForPrivilegedUser' ), 1 );
-		}
+		add_action( 'admin_notices', array( $this, 'notice' ) );
+		add_action( 'admin_post_' . self::ACTION, array( $this, 'handleButton' ) );
 		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( '\\WP_CLI' ) ) {
 			\WP_CLI::add_command( 'nf upgrade', array( $this, 'cliUpgrade' ) );
 		}
 	}
 
 	/**
-	 * Run the upgrade when the current user may activate plugins.
+	 * Admin notice: database update required (with the button), or the result of the last click.
 	 *
 	 * @return void
 	 */
-	public function upgradeForPrivilegedUser(): void {
-		if ( ! self::isCurrent() && current_user_can( self::CAPABILITY ) ) {
-			$this->maybe_upgrade();
+	public function notice(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			return;
 		}
+		// Display only: the result of our own redirect, never acted on.
+		$result = isset( $_GET['nf_upgrade'] ) ? sanitize_key( wp_unslash( (string) $_GET['nf_upgrade'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( self::isCurrent() ) {
+			if ( 'done' === $result ) {
+				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'The Normalized Fields database is up to date.', 'normalized-fields' ) . '</p>';
+				if ( get_option( self::NEEDS_RESYNC ) ) {
+					echo '<p>' . esc_html__( 'Some ACF values were saved while the update was pending and were not copied to NF. A re-sync is needed.', 'normalized-fields' ) . '</p>';
+				}
+				echo '</div>';
+			}
+			return;
+		}
+		$failed = get_option( self::FAILED );
+		echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Normalized Fields needs a database update.', 'normalized-fields' ) . '</strong> ';
+		printf(
+			/* translators: 1: installed schema version, 2: required schema version. */
+			esc_html__( 'Schema %1$d is installed; this version needs %2$d. Until the update runs, NF does not write to its tables.', 'normalized-fields' ),
+			(int) get_option( self::OPTION, 0 ),
+			(int) self::SCHEMA_VERSION
+		);
+		echo '</p>';
+		if ( is_array( $failed ) && (int) ( $failed['version'] ?? 0 ) === self::SCHEMA_VERSION ) {
+			echo '<p>' . esc_html__( 'The last update failed:', 'normalized-fields' ) . ' <code>' . esc_html( (string) ( $failed['message'] ?? '' ) ) . '</code></p>';
+		} elseif ( 'busy' === $result ) {
+			echo '<p>' . esc_html__( 'Another update is running. Try again in a few minutes.', 'normalized-fields' ) . '</p>';
+		}
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION ) . '" />';
+		wp_nonce_field( self::ACTION );
+		echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Update the NF database', 'normalized-fields' ) . '</button> ';
+		echo esc_html__( 'or run', 'normalized-fields' ) . ' <code>wp nf upgrade</code></p></form></div>';
+	}
+
+	/**
+	 * Handle the button (admin-post): checks capability and nonce, upgrades, redirects back.
+	 *
+	 * @return void
+	 */
+	public function handleButton(): void {
+		$result = $this->runFromAdmin();
+		$back   = wp_get_referer();
+		wp_safe_redirect( add_query_arg( 'nf_upgrade', $result, $back ? $back : admin_url() ) );
+		exit;
+	}
+
+	/**
+	 * Run the upgrade for an admin click. Dies on a missing capability or a bad nonce.
+	 *
+	 * @return string 'done', 'current', 'busy' or 'failed'.
+	 */
+	public function runFromAdmin(): string {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You are not allowed to update the Normalized Fields database.', 'normalized-fields' ), '', array( 'response' => 403 ) );
+		}
+		check_admin_referer( self::ACTION );
+		if ( self::isCurrent() ) {
+			return 'current';
+		}
+		if ( $this->maybe_upgrade() ) {
+			return 'done';
+		}
+		if ( null !== $this->lastError() ) {
+			return 'failed';
+		}
+		// Not run: either another request finished it meanwhile, or it still holds the lock.
+		wp_cache_delete( self::OPTION, 'options' );
+		return (int) get_option( self::OPTION, 0 ) >= self::SCHEMA_VERSION ? 'current' : 'busy';
+	}
+
+	/**
+	 * Message of the last failed upgrade run by this instance, or null.
+	 *
+	 * @return string|null
+	 */
+	public function lastError(): ?string {
+		return $this->error;
 	}
 
 	/**
@@ -111,14 +194,16 @@ final class Upgrader {
 	 * ## EXAMPLES
 	 *
 	 *     wp nf upgrade
+	 *     wp site list --field=url | xargs -I{} wp nf upgrade --url={}
 	 *
 	 * @return void
 	 */
 	public function cliUpgrade(): void {
-		$before = $this->upgradedFrom ?? (int) get_option( self::OPTION, 0 );
-		$ran    = null !== $this->upgradedFrom || $this->maybe_upgrade();
-		if ( $ran ) {
+		$before = (int) get_option( self::OPTION, 0 );
+		if ( $this->maybe_upgrade() ) {
 			\WP_CLI::success( sprintf( 'NF schema upgraded from %d to %d.', $before, self::SCHEMA_VERSION ) );
+		} elseif ( null !== $this->lastError() ) {
+			\WP_CLI::error( 'NF schema upgrade failed: ' . $this->lastError() );
 		} elseif ( self::isCurrent() ) {
 			\WP_CLI::success( sprintf( 'NF schema is current (%d).', self::SCHEMA_VERSION ) );
 		} else {
@@ -137,12 +222,14 @@ final class Upgrader {
 	}
 
 	/**
-	 * Upgrade the current site when its schema version is behind. Callers must be a trusted context
-	 * (activation, WP-CLI, cron, privileged user); see register().
+	 * Upgrade the current site when its schema version is behind. Callers are activation, the admin
+	 * button and `wp nf upgrade` only; see register(). A failure is recorded (FAILED) and not retried
+	 * until someone runs the upgrade again.
 	 *
-	 * @return bool True when an upgrade ran; false when current or another request holds the lock.
+	 * @return bool True when an upgrade ran; false when current, locked by another request, or failed.
 	 */
 	public function maybe_upgrade(): bool {
+		$this->error = null;
 		if ( self::isCurrent() ) {
 			return false;
 		}
@@ -164,7 +251,20 @@ final class Upgrader {
 				}
 			}
 			update_option( self::OPTION, self::SCHEMA_VERSION, true );
+			delete_option( self::FAILED );
 			return true;
+		} catch ( \Throwable $e ) {
+			$this->error = $e->getMessage();
+			update_option(
+				self::FAILED,
+				array(
+					'version' => self::SCHEMA_VERSION,
+					'time'    => time(),
+					'message' => $this->error,
+				),
+				false
+			);
+			return false;
 		} finally {
 			delete_option( self::LOCK );
 		}

@@ -7,8 +7,11 @@
 
 use NF\Install\Upgrader;
 
+require_once __DIR__ . '/UpgraderTestMigration.php';
+require_once __DIR__ . '/UpgraderTestFailingMigration.php';
+
 /**
- * A lower stored version recreates missing tables and runs migrations once.
+ * A lower stored version recreates missing tables and runs migrations once; only explicit triggers upgrade.
  */
 class UpgraderTest extends WP_UnitTestCase {
 
@@ -94,37 +97,140 @@ class UpgraderTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A visitor's request never upgrades: no DDL or option write from the front end (D-18).
+	 * No request upgrades on its own: visitor, editor or admin, front end, admin page, REST or cron.
+	 * wp-cron.php is public, so cron is not a trusted context.
 	 */
-	public function test_anonymous_request_does_not_upgrade() {
-		wp_set_current_user( 0 );
-		update_option( Upgrader::OPTION, 1 );
-		$up = new Upgrader();
-		$up->register();
-		do_action( 'init' );
-		$this->assertSame( 1, (int) get_option( Upgrader::OPTION ) );
-		$this->assertFalse( Upgrader::isCurrent() );
-		remove_action( 'init', array( $up, 'upgradeForPrivilegedUser' ), 1 );
+	public function test_no_request_context_upgrades() {
+		foreach ( array( 0, 'editor', 'administrator' ) as $who ) {
+			wp_set_current_user( 0 === $who ? 0 : self::factory()->user->create( array( 'role' => $who ) ) );
+			update_option( Upgrader::OPTION, 1 );
+			$up = new Upgrader();
+			$up->register();
+			do_action( 'init' );
+			$this->assertSame( 1, (int) get_option( Upgrader::OPTION ), "No upgrade for {$who}" );
+			// The only hooks are the notice and the button handler: nothing on init, admin_init, REST or cron.
+			$this->assertSame( array( 'admin_notices', 'admin_post_' . Upgrader::ACTION ), $this->hooks_of( $up ) );
+			remove_action( 'admin_notices', array( $up, 'notice' ) );
+			remove_action( 'admin_post_' . Upgrader::ACTION, array( $up, 'handleButton' ) );
+		}
 	}
 
 	/**
-	 * A user without activate_plugins does not upgrade either.
+	 * Hooks that have a callback on an object.
+	 *
+	 * @param object $obj Object.
+	 * @return string[]
 	 */
-	public function test_editor_request_does_not_upgrade() {
+	private function hooks_of( object $obj ): array {
+		global $wp_filter;
+		$out = array();
+		foreach ( $wp_filter as $hook => $wp_hook ) {
+			foreach ( $wp_hook->callbacks as $callbacks ) {
+				foreach ( $callbacks as $cb ) {
+					if ( is_array( $cb['function'] ) && $cb['function'][0] === $obj ) {
+						$out[] = (string) $hook;
+					}
+				}
+			}
+		}
+		sort( $out );
+		return $out;
+	}
+
+	/**
+	 * Render the notice.
+	 *
+	 * @param array<string,string> $get Query args.
+	 * @return string
+	 */
+	private function notice_html( array $get = array() ): string {
+		$_GET = $get;
+		ob_start();
+		( new Upgrader() )->notice();
+		$_GET = array();
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Admins see the update button while the schema is behind; others and current sites see nothing.
+	 */
+	public function test_notice() {
+		update_option( Upgrader::OPTION, 1 );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$this->assertSame( '', $this->notice_html() );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$html = $this->notice_html();
+		$this->assertStringContainsString( 'admin-post.php', $html );
+		$this->assertStringContainsString( 'value="' . Upgrader::ACTION . '"', $html );
+		$this->assertStringContainsString( '_wpnonce', $html );
+		update_option( Upgrader::OPTION, Upgrader::SCHEMA_VERSION );
+		$this->assertSame( '', $this->notice_html() );
+		$this->assertStringContainsString( 'up to date', $this->notice_html( array( 'nf_upgrade' => 'done' ) ) );
+	}
+
+	/**
+	 * The button needs activate_plugins.
+	 */
+	public function test_button_requires_capability() {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		update_option( Upgrader::OPTION, 1 );
-		( new Upgrader() )->upgradeForPrivilegedUser();
-		$this->assertSame( 1, (int) get_option( Upgrader::OPTION ) );
+		$_REQUEST['_wpnonce'] = wp_create_nonce( Upgrader::ACTION );
+		try {
+			( new Upgrader() )->runFromAdmin();
+			$this->fail( 'Expected wp_die' );
+		} catch ( WPDieException $e ) {
+			$this->assertSame( 1, (int) get_option( Upgrader::OPTION ) );
+		} finally {
+			unset( $_REQUEST['_wpnonce'] );
+		}
 	}
 
 	/**
-	 * An administrator's request upgrades on init.
+	 * The button needs a valid nonce.
 	 */
-	public function test_admin_request_upgrades() {
+	public function test_button_requires_nonce() {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		update_option( Upgrader::OPTION, 1 );
-		( new Upgrader() )->upgradeForPrivilegedUser();
+		$_REQUEST['_wpnonce'] = 'bad';
+		try {
+			( new Upgrader() )->runFromAdmin();
+			$this->fail( 'Expected wp_die' );
+		} catch ( WPDieException $e ) {
+			$this->assertSame( 1, (int) get_option( Upgrader::OPTION ) );
+		} finally {
+			unset( $_REQUEST['_wpnonce'] );
+		}
+	}
+
+	/**
+	 * An admin's click with a valid nonce upgrades.
+	 */
+	public function test_button_upgrades() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		update_option( Upgrader::OPTION, 1 );
+		$_REQUEST['_wpnonce'] = wp_create_nonce( Upgrader::ACTION );
+		$result               = ( new Upgrader() )->runFromAdmin();
+		unset( $_REQUEST['_wpnonce'] );
+		$this->assertSame( 'done', $result );
 		$this->assertTrue( Upgrader::isCurrent() );
+	}
+
+	/**
+	 * A failed migration is recorded, keeps the old version and releases the lock; it is shown in the notice.
+	 */
+	public function test_failure_is_recorded() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		update_option( Upgrader::OPTION, 1 );
+		$up = new Upgrader( array( new UpgraderTestFailingMigration() ) );
+		$this->assertFalse( $up->maybe_upgrade() );
+		$this->assertSame( 1, (int) get_option( Upgrader::OPTION ) );
+		$this->assertFalse( get_option( Upgrader::LOCK ) );
+		$failed = get_option( Upgrader::FAILED );
+		$this->assertSame( Upgrader::SCHEMA_VERSION, $failed['version'] );
+		$this->assertSame( 'migration broke', $failed['message'] );
+		$this->assertStringContainsString( 'migration broke', $this->notice_html() );
+		$this->assertTrue( ( new Upgrader() )->maybe_upgrade() );
+		$this->assertFalse( get_option( Upgrader::FAILED ), 'A successful run clears the failure' );
 	}
 
 	/**
