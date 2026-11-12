@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * One flat nf_pivot row per object (design: "Pivot and lookup tables"). Spike scope: object pivot only,
- * single-valued int / dec / date / str fields (str through the dictionary); bitmasks, row pivot and rollups are not included yet. The pivot is derived: the typed
+ * single-valued int / dec / date / str fields (str through the dictionary); bitmasks cover multi-valued str fields only; row pivot and rollups are not included yet. The pivot is derived: the typed
  * tables stay the source of truth and rebuild() recreates every row.
  */
 final class Pivot {
@@ -33,6 +33,11 @@ final class Pivot {
 		'date' => 't',
 		'str'  => 's',
 	);
+
+	/**
+	 * Bitmask slot letter (multi-valued str fields).
+	 */
+	private const MASK_LETTER = 'm';
 
 	/**
 	 * Core columns copied from the object.
@@ -100,10 +105,18 @@ final class Pivot {
 	 */
 	public function assignSlot( int $pivotId, string $fieldKey, string $slot ): void {
 		$def = $this->fields->byKey( $fieldKey );
-		if ( null === $def || $def->multi || 0 !== $def->parentId ) {
-			throw new \InvalidArgumentException( 'Only registered top-level single-valued fields can have a slot.' );
+		if ( null === $def || 0 !== $def->parentId ) {
+			throw new \InvalidArgumentException( 'Only registered top-level fields can have a slot.' );
 		}
-		$letter = self::SLOT_PREFIX[ $def->table->value ] ?? null;
+		if ( $def->multi ) {
+			// Multi-valued str fields (checkbox, multi-select) take a bitmask slot.
+			if ( DataTable::Str !== $def->table ) {
+				throw new \InvalidArgumentException( 'Only multi-valued string fields can have a bitmask slot.' );
+			}
+			$letter = self::MASK_LETTER;
+		} else {
+			$letter = self::SLOT_PREFIX[ $def->table->value ] ?? null;
+		}
 		if ( null === $letter || 1 !== preg_match( '/^' . $letter . '[1-9]$/', $slot ) || ! $this->slotColumnExists( $slot ) ) {
 			throw new \InvalidArgumentException( 'Slot does not exist or does not match the field type.' );
 		}
@@ -164,6 +177,12 @@ final class Pivot {
 				}
 				foreach ( $this->slots( $pivotId ) as $slot => $field ) {
 					$v = $this->store->get( ObjectType::Post, $objectId, $field['key'] );
+					if ( self::MASK_LETTER === $slot[0] ) {
+						// Bitmask: OR of the value bits, NOT NULL (0 when empty); sent unsigned so bit 63 survives.
+						$cols[]   = $slot;
+						$values[] = $this->mask( $field['id'], is_array( $v ) ? $v : array() );
+						continue;
+					}
 					if ( null === $v ) {
 						$nulls[] = $slot;
 						continue;
@@ -188,6 +207,24 @@ final class Pivot {
 				$this->bump( $pivotId );
 			}
 		);
+	}
+
+	/**
+	 * Bitmask of values as an unsigned decimal string. Values with no bit (too long, or the field has more than 64) are left out.
+	 *
+	 * @param int      $fieldId Field id.
+	 * @param string[] $values  Values.
+	 * @return string
+	 */
+	private function mask( int $fieldId, array $values ): string {
+		$mask = 0;
+		foreach ( $values as $value ) {
+			$bit = $this->dictionary->bit( $fieldId, (string) $value );
+			if ( null !== $bit ) {
+				$mask |= 1 << $bit;
+			}
+		}
+		return sprintf( '%u', $mask );
 	}
 
 	/**
@@ -260,6 +297,7 @@ final class Pivot {
 			't' => 6,
 			's' => 8,
 		);
+		$max['m'] = 4;
 		return (int) substr( $slot, 1 ) <= ( $max[ $slot[0] ] ?? 0 );
 	}
 }
