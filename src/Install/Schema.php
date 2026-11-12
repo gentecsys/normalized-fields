@@ -91,6 +91,15 @@ final class Schema {
   PRIMARY KEY  (pivot_id, repeater_id, slot)
 ) {$charset};";
 		$sql[] = self::pivotTable( $p, $charset );
+		$sql[] = "CREATE TABLE {$p}nf_dict (
+  dict_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  field_id INT UNSIGNED NOT NULL,
+  value VARCHAR(191) NOT NULL,
+  bit TINYINT UNSIGNED NULL,
+  PRIMARY KEY  (dict_id),
+  UNIQUE KEY field_value (field_id, value),
+  UNIQUE KEY field_bit (field_id, bit)
+) {$charset};";
 		foreach ( $sql as $statement ) {
 			dbDelta( $statement );
 		}

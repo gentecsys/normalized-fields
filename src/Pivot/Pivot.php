@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * One flat nf_pivot row per object (design: "Pivot and lookup tables"). Spike scope: object pivot only,
- * single-valued int / dec / date fields, no dictionary, bitmasks or rollups. The pivot is derived: the typed
+ * single-valued int / dec / date / str fields (str through the dictionary); bitmasks, row pivot and rollups are not included yet. The pivot is derived: the typed
  * tables stay the source of truth and rebuild() recreates every row.
  */
 final class Pivot {
@@ -31,6 +31,7 @@ final class Pivot {
 		'int'  => 'i',
 		'dec'  => 'n',
 		'date' => 't',
+		'str'  => 's',
 	);
 
 	/**
@@ -44,8 +45,20 @@ final class Pivot {
 	 * @param BackendInterface $db     Backend.
 	 * @param FieldMap         $fields Field map.
 	 * @param Store            $store  Store.
+	 * @param Dictionary|null  $dictionary Dictionary for s-slots; defaults to one on the same backend.
 	 */
-	public function __construct( private BackendInterface $db, private FieldMap $fields, private Store $store ) {}
+	public function __construct( private BackendInterface $db, private FieldMap $fields, private Store $store, private ?Dictionary $dictionary = null ) {
+		$this->dictionary ??= new Dictionary( $db );
+	}
+
+	/**
+	 * The dictionary used for s-slots.
+	 *
+	 * @return Dictionary
+	 */
+	public function dictionary(): Dictionary {
+		return $this->dictionary;
+	}
 
 	/**
 	 * Pivot set id for an object type and subtype, created when missing.
@@ -155,8 +168,16 @@ final class Pivot {
 						$nulls[] = $slot;
 						continue;
 					}
+					if ( DataTable::Str === $field['table'] ) {
+						// Dictionary id; a value longer than the dictionary column has no id, so its slot stays NULL.
+						$v = Dictionary::fits( (string) $v ) ? $this->dictionary->id( $field['id'], (string) $v ) : null;
+						if ( null === $v ) {
+							$nulls[] = $slot;
+							continue;
+						}
+					}
 					$cols[]   = $slot;
-					$values[] = DataTable::Int === $field['table'] ? (int) $v : (string) $v;
+					$values[] = DataTable::Int === $field['table'] || DataTable::Str === $field['table'] ? (int) $v : (string) $v;
 				}
 				$this->db->execute( $d->upsert( $t, array( 'pivot_id', 'object_id' ), $cols ), $values );
 				// The adapter never binds NULL, so unset columns are cleared with a literal (columns come from the contract).
@@ -227,7 +248,7 @@ final class Pivot {
 	}
 
 	/**
-	 * Whether the nf_pivot table has this slot column (i1-i8, n1-n4, t1-t6).
+	 * Whether the nf_pivot table has this slot column (i1-i8, n1-n4, t1-t6, s1-s8).
 	 *
 	 * @param string $slot Slot name.
 	 * @return bool
@@ -237,6 +258,7 @@ final class Pivot {
 			'i' => 8,
 			'n' => 4,
 			't' => 6,
+			's' => 8,
 		);
 		return (int) substr( $slot, 1 ) <= ( $max[ $slot[0] ] ?? 0 );
 	}
