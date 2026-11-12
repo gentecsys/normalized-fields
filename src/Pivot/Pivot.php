@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * One flat nf_pivot row per object (design: "Pivot and lookup tables"). Spike scope: object pivot only,
- * single-valued int / dec / date / str fields (str through the dictionary), bitmasks or rollups. The pivot is derived: the typed
+ * single-valued int / dec / date / str fields (str through the dictionary); bitmasks, row pivot and rollups are not included yet. The pivot is derived: the typed
  * tables stay the source of truth and rebuild() recreates every row.
  */
 final class Pivot {
