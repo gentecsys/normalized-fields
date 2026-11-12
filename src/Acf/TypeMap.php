@@ -110,6 +110,14 @@ final class TypeMap {
 				if ( ! is_array( $sub ) || empty( $sub['key'] ) || 'repeater' === ( $sub['type'] ?? '' ) ) {
 					continue;
 				}
+				if ( 'clone' === $type ) {
+					// A group clone's sub-fields keep the source keys; give them this clone's own identity.
+					// With prefix_name, ACF names them `<clone>_<name>` but returns them by the source name.
+					$sub = self::scope( $sub, $key );
+					if ( isset( $sub['__name'] ) && '' !== $sub['__name'] ) {
+						$sub['name'] = (string) $sub['__name'];
+					}
+				}
 				[ $table, $multi ] = self::storage( $sub );
 				$out[]             = array(
 					'key'   => (string) $sub['key'],
@@ -147,11 +155,58 @@ final class TypeMap {
 	}
 
 	/**
+	 * NF key of a field cloned by a clone field: `<clone key>_<source key>`, the key ACF itself gives a
+	 * seamless clone's fields when it loads them. One source field cloned in several places gets one NF
+	 * field per clone. Keys over the 64-character column are hashed.
+	 *
+	 * @param string $clone_key Clone field key.
+	 * @param string $source    Source field key.
+	 * @return string
+	 */
+	public static function cloneKey( string $clone_key, string $source ): string {
+		$key = $clone_key . '_' . $source;
+		return strlen( $key ) <= 64 ? $key : 'field_nfc_' . substr( hash( 'sha256', $key ), 0, 40 );
+	}
+
+	/**
+	 * Give a cloned field (and its sub-fields, recursively) the clone-scoped NF key.
+	 *
+	 * ACF saves a cloned field under its source key with `_clone` set to the clone's key, but loads a seamless
+	 * clone's fields with `<clone>_<source>` keys and the source key in `__key`. Both map to cloneKey().
+	 *
+	 * @param array<string,mixed> $field ACF field cloned by $clone_key.
+	 * @param string              $clone_key Clone field key.
+	 * @return array<string,mixed>
+	 */
+	public static function scope( array $field, string $clone_key ): array {
+		$key = (string) ( $field['key'] ?? '' );
+		if ( '' === $key || '' === $clone_key ) {
+			return $field;
+		}
+		$source = (string) ( $field['__key'] ?? '' );
+		if ( '' === $source ) {
+			$source = str_starts_with( $key, $clone_key . '_' ) ? substr( $key, strlen( $clone_key ) + 1 ) : $key;
+		}
+		$field['__key'] = $source;
+		$field['key']   = self::cloneKey( $clone_key, $source );
+		if ( isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ) {
+			foreach ( $field['sub_fields'] as $i => $sub ) {
+				if ( is_array( $sub ) && ! empty( $sub['key'] ) ) {
+					// Nested sub-fields are not cloned by ACF: scope them by their own key, without __key.
+					unset( $sub['__key'] );
+					$field['sub_fields'][ $i ] = self::scope( $sub, $clone_key );
+				}
+			}
+		}
+		return $field;
+	}
+
+	/**
 	 * The fields a seamless clone adds at its own level, with the names ACF gives them.
 	 *
 	 * ACF resolves the cloned fields into `sub_fields`. With `prefix_name` on, each name is prefixed with the
-	 * clone field's name (`<clone>_<name>`), unless ACF already did. Each field keeps its own key, so values
-	 * are stored like any top-level field.
+	 * clone field's name (`<clone>_<name>`), unless ACF already did. Each gets the clone-scoped key (scope()),
+	 * so its values are stored like any top-level field without colliding with other clones of the same source.
 	 *
 	 * @param array<string,mixed> $field ACF clone field.
 	 * @return array<int,array<string,mixed>> Empty for a group clone or any other type.
@@ -170,7 +225,7 @@ final class TypeMap {
 			if ( '' !== $prefix && ! str_starts_with( $name, $prefix ) ) {
 				$sub['name'] = $prefix . $name;
 			}
-			$out[] = $sub;
+			$out[] = self::scope( $sub, (string) ( $field['key'] ?? '' ) );
 		}
 		return $out;
 	}
@@ -192,6 +247,10 @@ final class TypeMap {
 		$out = array();
 		foreach ( $parts as $part ) {
 			$raw = $value[ $part['name'] ] ?? $value[ $part['key'] ] ?? null;
+			if ( null === $raw && is_array( $part['field'] ) && isset( $part['field']['__key'] ) ) {
+				// A group clone's value is keyed by the source field keys.
+				$raw = $value[ (string) $part['field']['__key'] ] ?? null;
+			}
 			if ( is_array( $part['field'] ) && null !== $raw ) {
 				$sub_parts = self::composite( $part['field'] );
 				$raw       = null !== $sub_parts ? self::normalizeComposite( $part['field'], $raw ) : self::normalize( $raw, $part['table'], $part['multi'] );
