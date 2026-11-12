@@ -91,6 +91,7 @@ final class Schema {
   PRIMARY KEY  (pivot_id, repeater_id, slot)
 ) {$charset};";
 		$sql[] = self::pivotTable( $p, $charset );
+		$sql[] = self::rowPivotTable( $p, $charset );
 		$sql[] = "CREATE TABLE {$p}nf_dict (
   dict_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   field_id INT UNSIGNED NOT NULL,
@@ -111,6 +112,38 @@ final class Schema {
 		foreach ( $sql as $statement ) {
 			dbDelta( self::withDisplayWidths( $statement ) );
 		}
+	}
+
+	/**
+	 * DDL for nf_row_pivot (contracts/schema.sql section 9): one row per Series row with 4 + 2 + 4 + 4 filter slots and 1 bitmask slot.
+	 *
+	 * @param string $p       Table prefix.
+	 * @param string $charset Charset clause.
+	 * @return string
+	 */
+	private static function rowPivotTable( string $p, string $charset ): string {
+		$cols = '';
+		$keys = '';
+		foreach ( array(
+			'i' => array( 4, 'BIGINT NULL' ),
+			'n' => array( 2, 'DECIMAL(24,10) NULL' ),
+			't' => array( 4, 'DATETIME NULL' ),
+			's' => array( 4, 'INT UNSIGNED NULL' ),
+		) as $letter => list( $count, $type ) ) {
+			for ( $i = 1; $i <= $count; $i++ ) {
+				$cols .= "  {$letter}{$i} {$type},\n";
+				$keys .= ",\n  KEY {$letter}{$i} (field_id, {$letter}{$i}, object_id)";
+			}
+		}
+		return "CREATE TABLE {$p}nf_row_pivot (
+  row_id BIGINT UNSIGNED NOT NULL,
+  pivot_id SMALLINT UNSIGNED NOT NULL,
+  object_id BIGINT UNSIGNED NOT NULL,
+  field_id INT UNSIGNED NOT NULL,
+{$cols}  m1 BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY  (row_id),
+  KEY by_object (pivot_id, object_id, field_id){$keys}
+) {$charset};";
 	}
 
 	/**

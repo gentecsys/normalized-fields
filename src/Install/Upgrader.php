@@ -21,9 +21,9 @@ defined( 'ABSPATH' ) || exit;
 final class Upgrader {
 
 	/**
-	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added; 4 = 2.3 nf_archive added; 5 = decimals widened to DECIMAL(24,10) (M005WidenDecimals, before dbDelta).
+	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added; 4 = 2.3 nf_archive added; 5 = decimals widened to DECIMAL(24,10) (M005WidenDecimals, before dbDelta); 6 = 2.2c nf_row_pivot added.
 	 */
-	public const SCHEMA_VERSION = 5;
+	public const SCHEMA_VERSION = 6;
 
 	/**
 	 * Option holding the installed schema version for the current site.
