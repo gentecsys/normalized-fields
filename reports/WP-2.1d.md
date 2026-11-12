@@ -13,3 +13,14 @@ Added `TypeMapTest::test_clone_resolution`. Only `php -l` ran locally (no vendor
 - Relies on ACF resolving cloned fields into the clone's `sub_fields` and flagging them with `_clone`; not verified against real ACF PRO (follow-up for nf-dev / A11 differential).
 - Clones inside a Series, and clones that clone whole groups/collections referencing other clones, are not handled.
 - Bridge-level behaviour has no unit test.
+
+## Review fixes
+- B1: `onUpdate` now returns early for every `clone` (group clones are mirrored by `beforeGroup`), so a group clone is not wiped.
+- N2: the seamless short-circuit in `isSubField` is explicit.
+
+## Follow-ups
+- Verify on nf-dev with ACF PRO: cloned field keys (ACF may rewrite to `<clone>_<key>`), `parent`, `_clone`; then pin in a fixture test (A11 differential).
+- Bridge-level round-trip tests for clones; clones in a Series; nested clone prefix chains; 64-char key limit for rewritten keys.
+
+## Contract change requested
+None.
