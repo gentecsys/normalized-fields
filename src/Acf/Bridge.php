@@ -61,6 +61,7 @@ final class Bridge {
 		add_filter( 'acf/update_value/type=repeater', array( $this, 'afterSeries' ), 99, 1 );
 		// Before ACF's group handler (priority 10), which saves each sub-field and passes '' on.
 		add_filter( 'acf/update_value/type=group', array( $this, 'beforeGroup' ), 1, 3 );
+		add_filter( 'acf/update_value/type=clone', array( $this, 'beforeGroup' ), 1, 3 );
 		add_filter( 'acf/update_value', array( $this, 'onUpdate' ), 99, 3 );
 		add_action( 'acf/delete_value', array( $this, 'onDelete' ), 10, 3 );
 	}
@@ -148,7 +149,7 @@ final class Bridge {
 	 * @return mixed Unchanged value.
 	 */
 	public function beforeGroup( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || $this->isSubField( $field ) ) {
+		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || ( 'clone' === ( $field['type'] ?? '' ) && ! TypeMap::isGroupClone( $field ) ) || $this->isSubField( $field ) ) {
 			return $value;
 		}
 		$target = self::decode( $post_id );
@@ -184,8 +185,8 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group' ), true ) || empty( $field['key'] ) ) {
-			// Series and Groups were mirrored at priority 1 (beforeSeries, beforeGroup).
+		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) || empty( $field['key'] ) ) {
+			// Series, Groups and group-display clones were mirrored at priority 1; a seamless clone's fields save themselves.
 			return $value;
 		}
 		if ( $this->isSubField( $field ) ) {
@@ -433,6 +434,13 @@ final class Bridge {
 	 */
 	private function isSubField( array $field ): bool {
 		$parent = $field['parent'] ?? 0;
+		if ( ! empty( $field['_clone'] ) ) {
+			$owner = $this->loadParent( $parent );
+			if ( null !== $owner && 'clone' === ( $owner['type'] ?? '' ) && ! TypeMap::isGroupClone( $owner ) ) {
+				// A seamless clone's fields live at the clone's own level, so they are top-level values.
+				return null !== $this->topSeries( $owner ) && $this->isSubField( $owner );
+			}
+		}
 		if ( is_string( $parent ) && str_starts_with( $parent, 'field_' ) ) {
 			return true;
 		}
@@ -466,6 +474,9 @@ final class Bridge {
 			}
 		}
 		$this->registerParts( $def, $field );
+		foreach ( TypeMap::seamlessFields( $field ) as $cloned ) {
+			$this->ensure( $cloned );
+		}
 		return $def;
 	}
 

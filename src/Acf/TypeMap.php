@@ -31,6 +31,7 @@ final class TypeMap {
 			case 'repeater':
 				return array( DataTable::Rows, false );
 			case 'group':
+			case 'clone':
 			case 'link':
 			case 'google_map':
 				// Stored as child fields on the parent (see composite()); the parent itself holds no value.
@@ -103,7 +104,7 @@ final class TypeMap {
 				'address' => DataTable::Str,
 				'zoom'    => DataTable::Int,
 			);
-		} elseif ( 'group' === $type ) {
+		} elseif ( 'group' === $type || ( 'clone' === $type && self::isGroupClone( $field ) ) ) {
 			$out = array();
 			foreach ( (array) ( $field['sub_fields'] ?? array() ) as $sub ) {
 				if ( ! is_array( $sub ) || empty( $sub['key'] ) || 'repeater' === ( $sub['type'] ?? '' ) ) {
@@ -131,6 +132,45 @@ final class TypeMap {
 				'multi' => false,
 				'field' => null,
 			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether a clone field behaves as a group (display `group`). A seamless clone has no value of its own.
+	 *
+	 * @param array<string,mixed> $field ACF clone field.
+	 * @return bool
+	 */
+	public static function isGroupClone( array $field ): bool {
+		return 'clone' === ( $field['type'] ?? '' ) && 'group' === ( $field['display'] ?? 'seamless' );
+	}
+
+	/**
+	 * The fields a seamless clone adds at its own level, with the names ACF gives them.
+	 *
+	 * ACF resolves the cloned fields into `sub_fields`. With `prefix_name` on, each name is prefixed with the
+	 * clone field's name (`<clone>_<name>`), unless ACF already did. Each field keeps its own key, so values
+	 * are stored like any top-level field.
+	 *
+	 * @param array<string,mixed> $field ACF clone field.
+	 * @return array<int,array<string,mixed>> Empty for a group clone or any other type.
+	 */
+	public static function seamlessFields( array $field ): array {
+		if ( 'clone' !== ( $field['type'] ?? '' ) || self::isGroupClone( $field ) ) {
+			return array();
+		}
+		$prefix = ! empty( $field['prefix_name'] ) ? (string) ( $field['name'] ?? '' ) . '_' : '';
+		$out    = array();
+		foreach ( (array) ( $field['sub_fields'] ?? array() ) as $sub ) {
+			if ( ! is_array( $sub ) || empty( $sub['key'] ) ) {
+				continue;
+			}
+			$name = (string) ( $sub['name'] ?? '' );
+			if ( '' !== $prefix && ! str_starts_with( $name, $prefix ) ) {
+				$sub['name'] = $prefix . $name;
+			}
+			$out[] = $sub;
 		}
 		return $out;
 	}
