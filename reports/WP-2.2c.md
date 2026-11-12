@@ -13,6 +13,13 @@ Agent: A3 (daily build agent). Branch `wp/2.2c-row-pivot`.
 - Row values come from `Store::getRows()`, so long-text spill is handled; a string over 191 chars gets a NULL `s` slot, as on the object pivot.
 - Rollups ignore trashed or draft status; the compiler (3.1) decides how to use them.
 
+## Follow-ups (from review)
+- One Series feeding row slots in two pivot sets would collide on the `nf_row_pivot.row_id` primary key; a Series belongs to one set for now (contract question for A0).
+- `rebuild()` does not remove row-pivot rows of a Series whose row slots were removed (2.2d).
+- `syncRows()` / `rollup()` re-read rows per slot and insert row by row: cache per `sync()` and batch before the benchmarks (3.4/3.8). Row ids should come from `Store` with the rows.
+- Rollup compare uses floats for numerics; date format is fixed-width `Y-m-d H:i:s`.
+- Fixed in review: `assignSlot()` now resets `rollup` to `none`.
+
 ## Contract change requested
 None.
 
