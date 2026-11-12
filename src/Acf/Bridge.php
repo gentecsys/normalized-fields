@@ -185,12 +185,8 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
-		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group' ), true ) || empty( $field['key'] ) ) {
-			// Series and Groups were mirrored at priority 1 (beforeSeries, beforeGroup).
-			return $value;
-		}
-		if ( 'clone' === ( $field['type'] ?? '' ) && ! TypeMap::isGroupClone( $field ) ) {
-			// Seamless clone: the cloned fields are saved on their own, at the clone's level.
+		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) || empty( $field['key'] ) ) {
+			// Series, Groups and group-display clones were mirrored at priority 1; a seamless clone's fields save themselves.
 			return $value;
 		}
 		if ( $this->isSubField( $field ) ) {
@@ -442,7 +438,7 @@ final class Bridge {
 			$owner = $this->loadParent( $parent );
 			if ( null !== $owner && 'clone' === ( $owner['type'] ?? '' ) && ! TypeMap::isGroupClone( $owner ) ) {
 				// A seamless clone's fields live at the clone's own level, so they are top-level values.
-				return null !== $this->topSeries( $owner );
+				return null !== $this->topSeries( $owner ) && $this->isSubField( $owner );
 			}
 		}
 		if ( is_string( $parent ) && str_starts_with( $parent, 'field_' ) ) {
