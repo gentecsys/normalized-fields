@@ -111,6 +111,7 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function beforeSeries( mixed $value, mixed $post_id, array $field ): mixed {
+		$field  = self::scoped( $field );
 		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
 		$target = self::decode( $post_id );
@@ -149,6 +150,7 @@ final class Bridge {
 	 * @return mixed Unchanged value.
 	 */
 	public function beforeGroup( mixed $value, mixed $post_id, array $field ): mixed {
+		$field = self::scoped( $field );
 		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || ( 'clone' === ( $field['type'] ?? '' ) && ! TypeMap::isGroupClone( $field ) ) || $this->isSubField( $field ) ) {
 			return $value;
 		}
@@ -185,6 +187,7 @@ final class Bridge {
 	 * @return mixed
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
+		$field = self::scoped( $field );
 		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) || empty( $field['key'] ) ) {
 			// Series, Groups and group-display clones were mirrored at priority 1; a seamless clone's fields save themselves.
 			return $value;
@@ -220,6 +223,7 @@ final class Bridge {
 		if ( null === $target || ! is_array( $field ) || empty( $field['key'] ) || $this->seriesDepth > 0 ) {
 			return;
 		}
+		$field = self::scoped( $field );
 		if ( $this->isSubField( $field ) ) {
 			$this->queue( $post_id, $field );
 			return;
@@ -425,6 +429,17 @@ final class Bridge {
 	}
 
 	/**
+	 * A field as NF identifies it: a field saved through a clone (`_clone` set) gets its clone-scoped key.
+	 *
+	 * @param array<string,mixed> $field ACF field.
+	 * @return array<string,mixed>
+	 */
+	private static function scoped( array $field ): array {
+		$clone = $field['_clone'] ?? '';
+		return is_string( $clone ) && '' !== $clone ? TypeMap::scope( $field, $clone ) : $field;
+	}
+
+	/**
 	 * Whether a field belongs to a Series. Sub-fields are not mirrored as top-level values; when saved
 	 * on their own (update_sub_field(), update_field( 'outer_0_name' )) their top-level Series is queued
 	 * and re-copied from ACF by flush().
@@ -435,10 +450,12 @@ final class Bridge {
 	private function isSubField( array $field ): bool {
 		$parent = $field['parent'] ?? 0;
 		if ( ! empty( $field['_clone'] ) ) {
-			$owner = $this->loadParent( $parent );
-			if ( null !== $owner && 'clone' === ( $owner['type'] ?? '' ) && ! TypeMap::isGroupClone( $owner ) ) {
-				// A seamless clone's fields live at the clone's own level, so they are top-level values.
-				return null !== $this->topSeries( $owner ) && $this->isSubField( $owner );
+			// `parent` of a cloned field is its source group; the owner is the clone field itself.
+			$owner = $this->loadParent( $field['_clone'] );
+			if ( null !== $owner && 'clone' === ( $owner['type'] ?? '' ) ) {
+				// A group clone's fields are mirrored with the clone (beforeGroup); a seamless clone's fields
+				// live at the clone's own level, so they are top-level unless the clone itself is a sub-field.
+				return TypeMap::isGroupClone( $owner ) || $this->isSubField( $owner );
 			}
 		}
 		if ( is_string( $parent ) && str_starts_with( $parent, 'field_' ) ) {

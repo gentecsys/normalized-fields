@@ -22,5 +22,19 @@ Added `TypeMapTest::test_clone_resolution`. Only `php -l` ran locally (no vendor
 - Verify on nf-dev with ACF PRO: cloned field keys (ACF may rewrite to `<clone>_<key>`), `parent`, `_clone`; then pin in a fixture test (A11 differential).
 - Bridge-level round-trip tests for clones; clones in a Series; nested clone prefix chains; 64-char key limit for rewritten keys.
 
+## nf-dev check with ACF PRO (fix/2.1d-clone-identity)
+ACF saves every cloned value with the **source** field's key (`key` = `field_src`, `_clone` = clone key, `parent` = the source group), and loads a seamless clone's fields as `<clone>_<source>` with the source key in `__key`. A group clone's loaded sub-fields keep the source keys. Keyed by `field_key` alone, every clone of one source shared one NF field:
+- two seamless clones on one post (`title=S`, `pref_title=P` in ACF) left one NF row, `P`;
+- the NF name was whichever clone registered first (`title`, not `pref_title`);
+- a group clone's values landed on the source fields at top level, and reading the clone returned `[]`.
+
+Fix:
+- `TypeMap::cloneKey()` / `scope()`: a cloned field (and its nested sub-fields) gets the key `<clone key>_<source key>`, hashed past 64 characters. The Bridge scopes any field with `_clone` set before mirroring or deleting.
+- Group clones scope their parts, name them by `__name` (ACF returns a prefixed group clone by source name), and read values keyed by the source key.
+- `isSubField()` finds a cloned field's owner through `_clone`, not `parent` (the source group).
+- `tests/differential/acf/NfCloneDifferentialTest.php` (real ACF / SCF) fails without the fix.
+
+Known differences: when ACF itself stores two clones under one meta name (two unprefixed seamless clones of one source, or a source field also used directly), ACF keeps one value and NF keeps one per clone. A clone inside a group or a Series is still stored with its parent (not scoped). Rows registered by 2.1d before this fix (source keys at top level) are not migrated; there are no installs yet.
+
 ## Contract change requested
 None.
