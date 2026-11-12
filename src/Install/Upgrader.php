@@ -21,9 +21,9 @@ defined( 'ABSPATH' ) || exit;
 final class Upgrader {
 
 	/**
-	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added; 4 = 2.3 nf_archive added.
+	 * Current schema version. 2 = 1.3 pivot tables added; 3 = 2.2a nf_dict added; 4 = 2.3 nf_archive added; 5 = decimals widened to DECIMAL(24,10) (M005WidenDecimals, before dbDelta).
 	 */
-	public const SCHEMA_VERSION = 4;
+	public const SCHEMA_VERSION = 5;
 
 	/**
 	 * Option holding the installed schema version for the current site.
@@ -40,11 +40,21 @@ final class Upgrader {
 	/**
 	 * Constructor.
 	 *
-	 * @param MigrationInterface[] $migrations Migrations to run.
+	 * @param MigrationInterface[]|null $migrations Migrations to run; null for NF's own (defaults()).
 	 */
-	public function __construct( array $migrations = array() ) {
+	public function __construct( ?array $migrations = null ) {
+		$migrations ??= self::defaults();
 		usort( $migrations, static fn( MigrationInterface $a, MigrationInterface $b ): int => $a->version() <=> $b->version() );
 		$this->migrations = $migrations;
+	}
+
+	/**
+	 * NF's migrations.
+	 *
+	 * @return MigrationInterface[]
+	 */
+	public static function defaults(): array {
+		return array( new Migrations\M005WidenDecimals() );
 	}
 
 	/**
@@ -140,7 +150,7 @@ final class Upgrader {
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION ) . '" />';
 		wp_nonce_field( self::ACTION );
 		echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Update the NF database', 'normalized-fields' ) . '</button> ';
-		echo esc_html__( 'or run', 'normalized-fields' ) . ' <code>wp nf upgrade</code></p></form></div>';
+		echo esc_html__( 'or run', 'normalized-fields' ) . ' <code>wp nf upgrade</code> ' . esc_html__( '(recommended on large sites: some updates rebuild tables).', 'normalized-fields' ) . '</p></form></div>';
 	}
 
 	/**
@@ -165,6 +175,11 @@ final class Upgrader {
 			wp_die( esc_html__( 'You are not allowed to update the Normalized Fields database.', 'normalized-fields' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( self::ACTION );
+		// Table rebuilds can be slow on large sites; wp nf upgrade avoids web server timeouts altogether.
+		wp_raise_memory_limit( 'admin' );
+		if ( function_exists( 'set_time_limit' ) ) {
+			set_time_limit( 0 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+		}
 		if ( self::isCurrent() ) {
 			return 'current';
 		}
@@ -244,9 +259,21 @@ final class Upgrader {
 			if ( $stored >= self::SCHEMA_VERSION ) {
 				return false;
 			}
+			$due = array_values(
+				array_filter(
+					$this->migrations,
+					static fn( MigrationInterface $m ): bool => $m->version() > $stored && $m->version() <= self::SCHEMA_VERSION
+				)
+			);
+			// Multi-column changes first, so dbDelta finds nothing left to alter column by column.
+			foreach ( $due as $migration ) {
+				if ( $migration instanceof Migrations\BeforeSchemaInterface ) {
+					$migration->up();
+				}
+			}
 			Schema::install();
-			foreach ( $this->migrations as $migration ) {
-				if ( $migration->version() > $stored && $migration->version() <= self::SCHEMA_VERSION ) {
+			foreach ( $due as $migration ) {
+				if ( ! $migration instanceof Migrations\BeforeSchemaInterface ) {
 					$migration->up();
 				}
 			}
