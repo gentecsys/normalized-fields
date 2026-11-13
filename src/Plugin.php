@@ -106,7 +106,16 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array( new Install\Upgrader(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
+		$services = array( new Install\Upgrader(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
+		/**
+		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
+		 *
+		 * @param bool $on Default false.
+		 */
+		if ( apply_filters( 'nf/meta/intercept', false ) ) { // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			$services[] = new Acf\MetaInterceptor( self::store(), self::db() );
+		}
+		return $services;
 	}
 
 	/**
