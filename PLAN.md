@@ -56,7 +56,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.3 | Archive and revisions | A2 | M | 2.1 | merged | wp/2.3-archive-revisions | Preview and restore tests pass |
 | 2.4 | Meta API interception | A5 | M | 2.1 | merged | wp/2.4-meta-interception | Duplicate-post and copy tests keep NF fields |
 | 2.5 | Background jobs | A1 | M | G1 | merged | wp/2.5-background-jobs | Survives killed requests and PHP timeouts |
-| 2.5b | Job failure cap | A1 | S | 2.5 | ready | | A step that throws counts an attempt; after 3 attempts the job is `failed` (no more runs, watchdog cleared, `nf/jobs/failed` fires, error kept in the record); `wp nf job status` shows it; restarting a failed job starts over; tests for `PivotRebuildJob` and `JobCommand`. Do before any job starts from admin or REST (2.6, 4.x) |
+| 2.5b | Job failure cap | A1 | S | 2.5 | in-review | | A step that throws counts an attempt; after 3 attempts the job is `failed` (no more runs, watchdog cleared, `nf/jobs/failed` fires, error kept in the record); `wp nf job status` shows it; restarting a failed job starts over; tests for `PivotRebuildJob` and `JobCommand`. Do before any job starts from admin or REST (2.6, 4.x) |
 | 2.6 | Port pipeline (no UI) | A9 | L | 2.1, 2.5 | ready | | Zero mismatches on a copy of a real site |
 | 2.7 | Repeater sorting | A2 | S | 2.1 | ready | | Unit tests for all three modes |
 
