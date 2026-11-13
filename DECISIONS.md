@@ -101,6 +101,10 @@ Owned by A0. Newest entries go at the bottom. Each entry gives the date, the dec
 ### Decimal precision: DECIMAL(24,10) (2026-11-12, owner)
 Owner agreed to more decimal places after Google Map `lat`/`lng` read back rounded (`42.6977082` → `42.697708`, about 10 cm). Every decimal column (`nf_dec`, `nf_user_dec`, pivot `n` slots, row pivot `n` slots) and the MySQL `dec` cast move from `DECIMAL(20,6)` to `DECIMAL(24,10)`: 10 decimal places as agreed, and the same 14 integer digits as before (`DECIMAL(20,10)` would have cut them to 10). PostgreSQL uses `numeric(24,10)`. Schema version 5; `dbDelta` alters the existing columns when the owner runs the upgrade.
 
+### Meta API writes while the schema is behind (2026-11-13, owner)
+- **Decision:** while `nf_db_version` is behind, `MetaInterceptor` refuses (`false`) add, update and delete of NF-managed top-level names and their `_name` reference rows. Nothing is written to NF or to `wp_postmeta`, so no resync is needed. This matches the bridge, which blocks NF writes until the manual upgrade.
+- **Limits:** the lookup uses only `nf_fields` columns present since schema 1. With no schema installed, NF manages nothing and writes pass through. If the lookup fails, the write passes through and the error is reported on `nf/meta/error`, so a broken table does not block all meta writes. Reads fall through to core while behind. Series and Group raw meta stays with WP 2.4b.
+
 ## Gate approvals
 
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
