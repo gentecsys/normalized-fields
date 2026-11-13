@@ -156,6 +156,8 @@ final class JobRunner {
 			return 'running';
 		}
 		// The record is read again under the lock: another run may have finished since the first read.
+		wp_cache_delete( self::OPTION_PREFIX . sanitize_key( $id ), 'options' ); // The first read may be cached in this request.
+		wp_cache_delete( 'notoptions', 'options' );
 		$record = $this->record( $id );
 		if ( null === $record || 'done' === $record['status'] ) {
 			$this->unlock( $id );
