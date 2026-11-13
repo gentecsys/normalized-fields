@@ -8,7 +8,7 @@ Agent: A5 (daily build agent). Branch `wp/2.4-meta-interception`.
   - `_name` reference rows: read returns the field key; writes and deletes are discarded (keys live in `nf_fields`).
   - Full-array reads (`get_post_meta( $id )`) merge NF fields and `_name` rows into core's array, so duplicate/copy tools carry them; writes of those keys back land in NF.
   - Active only in standalone mode (`! defined( 'ACF_VERSION' )`, injectable); with ACF active the Bridge mirrors instead.
-  - Schema behind (`Upgrader::isCurrent()` false): reads fall through to core, writes are refused (return false, no NF write) and `nf/meta/schema_behind` fires.
+  - Schema behind (`Upgrader::isCurrent()` false): the interceptor does nothing (reads and writes fall through to core), because `nf_fields` may not exist yet (CI bootstrap failed on this). Managed-key writes made while behind therefore land in `wp_postmeta`; follow-up: an existence-checked refusal + NEEDS_RESYNC.
 - `src/Plugin.php`: registers the interceptor as a service (A1 path, one line).
 - `tests/unit/Acf/MetaInterceptorTest.php`: scalar round trip (nothing in `wp_postmeta`), multi + add-unique, reference rows, delete, full-array read + copy to a new post, pass-through of unmanaged keys.
 
