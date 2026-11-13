@@ -15,7 +15,7 @@ Agent: A1 (daily build agent). Branch `wp/2.5-background-jobs`.
 Nothing could be run locally: no `vendor/`, no WordPress test suite in the sandbox, WPCS standard unavailable (phpcs phar only). `php -l` passes on all new files. CI is the authoritative check.
 
 ## Deviations / follow-ups
-- **Action Scheduler is not bundled yet** (`woocommerce/action-scheduler` via Composer needs a regenerated `composer.lock` and the Strauss/registry setup, not possible offline here). The Scheduler detects it and falls back to WP-Cron today. Follow-up WP/slice: add the dependency and load it through its version registry.
+- **Superseded 2026-11-13: the owner decided NF does not use Action Scheduler.** `Scheduler` is WP-Cron only (branch `fix/jobs-wp-cron-only`). Original note: **Action Scheduler is not bundled yet** (`woocommerce/action-scheduler` via Composer needs a regenerated `composer.lock` and the Strauss/registry setup, not possible offline here). The Scheduler detects it and falls back to WP-Cron today. Follow-up WP/slice: add the dependency and load it through its version registry.
 - The admin progress screen that drives batches over REST belongs to WP 4.1/4.4 (A8).
 - Other jobs (count-cache cleanup, pivot backfills, port pipeline in 2.6) implement `JobInterface` and are added in `Plugin::jobs()`.
 - `Pivot::pruneDictionary()` is not part of the job (global, not set-scoped; see 2.2d follow-ups).
