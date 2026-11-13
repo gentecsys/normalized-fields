@@ -47,6 +47,9 @@ final class JobCommand {
 		while ( 'queued' === $status ) {
 			$status = $runner->run( $id );
 		}
+		if ( 'failed' === $status ) {
+			\WP_CLI::error( "Job {$id} failed: " . ( $runner->record( $id )['error'] ?? '' ) );
+		}
 		'done' === $status ? \WP_CLI::success( "Job {$id} finished." ) : \WP_CLI::error( "Job {$id} ended as {$status}." );
 	}
 

@@ -224,9 +224,9 @@ class JobRunnerTest extends WP_UnitTestCase {
 		$runner->run( $id );
 		$this->assertSame( 'done', $runner->run( $id ), 'Two failures then a success finish the job.' );
 
-		$job             = new JobRunnerTestFailingJob();
-		$runner          = $this->runner_for( $job );
-		$id              = $runner->start( 'failing', array( 'x' => 1 ) );
+		$job    = new JobRunnerTestFailingJob();
+		$runner = $this->runner_for( $job );
+		$id     = $runner->start( 'failing', array( 'x' => 1 ) );
 		$runner->run( $id );
 		$runner->run( $id );
 		$runner->run( $id );

@@ -200,6 +200,7 @@ final class JobRunner {
 				$record['state']    = $state;
 				$record['steps']   += 1;
 				$record['attempts'] = 0;
+				unset( $record['error'] );
 				$record['updated']  = time();
 				$record['status']   = empty( $state['done'] ) ? 'queued' : 'done';
 				$this->save( $id, $record );
