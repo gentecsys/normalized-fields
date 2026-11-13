@@ -126,7 +126,14 @@ class JobRunnerTest extends WP_UnitTestCase {
 		$lock   = JobRunner::OPTION_PREFIX . $id . '_lock';
 
 		global $wpdb;
-		$wpdb->insert( $wpdb->options, array( 'option_name' => $lock, 'option_value' => (string) time(), 'autoload' => 'no' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->options,
+			array(
+				'option_name'  => $lock,
+				'option_value' => (string) time(),
+				'autoload'     => 'no',
+			)
+		);
 		$this->assertSame( 'running', $runner->run( $id ) );
 		$this->assertSame( 0, $job->calls );
 
