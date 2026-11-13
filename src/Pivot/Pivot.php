@@ -275,23 +275,104 @@ final class Pivot {
 	}
 
 	/**
-	 * Rewrite the slot columns of every row in the set from the typed tables (core columns are kept).
+	 * Default number of objects rebuilt per chunk.
+	 */
+	public const REBUILD_CHUNK = 500;
+
+	/**
+	 * Rewrite the slot columns of every row in the set from the typed tables (core columns are kept), in chunks of
+	 * object ids so memory stays flat on big sets, then drop row-pivot rows of Series that no longer have row slots.
 	 * Sync bugs cost a rebuild, never data.
 	 *
-	 * @param int $pivotId Pivot set id.
+	 * @param int           $pivotId  Pivot set id.
+	 * @param int           $chunk    Objects per chunk.
+	 * @param callable|null $progress Called with (rebuilt so far) after each chunk.
 	 * @return int Rows rebuilt.
 	 */
-	public function rebuild( int $pivotId ): int {
-		$t    = $this->db->table( 'nf_pivot' );
-		$ids  = array_map( 'intval', array_column( $this->db->select( "SELECT object_id FROM {$t} WHERE pivot_id = ? ORDER BY object_id", array( $pivotId ) ), 'object_id' ) );
-		$core = array();
-		foreach ( $this->db->select( "SELECT * FROM {$t} WHERE pivot_id = ?", array( $pivotId ) ) as $r ) {
-			$core[ (int) $r['object_id'] ] = array_intersect_key( $r, array_flip( self::CORE ) );
+	public function rebuild( int $pivotId, int $chunk = self::REBUILD_CHUNK, ?callable $progress = null ): int {
+		$total = 0;
+		$after = 0;
+		do {
+			$res    = $this->rebuildChunk( $pivotId, $after, $chunk );
+			$after  = $res['last'];
+			$total += $res['count'];
+			if ( $res['count'] > 0 && null !== $progress ) {
+				$progress( $total );
+			}
+		} while ( $res['count'] >= max( 1, $chunk ) );
+		$this->pruneRowPivot( $pivotId );
+		return $total;
+	}
+
+	/**
+	 * Rebuild one chunk: the next $limit objects of the set with an id above $afterObjectId, in id order.
+	 * A resumable job stores "last" and calls again until "count" is below the limit.
+	 *
+	 * @param int $pivotId       Pivot set id.
+	 * @param int $afterObjectId Last object id already rebuilt (0 to start).
+	 * @param int $limit         Objects in the chunk.
+	 * @return array{count:int,last:int}
+	 */
+	public function rebuildChunk( int $pivotId, int $afterObjectId, int $limit = self::REBUILD_CHUNK ): array {
+		$limit = max( 1, $limit );
+		$t     = $this->db->table( 'nf_pivot' );
+		$rows  = $this->db->select( "SELECT * FROM {$t} WHERE pivot_id = ? AND object_id > ? ORDER BY object_id LIMIT {$limit}", array( $pivotId, $afterObjectId ) );
+		$last  = $afterObjectId;
+		foreach ( $rows as $r ) {
+			$last = (int) $r['object_id'];
+			$this->sync( $pivotId, $last, array_intersect_key( $r, array_flip( self::CORE ) ) );
 		}
-		foreach ( $ids as $id ) {
-			$this->sync( $pivotId, $id, $core[ $id ] );
+		return array(
+			'count' => count( $rows ),
+			'last'  => $last,
+		);
+	}
+
+	/**
+	 * Delete row-pivot rows of Series that have no row slot in the set any more. Returns rows deleted.
+	 *
+	 * @param int $pivotId Pivot set id.
+	 * @return int
+	 */
+	public function pruneRowPivot( int $pivotId ): int {
+		return $this->db->execute(
+			'DELETE FROM ' . $this->db->table( 'nf_row_pivot' ) . ' WHERE pivot_id = ? AND field_id NOT IN (SELECT repeater_id FROM ' . $this->db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ? AND repeater_id > 0)',
+			array( $pivotId, $pivotId )
+		);
+	}
+
+	/**
+	 * Delete dictionary entries no string slot refers to. Entries with a bitmask bit are kept (bits are never reused
+	 * and a mask in any slot may still carry them). A deleted id is not reused while the server runs (MySQL 5.7 may reuse the highest ids after a restart; nothing references pruned ids).
+	 * Run it after a rebuild and not during heavy writes: a value written between the scan and the delete loses its
+	 * entry, and its slot reads as a miss until the next rebuild.
+	 *
+	 * @return int Entries deleted.
+	 */
+	public function pruneDictionary(): int {
+		$used = array();
+		foreach ( $this->db->select( 'SELECT DISTINCT pivot_id, repeater_id, slot, field_id FROM ' . $this->db->table( 'nf_pivot_slots' ) . " WHERE slot LIKE 's%'" ) as $s ) {
+			$col = (string) $s['slot'];
+			if ( 1 !== preg_match( '/^s[1-9]$/', $col ) ) {
+				continue;
+			}
+			$table = $this->db->table( (int) $s['repeater_id'] > 0 ? 'nf_row_pivot' : 'nf_pivot' );
+			foreach ( $this->db->select( "SELECT DISTINCT {$col} AS d FROM {$table} WHERE pivot_id = ? AND {$col} IS NOT NULL", array( (int) $s['pivot_id'] ) ) as $r ) {
+				$used[ (int) $r['d'] ] = true;
+			}
 		}
-		return count( $ids );
+		$dict    = $this->db->table( 'nf_dict' );
+		$deleted = 0;
+		$stale   = array();
+		foreach ( $this->db->select( "SELECT dict_id FROM {$dict} WHERE bit IS NULL" ) as $r ) {
+			if ( ! isset( $used[ (int) $r['dict_id'] ] ) ) {
+				$stale[] = (int) $r['dict_id'];
+			}
+		}
+		foreach ( array_chunk( $stale, 500 ) as $ids ) {
+			$deleted += $this->db->execute( "DELETE FROM {$dict} WHERE bit IS NULL AND dict_id IN (" . implode( ',', array_fill( 0, count( $ids ), '?' ) ) . ')', $ids );
+		}
+		return $deleted;
 	}
 
 	/**

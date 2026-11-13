@@ -52,7 +52,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.2a | Dictionary and string slots | A3 | S | G1, 2.1 | merged | wp/2.2a-dictionary | `nf_dict` table (schema version 3); `Pivot\Dictionary` (stable ids, read-only `find()`); `s1`-`s8` slots for single-valued `str` fields hold dictionary ids; rebuild equals write-through; unit tests |
 | 2.2b | Bitmask slots for multi-valued fields | A3 | S | 2.2a | merged | wp/2.2b-bitmasks | `m1`-`m4` slots from the dictionary `bit` (0-63); rebuild equals write-through; unit tests |
 | 2.2c | Row pivot and rollups | A3 | M | 2.2b | merged | wp/2.2c-row-pivot | `nf_row_pivot` rows per Series row; min / max / count rollups into object slots; rebuild equals write-through |
-| 2.2d | Rebuild job and fuzz | A3 | S | 2.2c | todo | | Chunked rebuild per set (WP-CLI); dictionary pruning of unused entries; case/collation behaviour of `nf_dict` documented and tested; fuzz: rebuild equals write-through byte for byte, rollups equal live `COUNT(*)` |
+| 2.2d | Rebuild job and fuzz | A3 | S | 2.2c | in-review | wp/2.2d-rebuild-fuzz | Chunked rebuild per set (WP-CLI); dictionary pruning of unused entries; case/collation behaviour of `nf_dict` documented and tested; fuzz: rebuild equals write-through byte for byte, rollups equal live `COUNT(*)` |
 | 2.3 | Archive and revisions | A2 | M | 2.1 | merged | wp/2.3-archive-revisions | Preview and restore tests pass |
 | 2.4 | Meta API interception | A5 | M | 2.1 | ready | | Duplicate-post and copy tests keep NF fields |
 | 2.5 | Background jobs | A1 | M | G1 | ready | | Survives killed requests and PHP timeouts |
