@@ -28,35 +28,39 @@ final class Scheduler {
 	public const GROUP = 'nf';
 
 	/**
-	 * Queue one run of a job, unless one is already queued.
+	 * Queue one run of a job. Under Action Scheduler each call gets its own args (id, due time), because the
+	 * action that is running counts as scheduled and would otherwise suppress a watchdog queued from inside it.
+	 * Under WP-Cron the args are (id) and a run already queued is kept.
 	 *
 	 * @param string $id    Job id.
 	 * @param int    $delay Seconds from now.
-	 * @return void
+	 * @return array<int,string|int> Args to pass to unschedule().
 	 */
-	public function schedule( string $id, int $delay = 0 ): void {
-		$delay = max( 0, $delay );
-		if ( function_exists( 'as_schedule_single_action' ) && function_exists( 'as_has_scheduled_action' ) ) {
-			if ( ! as_has_scheduled_action( self::HOOK, array( $id ), self::GROUP ) ) {
-				as_schedule_single_action( time() + $delay, self::HOOK, array( $id ), self::GROUP );
-			}
-			return;
+	public function schedule( string $id, int $delay = 0 ): array {
+		$at = time() + max( 0, $delay );
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			$args = array( $id, $at );
+			as_schedule_single_action( $at, self::HOOK, $args, self::GROUP );
+			return $args;
 		}
-		if ( false === wp_next_scheduled( self::HOOK, array( $id ) ) ) {
-			wp_schedule_single_event( time() + $delay, self::HOOK, array( $id ) );
+		$args = array( $id );
+		if ( false === wp_next_scheduled( self::HOOK, $args ) ) {
+			wp_schedule_single_event( $at, self::HOOK, $args );
 		}
+		return $args;
 	}
 
 	/**
-	 * Drop queued runs of a job.
+	 * Drop one queued run, by the args schedule() returned.
 	 *
-	 * @param string $id Job id.
+	 * @param array<int,string|int> $args Args.
 	 * @return void
 	 */
-	public function unschedule( string $id ): void {
-		if ( function_exists( 'as_unschedule_all_actions' ) ) {
-			as_unschedule_all_actions( self::HOOK, array( $id ), self::GROUP );
+	public function unschedule( array $args ): void {
+		if ( function_exists( 'as_unschedule_action' ) ) {
+			as_unschedule_action( self::HOOK, $args, self::GROUP );
+			return;
 		}
-		wp_clear_scheduled_hook( self::HOOK, array( $id ) );
+		wp_clear_scheduled_hook( self::HOOK, $args );
 	}
 }

@@ -37,6 +37,11 @@ final class JobRunner {
 	public const BUDGET = 15;
 
 	/**
+	 * Seconds before a run that was blocked by a schema that is behind tries again.
+	 */
+	public const BLOCKED_RETRY = 300;
+
+	/**
 	 * Job types by key.
 	 *
 	 * @var array<string,JobInterface>
@@ -144,29 +149,38 @@ final class JobRunner {
 			 * @param string $id Job id.
 			 */
 			do_action( 'nf/jobs/blocked', $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			$this->scheduler->schedule( $id, self::BLOCKED_RETRY ); // A scheduler write, not an NF table write: the job resumes after the upgrade.
 			return 'blocked';
 		}
 		if ( ! $this->lock( $id ) ) {
 			return 'running';
 		}
-		$job = $this->jobs[ $record['key'] ];
+		// The record is read again under the lock: another run may have finished since the first read.
+		$record = $this->record( $id );
+		if ( null === $record || 'done' === $record['status'] ) {
+			$this->unlock( $id );
+			return null === $record ? 'missing' : 'done';
+		}
+		$job      = $this->jobs[ $record['key'] ];
+		$watchdog = array();
 		try {
-			// Queue the next run first: if this request is killed, the job still resumes.
-			$this->scheduler->schedule( $id, self::LOCK_TTL + 5 );
-			$budget = $this->budget ?? (int) apply_filters( 'nf/jobs/budget', self::BUDGET ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-			$until  = microtime( true ) + max( 0, $budget );
+			// Queue a watchdog first: if this request is killed, the job still resumes.
+			$watchdog = $this->scheduler->schedule( $id, self::LOCK_TTL + 5 );
+			$budget   = $this->budget ?? (int) apply_filters( 'nf/jobs/budget', self::BUDGET ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			$until    = microtime( true ) + max( 0, $budget );
 			do {
 				$record['state']   = $job->step( $record['state'] );
 				$record['steps']  += 1;
 				$record['updated'] = time();
 				$record['status']  = empty( $record['state']['done'] ) ? 'queued' : 'done';
 				$this->save( $id, $record );
+				$this->touchLock( $id );
 			} while ( 'queued' === $record['status'] && microtime( true ) < $until );
 		} finally {
 			$this->unlock( $id );
 		}
+		$this->scheduler->unschedule( $watchdog );
 		if ( 'done' === $record['status'] ) {
-			$this->scheduler->unschedule( $id );
 			/**
 			 * Fires when a job has finished.
 			 *
@@ -174,29 +188,59 @@ final class JobRunner {
 			 */
 			do_action( 'nf/jobs/done', $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		} else {
-			$this->scheduler->unschedule( $id );
 			$this->scheduler->schedule( $id );
 		}
 		return $record['status'];
 	}
 
 	/**
-	 * Take the job lock. The option insert is atomic, so only one request wins; a lock older than LOCK_TTL is stolen.
+	 * Option name of a job's lock.
+	 *
+	 * @param string $id Job id.
+	 * @return string
+	 */
+	private function lockName( string $id ): string {
+		return self::OPTION_PREFIX . sanitize_key( $id ) . '_lock';
+	}
+
+	/**
+	 * Take the job lock with a single INSERT IGNORE on the options table (a core table), which succeeds for
+	 * exactly one caller. A lock older than LOCK_TTL is taken over with a compare-and-swap UPDATE.
 	 *
 	 * @param string $id Job id.
 	 * @return bool
 	 */
 	private function lock( string $id ): bool {
-		$name = self::OPTION_PREFIX . sanitize_key( $id ) . '_lock';
-		if ( add_option( $name, time(), '', false ) ) {
+		global $wpdb;
+		$name = $this->lockName( $id );
+		$now  = (string) time();
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$inserted = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", $name, $now ) );
+		if ( 1 === (int) $inserted ) {
+			wp_cache_delete( $name, 'options' );
 			return true;
 		}
-		$held = (int) get_option( $name, 0 );
-		if ( $held > 0 && time() - $held < self::LOCK_TTL ) {
+		$held = (string) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $name ) );
+		if ( '' === $held || time() - (int) $held < self::LOCK_TTL ) {
 			return false;
 		}
-		delete_option( $name );
-		return add_option( $name, time(), '', false );
+		$swapped = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", $now, $name, $held ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $name, 'options' );
+		return 1 === (int) $swapped;
+	}
+
+	/**
+	 * Refresh the lock time after a step, so a long job keeps its lock.
+	 *
+	 * @param string $id Job id.
+	 * @return void
+	 */
+	private function touchLock( string $id ): void {
+		global $wpdb;
+		$name = $this->lockName( $id );
+		$wpdb->update( $wpdb->options, array( 'option_value' => (string) time() ), array( 'option_name' => $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $name, 'options' );
 	}
 
 	/**
@@ -206,7 +250,10 @@ final class JobRunner {
 	 * @return void
 	 */
 	private function unlock( string $id ): void {
-		delete_option( self::OPTION_PREFIX . sanitize_key( $id ) . '_lock' );
+		global $wpdb;
+		$name = $this->lockName( $id );
+		$wpdb->delete( $wpdb->options, array( 'option_name' => $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $name, 'options' );
 	}
 
 	/**
