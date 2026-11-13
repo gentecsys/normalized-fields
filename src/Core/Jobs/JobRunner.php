@@ -156,8 +156,8 @@ final class JobRunner {
 			$budget = $this->budget ?? (int) apply_filters( 'nf/jobs/budget', self::BUDGET ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$until  = microtime( true ) + max( 0, $budget );
 			do {
-				$record['state']  = $job->step( $record['state'] );
-				$record['steps'] += 1;
+				$record['state']   = $job->step( $record['state'] );
+				$record['steps']  += 1;
 				$record['updated'] = time();
 				$record['status']  = empty( $record['state']['done'] ) ? 'queued' : 'done';
 				$this->save( $id, $record );
