@@ -68,10 +68,20 @@ final class JobRunner {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( Scheduler::HOOK, array( $this, 'run' ) );
+		add_action( Scheduler::HOOK, array( $this, 'onScheduled' ) );
 		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( '\\WP_CLI' ) ) {
 			\WP_CLI::add_command( 'nf job', JobCommand::class );
 		}
+	}
+
+	/**
+	 * Scheduled-run callback (an action callback returns nothing).
+	 *
+	 * @param string $id Job id.
+	 * @return void
+	 */
+	public function onScheduled( string $id ): void {
+		$this->run( $id );
 	}
 
 	/**
@@ -125,7 +135,7 @@ final class JobRunner {
 	 */
 	public function record( string $id ): ?array {
 		$r = get_option( self::OPTION_PREFIX . sanitize_key( $id ) );
-		return is_array( $r ) ? $r : null; // @phpstan-ignore-line Shape is written only by save().
+		return is_array( $r ) ? $r : null;
 	}
 
 	/**
