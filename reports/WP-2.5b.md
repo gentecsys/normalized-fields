@@ -12,7 +12,7 @@ Agent: A1 (daily build agent). Branch `wp/2.5b-job-failure-cap`.
 Nothing ran locally (no `vendor/`, no WP test suite in the sandbox); `php -l` passes. CI is authoritative.
 
 ## Deviations / follow-ups
-- `JobCommand` has no unit test: the WP-CLI classes exist only as static-analysis stubs. Covered indirectly through `JobRunner`.
+- `JobCommandTest` uses a small recording `WP_CLI` double (only `status` is covered; `run` is covered through `JobRunner`). Error shown on `wp nf job run`, and a stale `error` is cleared after a success (review suggestions). Retry backoff and a step-failed log hook left open.
 - Hook `nf/jobs/failed` to be listed in `contracts/api.md` by A0 (with `nf/jobs/blocked`, `nf/jobs/done`, `nf/jobs/budget`).
 - Still open from 2.5: lazy job list in `Plugin::jobs()`, backoff on repeated blocked retries.
 
