@@ -201,9 +201,22 @@ class RebuildTest extends WP_UnitTestCase {
 			}
 		}
 		$before = $this->snapshot();
+		$db     = nf_db();
+		// Corrupt the derived tables, then rebuild in small chunks: the result must equal the write-through state.
+		$db->execute( 'UPDATE ' . $db->table( 'nf_pivot' ) . ' SET i1 = 12345, i2 = 777, i3 = 888 WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$db->execute( 'UPDATE ' . $db->table( 'nf_pivot' ) . ' SET s1 = NULL WHERE pivot_id = ? AND object_id % 2 = 0', array( $this->pivot_id ) );
+		$db->execute( 'UPDATE ' . $db->table( 'nf_row_pivot' ) . ' SET i1 = 4242, s1 = NULL WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_row_pivot' ) . ' WHERE pivot_id = ? AND row_id % 3 = 0', array( $this->pivot_id ) );
+		$this->assertNotSame( $before, $this->snapshot() );
 		$this->pivot->rebuild( $this->pivot_id, 7 );
 		$this->assertSame( $before, $this->snapshot() );
-		$db = nf_db();
+		foreach ( $before['pivot'] as $p ) {
+			$max = $db->select(
+				'SELECT MAX(value) AS m FROM ' . $db->table( 'nf_int' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id <> 0',
+				array( ObjectType::Post->value, (int) $p['object_id'], $this->fid['cap'] )
+			);
+			$this->assertSame( null === $max[0]['m'] ? null : (string) $max[0]['m'], null === $p['i3'] ? null : (string) $p['i3'], 'max rollup for object ' . $p['object_id'] );
+		}
 		foreach ( $before['pivot'] as $p ) {
 			$live = $db->select(
 				'SELECT COUNT(*) AS n FROM ' . $db->table( 'nf_int' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id <> 0',

@@ -23,3 +23,9 @@ None.
 
 ## Resume from
 If CI fails, check `RebuildTest` assertions on `pruneDictionary()` counts (global table, other fixtures) and `Pivot::rebuildChunk()`.
+
+## Review follow-ups
+- Fixed (blocking): the fuzz test now corrupts `nf_pivot` and `nf_row_pivot` (values, NULL string slots, deleted rows) before a chunked rebuild and compares with the write-through snapshot; the max rollup is compared with a live `MAX`.
+- CLI and background-job callers must check `Upgrader::isCurrent()` before calling rebuild or prune (A1, WP 2.5).
+- `pruneDictionary()` holds ids in memory and covers all sets; a set-scoped, batched variant is needed before the 100k benchmarks.
+- Collation note belongs in `docs/design.md` (orchestrator).
