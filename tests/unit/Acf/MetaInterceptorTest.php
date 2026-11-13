@@ -65,6 +65,7 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		$this->assertSame( '42', get_post_meta( $this->post, 't24_price', true ) );
 		$this->assertSame( 42, $this->store->get( ObjectType::Post, $this->post, 'field_t24a' ) );
 		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Test asserts nothing reached core meta.
 		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s", 't24_price' ) ) );
 	}
 
