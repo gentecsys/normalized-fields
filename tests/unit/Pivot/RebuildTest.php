@@ -126,7 +126,7 @@ class RebuildTest extends WP_UnitTestCase {
 	 * @return int
 	 */
 	private function make( ?string $city, ?int $seats, array $rows ): int {
-		$id           = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		$id          = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 		$this->ids[] = $id;
 		if ( null !== $city ) {
 			$this->store->set( ObjectType::Post, $id, 'field_t22d_city', $city );
