@@ -101,12 +101,30 @@ final class Plugin {
 	}
 
 	/**
+	 * Job runner, created on first use.
+	 *
+	 * @var Core\Jobs\JobRunner|null
+	 */
+	private static ?Core\Jobs\JobRunner $jobs = null;
+
+	/**
+	 * The background job runner.
+	 *
+	 * @return Core\Jobs\JobRunner
+	 */
+	public static function jobs(): Core\Jobs\JobRunner {
+		return self::$jobs ??= new Core\Jobs\JobRunner(
+			array( new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ) )
+		);
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *
