@@ -27,7 +27,7 @@ None.
 - `php -l` clean. phpunit/phpstan not run locally (no vendor; dist downloads blocked); phpcs phar downloaded but WPCS ruleset unavailable. CI is authoritative.
 
 ## Review follow-ups (reviewer, non-blocking, not done)
-- NEEDS_RESYNC while the schema is behind: standalone mode has no ACF source to resync from, so the flag has no meaning; ruling requested from A0 (Contract change requested: none, decision needed).
+- NEEDS_RESYNC while the schema is behind: **ruled by the owner 2026-11-13 (option 2)**. Writes and deletes of NF-managed names (and their `_name` rows) are refused (`false`) until the upgrade runs, so nothing lands in `wp_postmeta`; no resync flag. Reads still fall through to core while behind. Branch `fix/meta-block-while-behind`.
 - Series `_name` reference rows fall through to core (fixed a fatal in `Store::get`).
 - `Store::set` failures are caught and reported through `nf/meta/error`.
 - Not done: bulk full-array read, duplicate field names across collections, `add_post_meta` appending to multi-valued lists, value-specific delete, user fields on multisite (network field map), tests for terms/users/comments, WP 3.6 dependency for the shim's `ACF_VERSION`.
