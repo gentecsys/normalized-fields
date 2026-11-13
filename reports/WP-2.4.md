@@ -31,3 +31,5 @@ None.
 - Series `_name` reference rows fall through to core (fixed a fatal in `Store::get`).
 - `Store::set` failures are caught and reported through `nf/meta/error`.
 - Not done: bulk full-array read, duplicate field names across collections, `add_post_meta` appending to multi-valued lists, value-specific delete, user fields on multisite (network field map), tests for terms/users/comments, WP 3.6 dependency for the shim's `ACF_VERSION`.
+
+- Plugin registers the interceptor only when `nf/meta/intercept` returns true (default false until standalone mode, WP 3.6, flips it): enabling it by default broke SpikeQueryTest, which writes ACF-style postmeta under names that other tests registered in `nf_fields`.

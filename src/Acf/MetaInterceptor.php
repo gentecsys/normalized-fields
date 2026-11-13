@@ -185,7 +185,8 @@ final class MetaInterceptor {
 				}
 			}
 		}
-		return $single ? $value : ( '' === $value ? array() : array( $value ) );
+		// Core takes element 0 of the array for single reads.
+		return ( $single || '' !== $value ) ? array( $value ) : array();
 	}
 
 	/**
