@@ -56,6 +56,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.3 | Archive and revisions | A2 | M | 2.1 | merged | wp/2.3-archive-revisions | Preview and restore tests pass |
 | 2.4 | Meta API interception | A5 | M | 2.1 | merged | wp/2.4-meta-interception | Duplicate-post and copy tests keep NF fields |
 | 2.5 | Background jobs | A1 | M | G1 | in-review | wp/2.5-background-jobs | Survives killed requests and PHP timeouts |
+| 2.5b | Job failure cap | A1 | S | 2.5 | ready | | A step that throws counts an attempt; after 3 attempts the job is `failed` (no more runs, watchdog cleared, `nf/jobs/failed` fires, error kept in the record); `wp nf job status` shows it; restarting a failed job starts over; tests for `PivotRebuildJob` and `JobCommand`. Do before any job starts from admin or REST (2.6, 4.x) |
 | 2.6 | Port pipeline (no UI) | A9 | L | 2.1, 2.5 | ready | | Zero mismatches on a copy of a real site |
 | 2.7 | Repeater sorting | A2 | S | 2.1 | ready | | Unit tests for all three modes |
 
@@ -93,7 +94,7 @@ XL WPs (3.1, 3.6) are split into sub-WPs of size L or smaller when they start.
 | 4.8 | Third-party compatibility | A10 | XL | 3.6, 2.4 | todo | | Each listed plugin passes or is documented unsupported |
 | 4.9 | Hardening | A11 | L | 4.2–4.8, 4.11 | todo | | Matrix green; no WCAG 2.1 AA blockers; security issues closed |
 | 4.11 | Block Bindings and Query Loop | A8 + A5 | L | 3.9, 4.1 | todo | | `nf_register_bindable_attributes()` and block.json `nf.bindable` work for custom blocks; `nf/field` + `acf/field` bound core blocks render the same values as `get_field()`; editor edits save with the post; Query Loop front end and preview return the same IDs; build and ADA audit pass; blocks fall back to full navigation on 503 |
-| 4.10 | Docs and release | A0 | M | 4.9 | todo | | Plugin Check passes; RC tagged |
+| 4.10 | Docs and release | A0 | M | 4.9 | todo | | Plugin Check passes; **README and user docs include the cron setup examples from `docs/cron.md`** (system cron with WP-CLI, HTTP, multisite, Pantheon; owner requirement 2026-11-13); RC tagged |
 
 **Gate G4 [owner]:** release decision.
 
