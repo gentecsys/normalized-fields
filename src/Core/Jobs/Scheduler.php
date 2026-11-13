@@ -12,8 +12,9 @@ namespace NF\Core\Jobs;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Uses Action Scheduler when it is loaded (the bundled copy or another plugin's), otherwise WP-Cron.
- * Only callers that may write (admin, WP-CLI, a running job) schedule; an anonymous request never does.
+ * Queues job runs on WP-Cron (`nf_run_job`). NF does not use Action Scheduler, bundled or from another plugin
+ * (owner decision 2026-11-13). Only callers that may write (admin, WP-CLI, a running job) schedule; an anonymous
+ * request never does. Sites with DISABLE_WP_CRON need a system cron that requests wp-cron.php.
  */
 final class Scheduler {
 
@@ -23,44 +24,27 @@ final class Scheduler {
 	public const HOOK = 'nf_run_job';
 
 	/**
-	 * Action Scheduler group.
-	 */
-	public const GROUP = 'nf';
-
-	/**
-	 * Queue one run of a job. Under Action Scheduler each call gets its own args (id, due time), because the
-	 * action that is running counts as scheduled and would otherwise suppress a watchdog queued from inside it.
-	 * Under WP-Cron the args are (id) and a run already queued is kept.
+	 * Queue one run of a job. The args are (id), so a run already queued is kept rather than duplicated.
 	 *
 	 * @param string $id    Job id.
 	 * @param int    $delay Seconds from now.
-	 * @return array<int,string|int> Args to pass to unschedule().
+	 * @return array<int,string> Args to pass to unschedule().
 	 */
 	public function schedule( string $id, int $delay = 0 ): array {
-		$at = time() + max( 0, $delay );
-		if ( function_exists( 'as_schedule_single_action' ) ) {
-			$args = array( $id, $at );
-			as_schedule_single_action( $at, self::HOOK, $args, self::GROUP );
-			return $args;
-		}
 		$args = array( $id );
 		if ( false === wp_next_scheduled( self::HOOK, $args ) ) {
-			wp_schedule_single_event( $at, self::HOOK, $args );
+			wp_schedule_single_event( time() + max( 0, $delay ), self::HOOK, $args );
 		}
 		return $args;
 	}
 
 	/**
-	 * Drop one queued run, by the args schedule() returned.
+	 * Drop the queued runs of a job, by the args schedule() returned.
 	 *
-	 * @param array<int,string|int> $args Args.
+	 * @param array<int,string> $args Args.
 	 * @return void
 	 */
 	public function unschedule( array $args ): void {
-		if ( function_exists( 'as_unschedule_action' ) ) {
-			as_unschedule_action( self::HOOK, $args, self::GROUP );
-			return;
-		}
 		wp_clear_scheduled_hook( self::HOOK, $args );
 	}
 }
