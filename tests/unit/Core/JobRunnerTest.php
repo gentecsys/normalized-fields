@@ -11,6 +11,7 @@ use NF\Core\Jobs\Scheduler;
 use NF\Install\Upgrader;
 
 require_once __DIR__ . '/JobRunnerTestJob.php';
+require_once __DIR__ . '/JobRunnerTestFailingJob.php';
 
 /**
  * Jobs resume from stored state, never overlap, and never run while the schema is behind.
@@ -180,5 +181,70 @@ class JobRunnerTest extends WP_UnitTestCase {
 		$runner = $this->runner( new JobRunnerTestJob() );
 		$this->assertSame( 'missing', $runner->run( 'nope-123' ) );
 		$this->assertSame( '', $runner->start( 'nope' ) );
+	}
+
+	/**
+	 * Three throwing steps in a row fail the job: no more runs, watchdog cleared, action fired, error kept.
+	 */
+	public function test_failed_after_three_attempts(): void {
+		$job    = new JobRunnerTestFailingJob();
+		$runner = $this->runner_for( $job );
+		$fired  = array();
+		add_action(
+			'nf/jobs/failed',
+			function ( $id, $error ) use ( &$fired ) {
+				$fired[] = array( $id, $error );
+			},
+			10,
+			2
+		);
+		$id = $runner->start( 'failing' );
+		$this->assertSame( 'queued', $runner->run( $id ) );
+		$this->assertSame( 'queued', $runner->run( $id ) );
+		$this->assertSame( 'failed', $runner->run( $id ) );
+		$record = $runner->record( $id );
+		$this->assertSame( 'failed', $record['status'] );
+		$this->assertSame( 3, $record['attempts'] );
+		$this->assertSame( 'boom 3', $record['error'] );
+		$this->assertSame( array( array( $id, 'boom 3' ) ), $fired );
+		$this->assertFalse( wp_next_scheduled( Scheduler::HOOK, array( $id ) ), 'No watchdog or continuation is left.' );
+		$this->assertSame( 'failed', $runner->run( $id ) );
+		$this->assertSame( 3, $job->calls, 'A failed job does no more work.' );
+	}
+
+	/**
+	 * A success resets the attempt count; restarting a failed job starts over.
+	 */
+	public function test_success_resets_attempts_and_restart_starts_over(): void {
+		$job             = new JobRunnerTestFailingJob();
+		$job->fail_times = 2;
+		$runner          = $this->runner_for( $job );
+		$id              = $runner->start( 'failing' );
+		$runner->run( $id );
+		$runner->run( $id );
+		$this->assertSame( 'done', $runner->run( $id ), 'Two failures then a success finish the job.' );
+
+		$job             = new JobRunnerTestFailingJob();
+		$runner          = $this->runner_for( $job );
+		$id              = $runner->start( 'failing', array( 'x' => 1 ) );
+		$runner->run( $id );
+		$runner->run( $id );
+		$runner->run( $id );
+		$this->assertSame( 'failed', $runner->record( $id )['status'] );
+		$job->fail_times = 0;
+		$this->assertSame( $id, $runner->start( 'failing', array( 'x' => 1 ) ) );
+		$this->assertSame( 'queued', $runner->record( $id )['status'] );
+		$this->assertArrayNotHasKey( 'error', $runner->record( $id ) );
+		$this->assertSame( 'done', $runner->run( $id ) );
+	}
+
+	/**
+	 * Runner with a zero budget for the failing job.
+	 *
+	 * @param JobRunnerTestFailingJob $job Job.
+	 * @return JobRunner
+	 */
+	private function runner_for( JobRunnerTestFailingJob $job ): JobRunner {
+		return new JobRunner( array( $job ), new Scheduler(), 0 );
 	}
 }
