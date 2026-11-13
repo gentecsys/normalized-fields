@@ -343,7 +343,7 @@ final class Pivot {
 
 	/**
 	 * Delete dictionary entries no string slot refers to. Entries with a bitmask bit are kept (bits are never reused
-	 * and a mask in any slot may still carry them). Ids are never reused, so a deleted id cannot point at another value.
+	 * and a mask in any slot may still carry them). A deleted id is not reused while the server runs (MySQL 5.7 may reuse the highest ids after a restart; nothing references pruned ids).
 	 * Run it after a rebuild and not during heavy writes: a value written between the scan and the delete loses its
 	 * entry, and its slot reads as a miss until the next rebuild.
 	 *
