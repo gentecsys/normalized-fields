@@ -10,45 +10,7 @@ use NF\Core\Jobs\JobRunner;
 use NF\Core\Jobs\Scheduler;
 use NF\Install\Upgrader;
 
-/**
- * Counts to a target, one per step.
- */
-class NFCountingJob implements JobInterface {
-	/**
-	 * Steps taken across all runs, for assertions.
-	 *
-	 * @var int
-	 */
-	public int $calls = 0;
-
-	/** @return string */
-	public function key(): string {
-		return 'counting';
-	}
-
-	/**
-	 * @param array<string,mixed> $args Args.
-	 * @return array<string,mixed>
-	 */
-	public function init( array $args ): array {
-		return array(
-			'n'      => 0,
-			'target' => (int) ( $args['target'] ?? 3 ),
-			'done'   => false,
-		);
-	}
-
-	/**
-	 * @param array<string,mixed> $state State.
-	 * @return array<string,mixed>
-	 */
-	public function step( array $state ): array {
-		++$this->calls;
-		++$state['n'];
-		$state['done'] = $state['n'] >= $state['target'];
-		return $state;
-	}
-}
+require_once __DIR__ . '/JobRunnerTestJob.php';
 
 /**
  * Jobs resume from stored state, never overlap, and never run while the schema is behind.
@@ -66,10 +28,10 @@ class JobRunnerTest extends WP_UnitTestCase {
 	/**
 	 * Runner with a zero budget: one step per run.
 	 *
-	 * @param NFCountingJob $job Job.
+	 * @param JobRunnerTestJob $job Job.
 	 * @return JobRunner
 	 */
-	private function runner( NFCountingJob $job ): JobRunner {
+	private function runner( JobRunnerTestJob $job ): JobRunner {
 		return new JobRunner( array( $job ), new Scheduler(), 0 );
 	}
 
@@ -77,7 +39,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 * Each run does one step, saves state, and queues the next run.
 	 */
 	public function test_resumes_from_stored_state_until_done(): void {
-		$job    = new NFCountingJob();
+		$job    = new JobRunnerTestJob();
 		$runner = $this->runner( $job );
 		$id     = $runner->start( 'counting', array( 'target' => 3 ) );
 		$this->assertNotSame( '', $id );
@@ -99,7 +61,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 * A generous budget finishes a short job in one run.
 	 */
 	public function test_budget_runs_several_steps(): void {
-		$job    = new NFCountingJob();
+		$job    = new JobRunnerTestJob();
 		$runner = new JobRunner( array( $job ), new Scheduler(), 30 );
 		$id     = $runner->start( 'counting', array( 'target' => 5 ) );
 		$this->assertSame( 'done', $runner->run( $id ) );
@@ -111,8 +73,20 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 */
 	public function test_same_arguments_same_id(): void {
 		$this->assertSame(
-			JobRunner::idFor( 'counting', array( 'a' => 1, 'b' => 2 ) ),
-			JobRunner::idFor( 'counting', array( 'b' => 2, 'a' => 1 ) )
+			JobRunner::idFor(
+				'counting',
+				array(
+					'a' => 1,
+					'b' => 2,
+				)
+			),
+			JobRunner::idFor(
+				'counting',
+				array(
+					'b' => 2,
+					'a' => 1,
+				)
+			)
 		);
 	}
 
@@ -120,7 +94,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 * A live lock stops a second run; a stale lock left by a killed request is taken over.
 	 */
 	public function test_lock_blocks_overlap_and_expires(): void {
-		$job    = new NFCountingJob();
+		$job    = new JobRunnerTestJob();
 		$runner = $this->runner( $job );
 		$id     = $runner->start( 'counting' );
 		$lock   = JobRunner::OPTION_PREFIX . $id . '_lock';
@@ -139,7 +113,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 * While the schema is behind nothing runs or is queued, and the state is kept.
 	 */
 	public function test_blocked_while_schema_is_behind(): void {
-		$job    = new NFCountingJob();
+		$job    = new JobRunnerTestJob();
 		$runner = $this->runner( $job );
 		$id     = $runner->start( 'counting' );
 		$runner->run( $id );
@@ -166,7 +140,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 	 * Unknown ids and types are refused without side effects.
 	 */
 	public function test_unknown_job(): void {
-		$runner = $this->runner( new NFCountingJob() );
+		$runner = $this->runner( new JobRunnerTestJob() );
 		$this->assertSame( 'missing', $runner->run( 'nope-123' ) );
 		$this->assertSame( '', $runner->start( 'nope' ) );
 	}
