@@ -45,6 +45,7 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		$this->store = new Store( $db, $fields );
 		$fields->register( 'field_t24a', 't24_price', DataTable::Int );
 		$fields->register( 'field_t24b', 't24_tags', DataTable::Str, true );
+		$fields->register( 'field_t24s', 't24_series', DataTable::Rows );
 		( new MetaInterceptor( $this->store, $db, static fn(): bool => true ) )->register();
 		$this->post = self::factory()->post->create();
 	}
@@ -86,6 +87,13 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		update_post_meta( $this->post, 't24_price', '5' );
 		update_post_meta( $this->post, '_t24_price', 'field_other' );
 		$this->assertSame( 'field_t24a', get_post_meta( $this->post, '_t24_price', true ) );
+	}
+
+	/**
+	 * A Series reference row does not throw and falls through to core.
+	 */
+	public function test_series_reference_row_falls_through(): void {
+		$this->assertSame( '', get_post_meta( $this->post, '_t24_series', true ) );
 	}
 
 	/**
