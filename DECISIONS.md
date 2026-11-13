@@ -105,6 +105,10 @@ Owner agreed to more decimal places after Google Map `lat`/`lng` read back round
 - **Decision:** while `nf_db_version` is behind, `MetaInterceptor` refuses (`false`) add, update and delete of NF-managed top-level names and their `_name` reference rows. Nothing is written to NF or to `wp_postmeta`, so no resync is needed. This matches the bridge, which blocks NF writes until the manual upgrade.
 - **Limits:** the lookup uses only `nf_fields` columns present since schema 1. With no schema installed, NF manages nothing and writes pass through. If the lookup fails, the write passes through and the error is reported on `nf/meta/error`, so a broken table does not block all meta writes. Reads fall through to core while behind. Series and Group raw meta stays with WP 2.4b.
 
+### No Action Scheduler (2026-11-13, owner)
+- **Decision:** NF does not use Action Scheduler, neither bundled nor another plugin's copy. Background jobs (WP 2.5) run on WP-Cron (`nf_run_job`) only; the admin progress screen (WP 4.x) drives batches over REST.
+- **Consequences:** no `woocommerce/action-scheduler` dependency and no exception to the Strauss rule. Sites with `DISABLE_WP_CRON` need a system cron that requests `wp-cron.php`. Job runs are only ever queued by admin, WP-CLI or a running job; an anonymous `wp-cron.php` hit only runs what those queued.
+
 ## Gate approvals
 
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
