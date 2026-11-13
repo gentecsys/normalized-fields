@@ -68,12 +68,12 @@ class RebuildTest extends WP_UnitTestCase {
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t22d%' ) );
 		$fields = new FieldMap( $db );
 		$fields->flush();
-		$city   = $fields->register( 'field_t22d_city', 'city', DataTable::Str );
-		$seats  = $fields->register( 'field_t22d_seats', 'seats', DataTable::Int );
-		$series = $fields->register( 'field_t22d_sessions', 'sessions', DataTable::Rows );
-		$venue  = $fields->register( 'field_t22d_venue', 'venue', DataTable::Str, false, $series->id );
-		$cap    = $fields->register( 'field_t22d_cap', 'cap', DataTable::Int, false, $series->id );
-		$this->fid = array(
+		$city           = $fields->register( 'field_t22d_city', 'city', DataTable::Str );
+		$seats          = $fields->register( 'field_t22d_seats', 'seats', DataTable::Int );
+		$series         = $fields->register( 'field_t22d_sessions', 'sessions', DataTable::Rows );
+		$venue          = $fields->register( 'field_t22d_venue', 'venue', DataTable::Str, false, $series->id );
+		$cap            = $fields->register( 'field_t22d_cap', 'cap', DataTable::Int, false, $series->id );
+		$this->fid      = array(
 			'city'  => $city->id,
 			'seats' => $seats->id,
 			'cap'   => $cap->id,
@@ -126,7 +126,7 @@ class RebuildTest extends WP_UnitTestCase {
 	 * @return int
 	 */
 	private function make( ?string $city, ?int $seats, array $rows ): int {
-		$id = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		$id           = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 		$this->ids[] = $id;
 		if ( null !== $city ) {
 			$this->store->set( ObjectType::Post, $id, 'field_t22d_city', $city );
@@ -164,7 +164,7 @@ class RebuildTest extends WP_UnitTestCase {
 		$two = $this->pivot->rebuildChunk( $this->pivot_id, $one['last'], 2 );
 		$this->assertSame( array( 1, $c ), array( $two['count'], $two['last'] ) );
 		$this->assertSame( 0, $this->pivot->rebuildChunk( $this->pivot_id, $two['last'], 2 )['count'] );
-		$seen = array();
+		$seen     = array();
 		$progress = function ( int $n ) use ( &$seen ): void {
 			$seen[] = $n;
 		};
@@ -197,12 +197,13 @@ class RebuildTest extends WP_UnitTestCase {
 				$this->store->deleteObject( ObjectType::Post, $id );
 				$this->pivot->remove( $this->pivot_id, $id );
 			} elseif ( 0 === $k % 3 ) {
-				$this->store->setRows( ObjectType::Post, $id, 'field_t22d_sessions', array(
+				$one = array(
 					array(
 						'venue' => 'v' . mt_rand( 1, 6 ),
 						'cap'   => mt_rand( 1, 500 ),
 					),
-				) );
+				);
+				$this->store->setRows( ObjectType::Post, $id, 'field_t22d_sessions', $one );
 				$this->store->set( ObjectType::Post, $id, 'field_t22d_city', $cities[ mt_rand( 0, 4 ) ] );
 				$this->pivot->sync( $this->pivot_id, $id, array( 'status' => 1 ) );
 			}
@@ -237,12 +238,13 @@ class RebuildTest extends WP_UnitTestCase {
 	 * Row-pivot rows of a Series whose row slots were removed are dropped by a rebuild.
 	 */
 	public function test_rebuild_prunes_row_pivot_without_slots(): void {
-		$this->make( 'Oslo', 1, array(
-				array(
-					'venue' => 'a',
-					'cap'   => 5,
-				),
-			) );
+		$rows = array(
+			array(
+				'venue' => 'a',
+				'cap'   => 5,
+			),
+		);
+		$this->make( 'Oslo', 1, $rows );
 		$this->assertCount( 1, $this->snapshot()['rows'] );
 		nf_db()->execute( 'DELETE FROM ' . nf_db()->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ? AND repeater_id > 0', array( $this->pivot_id ) );
 		$this->pivot->rebuild( $this->pivot_id );
@@ -283,7 +285,7 @@ class RebuildTest extends WP_UnitTestCase {
 	 * (the WordPress default) "Oslo" and "oslo" are one entry, as for a "=" match on wp_postmeta.
 	 */
 	public function test_dictionary_follows_column_collation(): void {
-		$db = nf_db();
+		$db  = nf_db();
 		$col = $db->select(
 			'SELECT COLLATION_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
 			array( $db->table( 'nf_dict' ), 'value' )
