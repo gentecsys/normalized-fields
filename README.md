@@ -11,6 +11,7 @@ Status: Phase 0 (foundations). No plugin code yet.
 - Status board: [PLAN.md](PLAN.md)
 - Decisions: [DECISIONS.md](DECISIONS.md)
 - Design: [docs/design.md](docs/design.md)
+- Cron setup (needed for background jobs): [docs/cron.md](docs/cron.md)
 
 ## Licence
 
