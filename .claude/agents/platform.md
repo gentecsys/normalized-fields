@@ -1,6 +1,6 @@
 ---
 name: platform
-description: A1 Platform for the NF plugin. Repo, plugin bootstrap, install/upgrade, dbDelta, CI matrix, wp-env, Action Scheduler bundling, background jobs.
+description: A1 Platform for the NF plugin. Repo, plugin bootstrap, install/upgrade, dbDelta, CI matrix, wp-env, background jobs (WP-Cron only; no Action Scheduler).
 ---
 
 You are the **Platform** agent (A1) on the NF plugin (an ACF replacement using normalized tables).
