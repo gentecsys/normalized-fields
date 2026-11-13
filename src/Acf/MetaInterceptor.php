@@ -170,6 +170,9 @@ final class MetaInterceptor {
 			return $check;
 		}
 		[ $def, $ref ] = $hit;
+		if ( $ref && DataTable::Rows === $def['table'] ) {
+			return $check; // Series reference rows are not intercepted yet (WP 2.4b).
+		}
 		if ( $ref ) {
 			$stored = $this->store->get( $type, $id, $def['key'] );
 			$value  = ( null === $stored || array() === $stored ) ? '' : $def['key'];
@@ -279,7 +282,12 @@ final class MetaInterceptor {
 		if ( $def['multi'] && ! is_array( $value ) ) {
 			$value = '' === $value || null === $value ? array() : array( $value );
 		}
-		$this->store->set( $type, $id, $def['key'], '' === $value ? null : $value );
+		try {
+			$this->store->set( $type, $id, $def['key'], '' === $value ? null : $value );
+		} catch ( \Throwable $e ) {
+			do_action( 'nf/meta/error', $e, $key, $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			return false;
+		}
 		return true;
 	}
 
