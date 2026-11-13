@@ -261,8 +261,8 @@ final class MetaInterceptor {
 	 */
 	private function write( mixed $check, int $id, string $key, mixed $value, bool $unique, bool $isAdd ): mixed {
 		$type = $this->typeOfFilter();
-		if ( null !== $check || null === $type || ! $this->isActive() ) {
-			return $check;
+		if ( null !== $check || null === $type || ! $this->isActive() || ! Upgrader::isCurrent() ) {
+			return $check; // Schema behind: nf_fields may not exist, so NF stays out of the meta API until the upgrade.
 		}
 		$hit = $this->resolve( $key );
 		if ( null === $hit ) {
@@ -271,10 +271,6 @@ final class MetaInterceptor {
 		[ $def, $ref ] = $hit;
 		if ( $ref ) {
 			return true; // Field keys live in nf_fields; copied reference rows are discarded.
-		}
-		if ( ! Upgrader::isCurrent() ) {
-			do_action( 'nf/meta/schema_behind', $key, $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-			return false;
 		}
 		if ( $isAdd && ( $unique || ! $def['multi'] ) && null !== $this->store->get( $type, $id, $def['key'] ) ) {
 			return false; // A scalar field holds one value; $unique refuses a second one.
@@ -300,7 +296,7 @@ final class MetaInterceptor {
 	public function delete( mixed $check, $object_id, $meta_key, $meta_value = '', $delete_all = false ): mixed {
 		unset( $meta_value );
 		$type = $this->typeOfFilter();
-		if ( null !== $check || null === $type || $delete_all || ! $this->isActive() ) {
+		if ( null !== $check || null === $type || $delete_all || ! $this->isActive() || ! Upgrader::isCurrent() ) {
 			return $check;
 		}
 		$hit = $this->resolve( (string) $meta_key );
@@ -310,10 +306,6 @@ final class MetaInterceptor {
 		[ $def, $ref ] = $hit;
 		if ( $ref ) {
 			return true;
-		}
-		if ( ! Upgrader::isCurrent() ) {
-			do_action( 'nf/meta/schema_behind', (string) $meta_key, (int) $object_id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-			return false;
 		}
 		$this->store->delete( $type, (int) $object_id, $def['key'] );
 		return true;
