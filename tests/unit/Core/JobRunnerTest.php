@@ -58,6 +58,32 @@ class JobRunnerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A watchdog is queued at about LOCK_TTL + 5 s before the first step.
+	 */
+	public function test_watchdog_is_queued_ahead(): void {
+		$runner = new JobRunner( array( new JobRunnerTestJob() ), new Scheduler(), 0 );
+		$id     = $runner->start( 'counting', array( 'target' => 5 ) );
+		wp_clear_scheduled_hook( Scheduler::HOOK, array( $id ) );
+		$runner->run( $id );
+		$due = wp_next_scheduled( Scheduler::HOOK, array( $id ) );
+		$this->assertNotFalse( $due, 'A run is queued after a partial run.' );
+		$this->assertLessThanOrEqual( time() + 2, $due, 'The continuation replaces the watchdog and is due now.' );
+	}
+
+	/**
+	 * A run that finds the job done after taking the lock does no work.
+	 */
+	public function test_done_job_is_not_stepped_again(): void {
+		$job    = new JobRunnerTestJob();
+		$runner = new JobRunner( array( $job ), new Scheduler(), 30 );
+		$id     = $runner->start( 'counting', array( 'target' => 2 ) );
+		$runner->run( $id );
+		$other = new JobRunner( array( $job ), new Scheduler(), 30 );
+		$this->assertSame( 'done', $other->run( $id ) );
+		$this->assertSame( 2, $job->calls );
+	}
+
+	/**
 	 * A generous budget finishes a short job in one run.
 	 */
 	public function test_budget_runs_several_steps(): void {
@@ -99,13 +125,16 @@ class JobRunnerTest extends WP_UnitTestCase {
 		$id     = $runner->start( 'counting' );
 		$lock   = JobRunner::OPTION_PREFIX . $id . '_lock';
 
-		add_option( $lock, time(), '', false );
+		global $wpdb;
+		$wpdb->insert( $wpdb->options, array( 'option_name' => $lock, 'option_value' => (string) time(), 'autoload' => 'no' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$this->assertSame( 'running', $runner->run( $id ) );
 		$this->assertSame( 0, $job->calls );
 
-		update_option( $lock, time() - JobRunner::LOCK_TTL - 1 );
+		$wpdb->update( $wpdb->options, array( 'option_value' => (string) ( time() - JobRunner::LOCK_TTL - 1 ) ), array( 'option_name' => $lock ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $lock, 'options' );
 		$this->assertSame( 'queued', $runner->run( $id ) );
 		$this->assertSame( 1, $job->calls );
+		wp_cache_delete( $lock, 'options' );
 		$this->assertFalse( get_option( $lock ), 'The lock is released after a run.' );
 	}
 
@@ -128,6 +157,7 @@ class JobRunnerTest extends WP_UnitTestCase {
 		);
 		$this->assertSame( 'blocked', $runner->run( $id ) );
 		$this->assertSame( 1, $seen );
+		$this->assertNotFalse( wp_next_scheduled( Scheduler::HOOK, array( $id ) ), 'A retry is queued so the job resumes after the upgrade.' );
 		$this->assertSame( 1, $job->calls );
 		$this->assertSame( '', $runner->start( 'counting', array( 'target' => 9 ) ), 'No new job is created either.' );
 
