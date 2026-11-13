@@ -22,3 +22,7 @@ Nothing could be run locally: no `vendor/`, no WordPress test suite in the sandb
 
 ## Contract change requested
 None.
+
+## Review follow-ups (fixed)
+- Blocking, fixed: the lock is a single `INSERT IGNORE` on `wp_options` (core table, via `$wpdb`) with a compare-and-swap `UPDATE` to take over a stale lock, refreshed after every step; `run()` re-reads the record under the lock; the watchdog gets its own args under Action Scheduler (the running action counts as scheduled) and is replaced by the continuation after each run; a blocked run queues a retry in 5 minutes (a scheduler write, no NF table write).
+- Not done (follow-ups): attempt counter and `failed` status for a step that throws; lazy construction of the job list in `Plugin::jobs()`; tests for `PivotRebuildJob`, `JobCommand` and the Action Scheduler path (needs the bundled dependency); `start()` ignores new args for a job that is queued or blocked (the id derives from the args). Callers from REST (2.6/4.x) must check `manage_options` and a nonce. New hooks `nf/jobs/blocked`, `nf/jobs/done`, `nf/jobs/budget` to be listed in `contracts/api.md` by A0.
