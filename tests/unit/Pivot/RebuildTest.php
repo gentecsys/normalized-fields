@@ -5,7 +5,7 @@
  * @package NF
  */
 
-// phpcs:disable WordPress.WP.AlternativeFunctions.rand_seeding,WordPress.WP.AlternativeFunctions.rand_mt_rand -- the seeded fuzz must be deterministic.
+// phpcs:disable WordPress.WP.AlternativeFunctions -- the seeded fuzz must be deterministic.
 
 use NF\Pivot\Pivot;
 use NF\Storage\DataTable;
