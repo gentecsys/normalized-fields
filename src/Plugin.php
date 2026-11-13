@@ -106,7 +106,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		return array( new Install\Upgrader(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
+		return array( new Install\Upgrader(), self::bridge(), new Acf\MetaInterceptor( self::store(), self::db() ), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
 	}
 
 	/**
