@@ -23,6 +23,9 @@ defined( 'ABSPATH' ) || exit;
  * Only active in standalone mode (ACF absent), where NF owns the values; with ACF active the Bridge
  * mirrors ACF's own postmeta writes instead. Top-level scalar and multi-valued fields are covered.
  * Series and Group raw meta (`rows_0_name`, `group_sub`) is not intercepted yet: it falls through to core.
+ *
+ * While the schema is behind, writes and deletes of NF-managed names are refused (owner, 2026-11-13): they
+ * must not land in wp_postmeta, where NF would never see them. Reads fall through to core until the upgrade.
  */
 final class MetaInterceptor {
 
@@ -44,6 +47,13 @@ final class MetaInterceptor {
 	 * @var array<string,array{key:string,table:DataTable,multi:bool}|null>
 	 */
 	private array $names = array();
+
+	/**
+	 * Managed-name lookups made while the schema is behind.
+	 *
+	 * @var array<string,bool>
+	 */
+	private array $managed = array();
 
 	/**
 	 * Re-entrancy guard for the full-array read.
@@ -265,8 +275,11 @@ final class MetaInterceptor {
 	 */
 	private function write( mixed $check, int $id, string $key, mixed $value, bool $unique, bool $isAdd ): mixed {
 		$type = $this->typeOfFilter();
-		if ( null !== $check || null === $type || ! $this->isActive() || ! Upgrader::isCurrent() ) {
-			return $check; // Schema behind: nf_fields may not exist, so NF stays out of the meta API until the upgrade.
+		if ( null !== $check || null === $type || ! $this->isActive() ) {
+			return $check;
+		}
+		if ( ! Upgrader::isCurrent() ) {
+			return $this->refuseWhileBehind( $check, $key );
 		}
 		$hit = $this->resolve( $key );
 		if ( null === $hit ) {
@@ -305,8 +318,11 @@ final class MetaInterceptor {
 	public function delete( mixed $check, $object_id, $meta_key, $meta_value = '', $delete_all = false ): mixed {
 		unset( $meta_value );
 		$type = $this->typeOfFilter();
-		if ( null !== $check || null === $type || $delete_all || ! $this->isActive() || ! Upgrader::isCurrent() ) {
+		if ( null !== $check || null === $type || $delete_all || ! $this->isActive() ) {
 			return $check;
+		}
+		if ( ! Upgrader::isCurrent() ) {
+			return $this->refuseWhileBehind( $check, (string) $meta_key );
 		}
 		$hit = $this->resolve( (string) $meta_key );
 		if ( null === $hit ) {
@@ -318,6 +334,35 @@ final class MetaInterceptor {
 		}
 		$this->store->delete( $type, (int) $object_id, $def['key'] );
 		return true;
+	}
+
+	/**
+	 * Schema behind: refuse a write or delete of an NF-managed name (or its `_name` reference row) until the
+	 * upgrade runs. Uses only nf_fields columns present since schema 1. With no schema installed NF manages
+	 * nothing, and a lookup error lets the write through (reported on nf/meta/error) rather than block all meta.
+	 *
+	 * @param mixed  $check Short-circuit value.
+	 * @param string $key   Meta key.
+	 * @return mixed False to refuse, else $check.
+	 */
+	private function refuseWhileBehind( mixed $check, string $key ): mixed {
+		$name = ltrim( $key, '_' );
+		if ( '' === $name || (int) get_option( Upgrader::OPTION, 0 ) < 1 ) {
+			return $check;
+		}
+		$memo = 'behind|' . $this->db->table( 'nf_fields' ) . '|' . $name;
+		if ( ! array_key_exists( $memo, $this->managed ) ) {
+			try {
+				$this->managed[ $memo ] = array() !== $this->db->select(
+					'SELECT field_id FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE field_name = ? AND parent_id = 0 LIMIT 1',
+					array( $name )
+				);
+			} catch ( \Throwable $e ) {
+				do_action( 'nf/meta/error', $e, $key, 0 ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+				return $check;
+			}
+		}
+		return $this->managed[ $memo ] ? false : $check;
 	}
 
 	/**

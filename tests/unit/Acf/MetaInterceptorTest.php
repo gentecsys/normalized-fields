@@ -133,4 +133,32 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		update_post_meta( $this->post, 'other_key', 'v' );
 		$this->assertSame( 'v', get_post_meta( $this->post, 'other_key', true ) );
 	}
+
+	/**
+	 * Schema behind: writes and deletes of managed names are refused and reach neither NF nor wp_postmeta.
+	 */
+	public function test_writes_refused_while_schema_behind(): void {
+		global $wpdb;
+		update_post_meta( $this->post, 't24_price', '5' );
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION - 1 );
+		$this->assertFalse( update_post_meta( $this->post, 't24_price', '6' ) );
+		$this->assertFalse( add_post_meta( $this->post, 't24_tags', 'x' ) );
+		$this->assertFalse( update_post_meta( $this->post, '_t24_price', 'field_t24a' ) );
+		$this->assertFalse( delete_post_meta( $this->post, 't24_price' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Test asserts nothing reached core meta.
+		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key IN ('t24_price','_t24_price','t24_tags')", $this->post ) ) );
+		$this->assertTrue( (bool) update_post_meta( $this->post, 'other_key', 'v' ) );
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
+		$this->assertSame( 5, $this->store->get( ObjectType::Post, $this->post, 'field_t24a' ) );
+	}
+
+	/**
+	 * No schema installed: NF manages nothing, so writes pass through.
+	 */
+	public function test_writes_pass_through_when_never_installed(): void {
+		update_option( NF\Install\Upgrader::OPTION, 0 );
+		$this->assertTrue( (bool) update_post_meta( $this->post, 't24_price', '6' ) );
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
+		delete_metadata( 'post', $this->post, 't24_price' );
+	}
 }
