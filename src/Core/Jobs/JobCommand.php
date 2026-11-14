@@ -47,6 +47,9 @@ final class JobCommand {
 		while ( 'queued' === $status ) {
 			$status = $runner->run( $id );
 		}
+		if ( 'failed' === $status ) {
+			\WP_CLI::error( "Job {$id} failed: " . ( $runner->record( $id )['error'] ?? '' ) );
+		}
 		'done' === $status ? \WP_CLI::success( "Job {$id} finished." ) : \WP_CLI::error( "Job {$id} ended as {$status}." );
 	}
 
@@ -67,5 +70,8 @@ final class JobCommand {
 			\WP_CLI::error( 'No such job.' );
 		}
 		\WP_CLI::log( sprintf( '%s: %d step(s), state %s', $record['status'], $record['steps'], (string) wp_json_encode( $record['state'] ) ) );
+		if ( 'failed' === $record['status'] ) {
+			\WP_CLI::log( sprintf( 'Error after %d attempt(s): %s', $record['attempts'] ?? 0, $record['error'] ?? '' ) );
+		}
 	}
 }
