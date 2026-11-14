@@ -114,7 +114,10 @@ final class Plugin {
 	 */
 	public static function jobs(): Core\Jobs\JobRunner {
 		return self::$jobs ??= new Core\Jobs\JobRunner(
-			array( new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ) )
+			array(
+				new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ),
+				new Migration\PostPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
+			)
 		);
 	}
 
