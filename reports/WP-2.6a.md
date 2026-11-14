@@ -1,6 +1,6 @@
 # WP 2.6a: Port, scan and dry-run report
 
-Agent: A9 (daily build agent). Branch `wp/2.6a-scan`.
+Agent: A9 (daily build agent). Branch `wp/2.6a-scan-v2`.
 
 ## What changed
 - WP 2.6 split in `PLAN.md` into 2.6a (scan), 2.6b (posts: read/write job), 2.6c (terms, users, options, comments), 2.6d (verify, re-port, WP-CLI). 2.5b marked merged.

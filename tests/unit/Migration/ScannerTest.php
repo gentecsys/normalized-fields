@@ -23,7 +23,7 @@ class ScannerTest extends WP_UnitTestCase {
 					'title'  => 'Event',
 					'fields' => array(
 						array(
-							'key' => 'field_1',
+							'key'  => 'field_1',
 							'type' => 'text',
 							'name' => 't',
 						),
@@ -33,12 +33,12 @@ class ScannerTest extends WP_UnitTestCase {
 							'name'       => 'sessions',
 							'sub_fields' => array(
 								array(
-									'key' => 'field_3',
+									'key'  => 'field_3',
 									'type' => 'text',
 									'name' => 's',
 								),
 								array(
-									'key' => 'field_4',
+									'key'  => 'field_4',
 									'type' => 'clone',
 									'name' => 'c',
 								),
@@ -73,7 +73,7 @@ class ScannerTest extends WP_UnitTestCase {
 							'type'       => 'group',
 							'sub_fields' => array(
 								array(
-									'key' => 'field_10',
+									'key'  => 'field_10',
 									'type' => 'flexible_content',
 									'name' => 'body',
 								),
@@ -82,8 +82,8 @@ class ScannerTest extends WP_UnitTestCase {
 					),
 				),
 				array(
-					'key' => 'group_c',
-					'title' => 'Plain',
+					'key'    => 'group_c',
+					'title'  => 'Plain',
 					'fields' => array( array( 'type' => 'text' ) ),
 				),
 			)
