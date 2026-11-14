@@ -27,9 +27,9 @@ final class PostPortJob implements JobInterface {
 	/**
 	 * Constructor.
 	 *
-	 * @param AcfSource                                       $source Field source.
-	 * @param AcfCopier                                       $copier Value copier.
-	 * @param (\Closure(string,int,int):array<int,int>)|null $lister Post IDs after an ID: fn( post_type, after, limit ). Defaults to core's posts table.
+	 * @param AcfSource     $source Field source.
+	 * @param AcfCopier     $copier Value copier.
+	 * @param \Closure|null $lister Post IDs after an ID: fn( post_type, after, limit ): int[]. Defaults to core's posts table.
 	 */
 	public function __construct( private AcfSource $source, private AcfCopier $copier, private ?\Closure $lister = null ) {}
 
