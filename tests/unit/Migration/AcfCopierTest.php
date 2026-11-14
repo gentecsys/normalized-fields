@@ -29,8 +29,14 @@ class AcfCopierTest extends WP_UnitTestCase {
 		$this->calls = array();
 		return new AcfCopier(
 			null,
-			static fn( int $id, string $name ) => $ref,
-			static fn( int $id, array $field ) => 'v' . $id,
+			static function ( int $id, string $name ) use ( $ref ) {
+				unset( $id, $name );
+				return $ref;
+			},
+			static function ( int $id, array $field ) {
+				unset( $field );
+				return 'v' . $id;
+			},
 			function ( string $kind, mixed $value, int $id, array $field ): void {
 				$this->calls[] = $kind . ':' . $value . ':' . $field['name'];
 			}
