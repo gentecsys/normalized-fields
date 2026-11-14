@@ -48,7 +48,7 @@ class ScannerTest extends WP_UnitTestCase {
 				),
 			)
 		);
-		$c = $report['collections'][0];
+		$c      = $report['collections'][0];
 		$this->assertSame( 'portable', $c['status'] );
 		$this->assertSame( 4, $c['fields'] );
 		$this->assertSame( 1, $c['series'] );
