@@ -42,6 +42,11 @@ final class JobRunner {
 	public const BLOCKED_RETRY = 300;
 
 	/**
+	 * Steps that may throw in a row before the job is marked failed.
+	 */
+	public const MAX_ATTEMPTS = 3;
+
+	/**
 	 * Job types by key.
 	 *
 	 * @var array<string,JobInterface>
@@ -109,7 +114,7 @@ final class JobRunner {
 		}
 		$id     = self::idFor( $key, $args );
 		$record = $this->record( $id );
-		if ( null === $record || 'done' === $record['status'] ) {
+		if ( null === $record || in_array( $record['status'], array( 'done', 'failed' ), true ) ) {
 			$this->save(
 				$id,
 				array(
@@ -131,7 +136,7 @@ final class JobRunner {
 	 * The stored record of a job, or null.
 	 *
 	 * @param string $id Job id.
-	 * @return array{key:string,args:array<string,mixed>,state:array<string,mixed>,status:string,steps:int,started:int,updated:int}|null
+	 * @return array{key:string,args:array<string,mixed>,state:array<string,mixed>,status:string,steps:int,started:int,updated:int,attempts?:int,error?:string}|null
 	 */
 	public function record( string $id ): ?array {
 		$r = get_option( self::OPTION_PREFIX . sanitize_key( $id ) );
@@ -142,15 +147,15 @@ final class JobRunner {
 	 * Run steps of a job until it is done or the budget is spent. Safe to call twice at once: the second call returns.
 	 *
 	 * @param string $id Job id.
-	 * @return string Status after the run: done, queued, running (another run holds the lock), blocked or missing.
+	 * @return string Status after the run: done, failed, queued, running (another run holds the lock), blocked or missing.
 	 */
 	public function run( string $id ): string {
 		$record = $this->record( $id );
 		if ( null === $record || ! isset( $this->jobs[ $record['key'] ] ) ) {
 			return 'missing';
 		}
-		if ( 'done' === $record['status'] ) {
-			return 'done';
+		if ( in_array( $record['status'], array( 'done', 'failed' ), true ) ) {
+			return $record['status'];
 		}
 		if ( ! Upgrader::isCurrent() ) {
 			/**
@@ -169,9 +174,9 @@ final class JobRunner {
 		wp_cache_delete( self::OPTION_PREFIX . sanitize_key( $id ), 'options' ); // The first read may be cached in this request.
 		wp_cache_delete( 'notoptions', 'options' );
 		$record = $this->record( $id );
-		if ( null === $record || 'done' === $record['status'] ) {
+		if ( null === $record || in_array( $record['status'], array( 'done', 'failed' ), true ) ) {
 			$this->unlock( $id );
-			return null === $record ? 'missing' : 'done';
+			return null === $record ? 'missing' : $record['status'];
 		}
 		$job      = $this->jobs[ $record['key'] ];
 		$watchdog = array();
@@ -181,10 +186,23 @@ final class JobRunner {
 			$budget   = $this->budget ?? (int) apply_filters( 'nf/jobs/budget', self::BUDGET ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$until    = microtime( true ) + max( 0, $budget );
 			do {
-				$record['state']   = $job->step( $record['state'] );
-				$record['steps']  += 1;
-				$record['updated'] = time();
-				$record['status']  = empty( $record['state']['done'] ) ? 'queued' : 'done';
+				try {
+					$state = $job->step( $record['state'] );
+				} catch ( \Throwable $e ) {
+					// A step that throws counts an attempt; its state is not kept, so the retry repeats the step.
+					$record['attempts'] = ( $record['attempts'] ?? 0 ) + 1;
+					$record['error']    = $e->getMessage();
+					$record['updated']  = time();
+					$record['status']   = $record['attempts'] >= self::MAX_ATTEMPTS ? 'failed' : 'queued';
+					$this->save( $id, $record );
+					break;
+				}
+				unset( $record['error'] );
+				$record['state']    = $state;
+				$record['steps']   += 1;
+				$record['attempts'] = 0;
+				$record['updated']  = time();
+				$record['status']   = empty( $state['done'] ) ? 'queued' : 'done';
 				$this->save( $id, $record );
 				$this->touchLock( $id );
 			} while ( 'queued' === $record['status'] && microtime( true ) < $until );
@@ -199,6 +217,14 @@ final class JobRunner {
 			 * @param string $id Job id.
 			 */
 			do_action( 'nf/jobs/done', $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		} elseif ( 'failed' === $record['status'] ) {
+			/**
+			 * Fires when a job has failed for good: its steps threw MAX_ATTEMPTS times in a row. The error is in the record.
+			 *
+			 * @param string $id    Job id.
+			 * @param string $error Last error message.
+			 */
+			do_action( 'nf/jobs/failed', $id, (string) ( $record['error'] ?? '' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		} else {
 			$this->scheduler->schedule( $id );
 		}

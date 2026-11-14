@@ -101,3 +101,7 @@ wp cron event run --due-now
 | A job moves very slowly | Cron fires rarely (hourly host cron, low traffic), or the PHP time limit for cron requests is below 30 s. |
 | A job reports `blocked` | The NF database update hasn't been run. Use the admin notice's button or `wp nf upgrade`; the job resumes afterwards. |
 | `running` from two places at once | Expected: a second run returns while the first holds the job's lock. A lock left by a killed request expires after 120 s. |
+
+## A job that keeps failing
+
+If a step of a job throws, NF retries it on the next run. After 3 failed attempts in a row the job is marked `failed`: it stops, nothing more is queued, the action `nf/jobs/failed` fires (job id, error message) and `wp nf job status <job-id>` shows the error. Fix the cause, then start the job again (`wp nf job run ...` or the admin button); a failed job starts over from the beginning.
