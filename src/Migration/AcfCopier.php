@@ -23,9 +23,12 @@ class AcfCopier {
 	/**
 	 * Constructor.
 	 *
-	 * @param Bridge $bridge Bridge, which writes through the store.
+	 * @param Bridge|null   $bridge Bridge, which writes through the store (null only in tests with the closures set).
+	 * @param \Closure|null $meta   Reads the `_name` reference: fn( int $post_id, string $name ): mixed. Defaults to ACF's.
+	 * @param \Closure|null $value  Reads a raw value: fn( int $post_id, array $field ): mixed. Defaults to ACF's.
+	 * @param \Closure|null $sink   Writes: fn( string $kind, mixed $value, int $post_id, array $field ): void, kind is series, group or scalar. Defaults to the bridge.
 	 */
-	public function __construct( private Bridge $bridge ) {}
+	public function __construct( private ?Bridge $bridge = null, private ?\Closure $meta = null, private ?\Closure $value = null, private ?\Closure $sink = null ) {}
 
 	/**
 	 * Copy one top-level field of one post.
@@ -35,23 +38,32 @@ class AcfCopier {
 	 * @return bool True when a value was copied; false when ACF holds none.
 	 */
 	public function copy( int $post_id, array $field ): bool {
-		$ref    = acf_get_metadata( $post_id, (string) $field['name'], true );
+		$ref    = null !== $this->meta ? ( $this->meta )( $post_id, (string) $field['name'] ) : acf_get_metadata( $post_id, (string) $field['name'], true );
 		$source = (string) ( $field['__key'] ?? $field['key'] );
 		if ( $ref !== $field['key'] && $ref !== $source ) {
 			return false;
 		}
-		$value = acf_get_value( $post_id, $field );
-		switch ( $field['type'] ?? '' ) {
-			case 'repeater':
-				$this->bridge->beforeSeries( $value, $post_id, $field );
-				$this->bridge->afterSeries( $value );
-				break;
-			case 'group':
-			case 'clone':
-				$this->bridge->beforeGroup( $value, $post_id, $field );
-				break;
-			default:
-				$this->bridge->onUpdate( $value, $post_id, $field );
+		$value = null !== $this->value ? ( $this->value )( $post_id, $field ) : acf_get_value( $post_id, $field );
+		$kind  = match ( $field['type'] ?? '' ) {
+			'repeater'      => 'series',
+			'group', 'clone' => 'group',
+			default         => 'scalar',
+		};
+		if ( null !== $this->sink ) {
+			( $this->sink )( $kind, $value, $post_id, $field );
+			return true;
+		}
+		$bridge = $this->bridge;
+		if ( null === $bridge ) {
+			return false;
+		}
+		if ( 'series' === $kind ) {
+			$bridge->beforeSeries( $value, $post_id, $field );
+			$bridge->afterSeries( $value );
+		} elseif ( 'group' === $kind ) {
+			$bridge->beforeGroup( $value, $post_id, $field );
+		} else {
+			$bridge->onUpdate( $value, $post_id, $field );
 		}
 		return true;
 	}
@@ -62,6 +74,6 @@ class AcfCopier {
 	 * @return void
 	 */
 	public function flush(): void {
-		$this->bridge->flush();
+		$this->bridge?->flush();
 	}
 }
