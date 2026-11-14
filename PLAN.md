@@ -49,7 +49,10 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.3 | Archive and revisions | A2 | M | 2.1 | todo | | Preview and restore tests pass |
 | 2.4 | Meta API interception | A5 | M | 2.1 | todo | | Duplicate-post and copy tests keep NF fields |
 | 2.5 | Background jobs | A1 | M | G1 | todo | | Survives killed requests and PHP timeouts |
-| 2.6 | Port pipeline (no UI) | A9 | L | 2.1, 2.5 | todo | | Zero mismatches on a copy of a real site |
+| 2.6a | Port: scan and dry-run report | A9 | S | 2.1, 2.5 | in-review | wp/2.6a-scan | Pure `Migration\Scanner` turns ACF field-group arrays into a per-collection report: field and type counts, flexible content (collection skipped, ADR-0008), unknown types, clone/Series nesting; unit tests |
+| 2.6b | Port: value reader and writer for posts | A9 | M | 2.6a | todo | | ACF values read raw (formatting off) and written through `Store` for one post type, resumable job on `JobRunner`; unit tests |
+| 2.6c | Port: terms, users, options, comments | A9 | M | 2.6b | todo | | Same for the other object types; options and network-wide user values per ADR-0011 |
+| 2.6d | Port: verify, re-port, WP-CLI | A9 | M | 2.6c | todo | | Dual load ACF vs NF, mismatch list, `wp nf port scan/run/verify`; zero mismatches on the bench dataset; owner confirms on a real-site copy at G2 |
 | 2.7 | Repeater sorting | A2 | S | 2.1 | todo | | Unit tests for all three modes |
 
 **Gate G2 [owner]:** verify reports zero mismatches on a staging copy of a real site.

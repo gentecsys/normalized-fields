@@ -17,3 +17,4 @@
 2026-11-08 | WP 1.2b | labelled nf:ready | Bridge queues the top-level Series on lone sub-field saves/row-count saves and re-copies it from ACF meta on flush; reviewer clean after one round; CI 27/27 green | PR #19 (wp/1.2b-series-resync)
 2026-11-09 | WP 1.3 | labelled nf:ready | Minimal pivot (sets, slots, write-through, rebuild) and SpikeQuery translating two WP_Query shapes; WP_Query differential tests green; reviewer blockers fixed; CI 27/27 green; 1.2b marked merged, 1.4 ready | PR #20 (wp/1.3-pivot-queries)
 2026-11-09 | WP 1.4 | labelled nf:ready | NF-vs-ACF differential check (ACF writes, reads from ACF storage vs NF tables) on the spike types; reviewer no blockers; CI 27/27 green; 1.3 marked merged, 1.5 ready | PR #21 (wp/1.4-differential-check)
+2026-11-14 | WP 2.6a | in-review | Split 2.6 into 2.6a-d; built pure ACF Scanner (dry-run report, flexible content skipped) with tests; 2.5b marked merged | wp/2.6a-scan
