@@ -17,5 +17,10 @@ No `vendor/` or WP test suite locally; `php -l` passes. CI is authoritative. The
 - Fields cloned in with a different parent owner (`ownedByOther`) are not specially handled.
 - Report counts (objects/values, orphaned meta, options pages, raw-SQL scan) still planned for 2.6c.
 
+## Review follow-up
+- `docs/cron.md`: `port_posts` example added. `AcfCopier` now takes optional closures (reference, value, sink), tested by `AcfCopierTest` (ref match, `__key` clone match, mismatch, dispatch per type).
+- Clone target resolution: ACF expands seamless clones into the fields `acf_get_fields()` returns, and `__key` is matched on the reference check; covered by the test above. A0 to confirm this meets the PLAN text.
+- Not done (non-blocking): count failed writes via `nf/bridge/error`; cache `portableFields` across steps; location-rule filtering per post; reset ACF/meta caches between chunks; validate post type.
+
 ## Contract change requested
 None.

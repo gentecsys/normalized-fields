@@ -83,6 +83,9 @@ Many managed hosts already run a server cron for WordPress. Check how often it f
 # Start a job and run it to the end in this process (no cron needed):
 wp nf job run pivot_rebuild --args='{"pivot_id":1}'
 
+# Port one post type's ACF values into NF (resumable, 50 posts a step; needs ACF active):
+wp nf job run port_posts --args='{"post_type":"post"}'
+
 # Status of a job queued from the admin:
 wp nf job status <job-id>
 
