@@ -24,20 +24,20 @@ class AcfCopier {
 	 * Constructor.
 	 *
 	 * @param Bridge|null   $bridge Bridge, which writes through the store (null only in tests with the closures set).
-	 * @param \Closure|null $meta   Reads the `_name` reference: fn( int $post_id, string $name ): mixed. Defaults to ACF's.
-	 * @param \Closure|null $value  Reads a raw value: fn( int $post_id, array $field ): mixed. Defaults to ACF's.
-	 * @param \Closure|null $sink   Writes: fn( string $kind, mixed $value, int $post_id, array $field ): void, kind is series, group or scalar. Defaults to the bridge.
+	 * @param \Closure|null $meta   Reads the `_name` reference: fn( int|string $post_id, string $name ): mixed. Defaults to ACF's.
+	 * @param \Closure|null $value  Reads a raw value: fn( int|string $post_id, array $field ): mixed. Defaults to ACF's.
+	 * @param \Closure|null $sink   Writes: fn( string $kind, mixed $value, int|string $post_id, array $field ): void, kind is series, group or scalar. Defaults to the bridge.
 	 */
 	public function __construct( private ?Bridge $bridge = null, private ?\Closure $meta = null, private ?\Closure $value = null, private ?\Closure $sink = null ) {}
 
 	/**
 	 * Copy one top-level field of one post.
 	 *
-	 * @param int                 $post_id Post ID.
+	 * @param int|string          $post_id ACF object ID: 12, 'term_5', 'user_3', 'comment_7', 'options'.
 	 * @param array<string,mixed> $field   ACF field.
 	 * @return bool True when a value was copied; false when ACF holds none.
 	 */
-	public function copy( int $post_id, array $field ): bool {
+	public function copy( int|string $post_id, array $field ): bool {
 		$ref    = null !== $this->meta ? ( $this->meta )( $post_id, (string) $field['name'] ) : acf_get_metadata( $post_id, (string) $field['name'], true );
 		$source = (string) ( $field['__key'] ?? $field['key'] );
 		if ( $ref !== $field['key'] && $ref !== $source ) {
