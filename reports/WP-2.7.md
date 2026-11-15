@@ -18,3 +18,6 @@ State: in-review. Branch `wp/2.7-repeater-sorting`.
 - Not done (later WPs): `get_field( ..., [ 'sort' => ... ] )` per-call sort and Timber option (3.6/3.7), the `post_updated` re-sort job for `on_save` + `post_date` (needs the background-job hookup, follow-up), admin toolbar/builder (4.2/4.3), packed (JSON) storage, per-object caching of `on_read` results.
 - **Follow-up for A0:** `nf_register_row_sorter()` is not yet listed in `contracts/api.md`; `Store::sortRows()` and `RowSorter` should be noted in the storage contract.
 - The Store does not check `Upgrader::isCurrent()`; callers (Bridge) do, as for `setRows()`.
+
+## Review follow-up
+Fixed: numeric string shortcut removed (compare mode honoured; locale uses numeric collation), `sortRows()` returns false if a filter drops rows, PHPCS errors. Known, deferred: `sortRows` is not transactional and tags rows with an internal `__nf_row_id` (visible to the filter); `nf/repeater/sorted` does not fire on `on_save`; `/name=` `/key=` hook variants; type-aware date compare; `post_updated` re-sort needs its own WP (with `Upgrader::isCurrent()` guard and `docs/cron.md`).
