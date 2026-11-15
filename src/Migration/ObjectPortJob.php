@@ -19,6 +19,8 @@ defined( 'ABSPATH' ) || exit;
  * Options pages (ACF's `post_id` of each page, plus 'options') are ported in one step.
  *
  * Arguments: kind (term, user, comment or option), chunk (int, optional).
+ * Location rules are ignored on purpose: the copier only copies a field when ACF holds a value for the object.
+ * Comments of every status are included. `chunk` has no effect for options.
  * State counts the objects visited, the values copied and the objects that held no ACF value.
  */
 final class ObjectPortJob implements JobInterface {
@@ -58,6 +60,7 @@ final class ObjectPortJob implements JobInterface {
 			'after'   => 0,
 			'objects' => 0,
 			'empty'   => 0,
+			'unsupported' => 0,
 			'values'  => 0,
 			'error'   => '',
 			'done'    => false,
@@ -85,6 +88,11 @@ final class ObjectPortJob implements JobInterface {
 		$fields = $this->source->portableFields( $this->source->groups() );
 		if ( 'option' === $kind ) {
 			foreach ( $this->optionIds() as $acf_id ) {
+				if ( null === \NF\Acf\Bridge::decode( $acf_id ) ) {
+					// A custom options page ID the bridge cannot map: counted, never reported as ported.
+					$state['unsupported'] = absint( $state['unsupported'] ?? 0 ) + 1;
+					continue;
+				}
 				$state = $this->portObject( $state, $acf_id, $fields );
 			}
 			$this->copier->flush();

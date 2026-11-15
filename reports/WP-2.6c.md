@@ -11,6 +11,10 @@ Agent: A9 (daily build agent). Branch `wp/2.6c-port-objects`.
 ## Tests / tooling
 No `vendor/` or phpcs/phpstan run locally; `php -l` passes on all touched files. CI is authoritative.
 
+## Review round
+- Custom options page IDs the bridge cannot decode are skipped and counted in `unsupported` (no inflated `values`). Added a real-table lister test and decode test. `JobRunner` enforces `Upgrader::isCurrent()` (no NF write while the schema is behind).
+- The PLAN row's remaining items (ACF post type / taxonomy / options-page definitions, orphaned meta, raw-SQL scan) are split into new WP 2.6c2.
+
 ## Deviations / follow-ups (left for 2.6d or A0)
 - Not in this slice: porting ACF post types / taxonomies / options pages definitions, orphaned-meta counts and the raw-SQL scan in the report. The job state gives object and value counts only.
 - Custom options page `post_id` values other than `options` are decoded as unsupported by `Bridge::decode()`; they are visited but copy nothing until A5 extends it.
