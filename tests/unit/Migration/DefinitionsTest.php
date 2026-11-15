@@ -10,6 +10,8 @@ use NF\Migration\DefinitionReader;
 use NF\Migration\OrphanCounter;
 use NF\Migration\RawSqlScanner;
 
+// phpcs:disable WordPress.PHP.DiscouragedPHPFunctions, WordPress.WP.AlternativeFunctions
+
 /**
  * Tests for the report-side helpers.
  */
