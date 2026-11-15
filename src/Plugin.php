@@ -118,6 +118,7 @@ final class Plugin {
 				new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ),
 				new Migration\PostPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
 				new Migration\ObjectPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
+				new Migration\PortVerifyJob( new Migration\AcfSource(), new Migration\PortVerifier( self::store(), self::fields() ) ),
 			)
 		);
 	}
