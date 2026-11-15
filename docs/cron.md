@@ -86,6 +86,9 @@ wp nf job run pivot_rebuild --args='{"pivot_id":1}'
 # Port one post type's ACF values into NF (resumable, 50 posts a step; needs ACF active):
 wp nf job run port_posts --args='{"post_type":"post"}'
 
+# Compare ACF and NF values of one post type (read only; same as `wp nf port verify --post-type=post`):
+wp nf job run port_verify --args='{"post_type":"post"}'
+
 # Port terms, users, comments or the options pages (kind: term, user, comment, option; 50 a step):
 wp nf job run port_objects --args='{"kind":"term"}'
 

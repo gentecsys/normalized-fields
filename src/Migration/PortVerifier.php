@@ -46,7 +46,15 @@ class PortVerifier {
 			if ( ! $held ) {
 				continue;
 			}
-			$paths = ValueComparer::diff( $value, $this->readNf( $id, $field ), (string) $field['name'] );
+			if ( ! is_array( $value ) && in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) ) {
+				// A row count or an empty group from ACF carries nothing to compare.
+				continue;
+			}
+			try {
+				$paths = ValueComparer::diff( $value, $this->readNf( $id, $field ), (string) $field['name'] );
+			} catch ( \Throwable $e ) {
+				$paths = array( '(unreadable: ' . substr( $e->getMessage(), 0, 80 ) . ')' );
+			}
 			if ( array() !== $paths ) {
 				$out[] = array(
 					'object' => $id,

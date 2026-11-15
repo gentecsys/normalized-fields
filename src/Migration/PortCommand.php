@@ -60,7 +60,8 @@ final class PortCommand {
 	 */
 	public function run( array $args, array $assoc ): void {
 		unset( $args );
-		$this->runJob( 'port_posts', $assoc );
+		$state = $this->runJob( 'port_posts', $assoc );
+		\WP_CLI::success( sprintf( 'Ported %d value(s) from %d post(s).', absint( $state['values'] ?? 0 ), absint( $state['posts'] ?? 0 ) ) );
 	}
 
 	/**
