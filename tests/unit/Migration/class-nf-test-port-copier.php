@@ -34,13 +34,13 @@ class NF_Test_Port_Copier extends AcfCopier {
 	/**
 	 * Record a copy; ACF "holds a value" for even post IDs only.
 	 *
-	 * @param int                 $post_id Post.
+	 * @param int|string          $post_id Object.
 	 * @param array<string,mixed> $field   Field.
 	 * @return bool
 	 */
-	public function copy( int $post_id, array $field ): bool {
+	public function copy( int|string $post_id, array $field ): bool {
 		$this->calls[] = $post_id . ':' . $field['name'];
-		return 0 === $post_id % 2;
+		return 0 === ( (int) preg_replace( '/\D/', '', (string) $post_id ) ) % 2;
 	}
 
 	/**
