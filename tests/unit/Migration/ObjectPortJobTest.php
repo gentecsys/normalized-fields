@@ -108,8 +108,9 @@ class ObjectPortJobTest extends WP_UnitTestCase {
 		$job   = $this->job( array(), array( 'options', 'site_settings' ) );
 		$state = $job->step( $job->init( array( 'kind' => 'option' ) ) );
 		$this->assertTrue( $state['done'] );
-		$this->assertSame( 2, $state['objects'] );
-		$this->assertSame( array( 'options:one', 'site_settings:one' ), $this->copier->calls );
+		$this->assertSame( 1, $state['objects'] );
+		$this->assertSame( 1, $state['unsupported'] );
+		$this->assertSame( array( 'options:one' ), $this->copier->calls );
 	}
 
 	/**
@@ -123,5 +124,53 @@ class ObjectPortJobTest extends WP_UnitTestCase {
 		$state                = $job->step( $job->init( array( 'kind' => 'term' ) ) );
 		$this->assertSame( 'acf_unavailable', $state['error'] );
 		$this->assertSame( array(), $this->copier->calls );
+	}
+
+	/**
+	 * The real core-table listing: keyset boundary and ACF IDs for terms, users and comments.
+	 */
+	public function test_default_lister_uses_core_tables() {
+		$term    = self::factory()->term->create();
+		$user    = self::factory()->user->create();
+		$comment = self::factory()->comment->create();
+		$expect  = array(
+			'term'    => 'term_' . $term,
+			'user'    => 'user_' . $user,
+			'comment' => 'comment_' . $comment,
+		);
+		$ids     = array(
+			'term'    => $term,
+			'user'    => $user,
+			'comment' => $comment,
+		);
+		foreach ( $expect as $kind => $acf_id ) {
+			$this->copier->calls = array();
+			$job                 = new ObjectPortJob( $this->source, $this->copier );
+			$state               = $job->init(
+				array(
+					'kind'  => $kind,
+					'chunk' => 1000,
+				)
+			);
+			$state               = $job->step( $state );
+			$this->assertContains( $acf_id . ':one', $this->copier->calls );
+			$this->assertSame( $ids[ $kind ], $state['after'] );
+			// Resuming after the last ID visits nothing.
+			$this->copier->calls = array();
+			$state               = $job->step( $state );
+			$this->assertSame( array(), $this->copier->calls );
+			$this->assertTrue( $state['done'] );
+		}
+	}
+
+	/**
+	 * Every ID the job builds decodes to the matching object type in the bridge.
+	 */
+	public function test_ids_decode_in_bridge() {
+		$this->assertSame( \NF\Storage\ObjectType::Term, \NF\Acf\Bridge::decode( 'term_5' )[0] );
+		$this->assertSame( \NF\Storage\ObjectType::User, \NF\Acf\Bridge::decode( 'user_5' )[0] );
+		$this->assertSame( \NF\Storage\ObjectType::Comment, \NF\Acf\Bridge::decode( 'comment_5' )[0] );
+		$this->assertSame( \NF\Storage\ObjectType::Option, \NF\Acf\Bridge::decode( 'options' )[0] );
+		$this->assertNull( \NF\Acf\Bridge::decode( 'site_settings' ) );
 	}
 }
