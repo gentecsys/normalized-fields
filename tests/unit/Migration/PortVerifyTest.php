@@ -11,6 +11,8 @@ use NF\Migration\ValueComparer;
 
 require_once __DIR__ . '/class-nf-test-port-source.php';
 
+// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter -- Closure doubles must match the reader signatures.
+
 /**
  * Comparer, verifier and job with doubles: no ACF needed.
  */
@@ -122,8 +124,8 @@ class PortVerifyTest extends WP_UnitTestCase {
 	 * No post type, or no ACF, stops with an error.
 	 */
 	public function test_job_errors() {
-		$source         = new NF_Test_Port_Source();
-		$job            = new PortVerifyJob( $source, new PortVerifier() );
+		$source = new NF_Test_Port_Source();
+		$job    = new PortVerifyJob( $source, new PortVerifier() );
 		$this->assertSame( 'no_post_type', $job->step( $job->init( array() ) )['error'] );
 		$source->loaded = false;
 		$this->assertSame( 'acf_unavailable', $job->step( $job->init( array( 'post_type' => 'event' ) ) )['error'] );
