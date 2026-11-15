@@ -124,8 +124,8 @@ final class RowSorter {
 		 * @param int                            $objectId Object ID.
 		 * @param array<string,string>           $sort     The rule.
 		 */
-		$filtered = apply_filters( // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-			'nf/repeater/sort_rows',
+		$filtered = apply_filters(
+			'nf/repeater/sort_rows', // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$rows,
 			array( 'key' => $fieldKey ),
 			$objectId,
