@@ -55,15 +55,15 @@ final class ObjectPortJob implements JobInterface {
 	 */
 	public function init( array $args ): array {
 		return array(
-			'kind'    => sanitize_key( (string) ( $args['kind'] ?? '' ) ),
-			'chunk'   => max( 1, absint( $args['chunk'] ?? self::CHUNK ) ),
-			'after'   => 0,
-			'objects' => 0,
-			'empty'   => 0,
+			'kind'        => sanitize_key( (string) ( $args['kind'] ?? '' ) ),
+			'chunk'       => max( 1, absint( $args['chunk'] ?? self::CHUNK ) ),
+			'after'       => 0,
+			'objects'     => 0,
+			'empty'       => 0,
 			'unsupported' => 0,
-			'values'  => 0,
-			'error'   => '',
-			'done'    => false,
+			'values'      => 0,
+			'error'       => '',
+			'done'        => false,
 		);
 	}
 
@@ -115,8 +115,8 @@ final class ObjectPortJob implements JobInterface {
 	/**
 	 * Copy every portable field of one object and update the counters.
 	 *
-	 * @param array<string,mixed>             $state  State.
-	 * @param string                          $acf_id ACF object ID.
+	 * @param array<string,mixed>            $state  State.
+	 * @param string                         $acf_id ACF object ID.
 	 * @param array<int,array<string,mixed>> $fields Portable fields.
 	 * @return array<string,mixed>
 	 */
