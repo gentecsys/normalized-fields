@@ -60,6 +60,22 @@ final class Plugin {
 	private static ?Storage\FieldMap $fieldMap = null;
 
 	/**
+	 * Row sorter, created on first use.
+	 *
+	 * @var Storage\RowSorter|null
+	 */
+	private static ?Storage\RowSorter $sorter = null;
+
+	/**
+	 * Series row sorter and its registered custom sorters.
+	 *
+	 * @return Storage\RowSorter
+	 */
+	public static function sorter(): Storage\RowSorter {
+		return self::$sorter ??= new Storage\RowSorter();
+	}
+
+	/**
 	 * Store, created on first use.
 	 *
 	 * @var Storage\Store|null
@@ -81,7 +97,7 @@ final class Plugin {
 	 * @return Storage\Store
 	 */
 	public static function store(): Storage\Store {
-		return self::$store ??= new Storage\Store( self::db(), self::fields() );
+		return self::$store ??= new Storage\Store( self::db(), self::fields(), self::sorter() );
 	}
 
 	/**
