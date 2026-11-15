@@ -124,7 +124,7 @@ final class RowSorter {
 		 * @param int                            $objectId Object ID.
 		 * @param array<string,string>           $sort     The rule.
 		 */
-		$filtered = apply_filters(
+		$filtered = apply_filters( // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			'nf/repeater/sort_rows',
 			$rows,
 			array( 'key' => $fieldKey ),
@@ -134,7 +134,7 @@ final class RowSorter {
 				'by'      => $rule->by,
 				'order'   => $rule->order,
 				'compare' => $rule->compare,
-				'empty'   => $rule->empty,
+				'empty'   => $rule->blanks,
 			)
 		);
 		return is_array( $filtered ) ? array_values( $filtered ) : $rows;
@@ -169,7 +169,7 @@ final class RowSorter {
 			foreach ( $rows as $i => $row ) {
 				$keys[ $i ] = $dates[ $ids[ $i ] ] ?? null;
 			}
-			return $this->sortByKeys( $rows, $keys, 'binary', $desc, $rule->empty );
+			return $this->sortByKeys( $rows, $keys, 'binary', $desc, $rule->blanks );
 		}
 		if ( str_starts_with( $rule->by, 'sub_field:' ) ) {
 			$sub  = substr( $rule->by, 10 );
@@ -177,7 +177,7 @@ final class RowSorter {
 			foreach ( $rows as $i => $row ) {
 				$keys[ $i ] = $row[ $sub ] ?? null;
 			}
-			return $this->sortByKeys( $rows, $keys, $rule->compare, $desc, $rule->empty );
+			return $this->sortByKeys( $rows, $keys, $rule->compare, $desc, $rule->blanks );
 		}
 		return $rows;
 	}
@@ -215,25 +215,25 @@ final class RowSorter {
 	 * @param array<int,mixed>               $keys    Sort key per row index.
 	 * @param string                         $compare locale | natural | binary.
 	 * @param bool                           $desc    Descending.
-	 * @param string                         $empty   first | last.
+	 * @param string                         $blanks  first | last.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function sortByKeys( array $rows, array $keys, string $compare, bool $desc, string $empty ): array {
+	private function sortByKeys( array $rows, array $keys, string $compare, bool $desc, string $blanks ): array {
 		$collator = 'locale' === $compare && class_exists( \Collator::class ) ? new \Collator( determine_locale() ) : null;
 		if ( null !== $collator ) {
 			$collator->setAttribute( \Collator::NUMERIC_COLLATION, \Collator::ON );
 		}
-		$order    = array_keys( $rows );
+		$order = array_keys( $rows );
 		usort(
 			$order,
-			function ( int $a, int $b ) use ( $keys, $compare, $desc, $empty, $collator ): int {
+			function ( int $a, int $b ) use ( $keys, $compare, $desc, $blanks, $collator ): int {
 				$ea = self::isEmpty( $keys[ $a ] );
 				$eb = self::isEmpty( $keys[ $b ] );
 				if ( $ea || $eb ) {
 					if ( $ea && $eb ) {
 						return $a <=> $b;
 					}
-					$first = 'first' === $empty;
+					$first = 'first' === $blanks;
 					return $ea === $first ? -1 : 1;
 				}
 				$r = self::compareValues( self::scalar( $keys[ $a ] ), self::scalar( $keys[ $b ] ), $compare, $collator );
@@ -320,7 +320,7 @@ final class RowSorter {
 		}
 		global $wpdb;
 		$holders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders built from the ID count.
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- core table, placeholders built from the ID count.
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_date FROM {$wpdb->posts} WHERE ID IN ($holders)", ...$ids ), ARRAY_A );
 		$out  = array();
 		foreach ( (array) $rows as $row ) {
