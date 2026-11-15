@@ -16,7 +16,7 @@ No `vendor/` or phpcs/phpstan run locally; `php -l` passes on all touched files.
 - The PLAN row's remaining items (ACF post type / taxonomy / options-page definitions, orphaned meta, raw-SQL scan) are split into new WP 2.6c2.
 
 ## Deviations / follow-ups (left for 2.6d or A0)
-- Not in this slice: porting ACF post types / taxonomies / options pages definitions, orphaned-meta counts and the raw-SQL scan in the report. The job state gives object and value counts only.
+- Not in this slice: porting ACF post types / taxonomies / options pages definitions, orphaned-meta counts and the raw-SQL scan in the report. The job state gives object, value, empty and unsupported counts. End-to-end Store writes (incl. ADR-0011 user tables) are left to 2.6c2/2.6d verify.
 - Custom options page `post_id` values other than `options` are decoded as unsupported by `Bridge::decode()`; they are visited but copy nothing until A5 extends it.
 - Network-wide user values rely on the Bridge/Store ADR-0011 handling; not tested end to end here.
 
