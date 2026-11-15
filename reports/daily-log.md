@@ -40,3 +40,4 @@
 2026-11-14 | WP 2.6b | merged | PR #53 merged; PLAN updated (2.6b merged, 2.6c ready); no new WP started | PR #53
 2026-11-15 | WP 2.6c | in-review (label attempted) | port_objects job for terms/users/comments/options; remaining definitions/report counts split to 2.6c2; reviewer blockers fixed, CI 28/28 green | PR #54 (wp/2.6c-port-objects)
 2026-11-15 | WP 2.6c2 | labelled nf:ready (see PR) | DefinitionReader/Porter, OrphanCounter, RawSqlScanner with tests; PHPCS/PHPStan fixed, CI 28/28 green, reviewer no blockers; 2.6c marked merged | PR #55 (wp/2.6c2-port-definitions)
+2026-11-15 | WP 2.6d | labelled nf:ready (CI not started at label time) | PortVerifier/PortVerifyJob/ValueComparer + wp nf port scan|run|verify; reviewer had no confirmed blockers, fixes applied; bench-dataset zero-mismatch run and posts-only limit deferred (see report) | PR #56 (wp/2.6d-port-verify)
