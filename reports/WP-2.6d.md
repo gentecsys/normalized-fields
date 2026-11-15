@@ -24,3 +24,7 @@ Agent: A9 (daily build agent). Branch `wp/2.6d-port-verify`.
 
 ## Contract change requested
 None.
+
+## Review follow-up (same PR)
+Fixed: per-field try/catch in verify, skip Series/Group when ACF returns a non-array, `port run` success line, `docs/cron.md` has `port_verify`.
+Known limits (not fixed): numeric-looking strings compare numerically (so "007" equals "7"); no real-ACF run of the Series/Group branch or date/true_false conversions; verify is posts only. These need the wp-env/real-site run before G2.
