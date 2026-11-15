@@ -20,3 +20,16 @@ if ( ! function_exists( 'nf_db' ) ) {
 		return \NF\Plugin::db();
 	}
 }
+
+if ( ! function_exists( 'nf_register_row_sorter' ) ) {
+	/**
+	 * Register a custom Series row sorter, usable as `callback:<name>` in a field's `nf_sort.by`.
+	 *
+	 * @param string              $name Sorter name.
+	 * @param array<string,mixed> $args `label` and `compare` (callable( row, row ): int).
+	 * @return bool
+	 */
+	function nf_register_row_sorter( string $name, array $args ): bool {
+		return \NF\Plugin::sorter()->register( $name, $args );
+	}
+}
