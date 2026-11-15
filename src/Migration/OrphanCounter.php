@@ -32,8 +32,8 @@ class OrphanCounter {
 	/**
 	 * Count references to unknown field keys among a batch.
 	 *
-	 * @param iterable    $refs  Field keys that `_name` rows point at.
-	 * @param string[]         $known Known field keys.
+	 * @param iterable $refs  Field keys that `_name` rows point at.
+	 * @param string[] $known Known field keys.
 	 * @return int
 	 */
 	public function countOrphans( iterable $refs, array $known ): int {
