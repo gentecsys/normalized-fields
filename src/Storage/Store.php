@@ -29,6 +29,7 @@ final class Store {
 	 *
 	 * @param BackendInterface $db     Backend.
 	 * @param FieldMap         $fields Field map.
+	 * @param RowSorter|null   $sorter Series row sorter.
 	 */
 	public function __construct( private BackendInterface $db, private FieldMap $fields, private ?RowSorter $sorter = null ) {}
 
@@ -181,7 +182,10 @@ final class Store {
 				$order[] = (int) $row['__nf_row_id'];
 			}
 		}
-		if ( $order === $rowIds || count( $order ) !== count( $rowIds ) ) {
+		if ( count( $order ) !== count( $rowIds ) || array_diff( $order, $rowIds ) !== array() ) {
+			return false; // A filter dropped or rebuilt rows: keep the stored order.
+		}
+		if ( $order === $rowIds ) {
 			return true;
 		}
 		$case = 'CASE row_id';

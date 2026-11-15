@@ -220,6 +220,9 @@ final class RowSorter {
 	 */
 	private function sortByKeys( array $rows, array $keys, string $compare, bool $desc, string $empty ): array {
 		$collator = 'locale' === $compare && class_exists( \Collator::class ) ? new \Collator( determine_locale() ) : null;
+		if ( null !== $collator ) {
+			$collator->setAttribute( \Collator::NUMERIC_COLLATION, \Collator::ON );
+		}
 		$order    = array_keys( $rows );
 		usort(
 			$order,
@@ -246,16 +249,13 @@ final class RowSorter {
 	/**
 	 * Compare two non-empty scalars.
 	 *
-	 * @param string        $a        First.
-	 * @param string        $b        Second.
-	 * @param string        $compare  Mode.
+	 * @param string         $a        First.
+	 * @param string         $b        Second.
+	 * @param string         $compare  Mode.
 	 * @param \Collator|null $collator Collator for locale mode.
 	 * @return int
 	 */
 	private static function compareValues( string $a, string $b, string $compare, ?\Collator $collator ): int {
-		if ( is_numeric( $a ) && is_numeric( $b ) ) {
-			return (float) $a <=> (float) $b;
-		}
 		if ( 'binary' === $compare ) {
 			return strcmp( $a, $b ) <=> 0;
 		}

@@ -73,12 +73,30 @@ class RowSorterTest extends WP_UnitTestCase {
 	 */
 	public function test_sub_field_sort() {
 		$rows = array(
-			array( 'name' => 'b', 'n' => 1 ),
-			array( 'name' => '', 'n' => 2 ),
-			array( 'name' => 'a', 'n' => 3 ),
-			array( 'name' => 'b', 'n' => 4 ),
-			array( 'name' => 'item10', 'n' => 5 ),
-			array( 'name' => 'item9', 'n' => 6 ),
+			array(
+				'name' => 'b',
+				'n'    => 1,
+			),
+			array(
+				'name' => '',
+				'n'    => 2,
+			),
+			array(
+				'name' => 'a',
+				'n'    => 3,
+			),
+			array(
+				'name' => 'b',
+				'n'    => 4,
+			),
+			array(
+				'name' => 'item10',
+				'n'    => 5,
+			),
+			array(
+				'name' => 'item9',
+				'n'    => 6,
+			),
 		);
 		$asc  = $this->sorter->sort( $rows, new RowSortRule( 'manual', 'sub_field:name', 'asc', 'natural', 'last' ) );
 		$this->assertSame( array( 3, 1, 4, 6, 5, 2 ), array_column( $asc, 'n' ) );
@@ -96,8 +114,16 @@ class RowSorterTest extends WP_UnitTestCase {
 	 */
 	public function test_date_and_numeric() {
 		$rows = array(
-			array( 'name' => 'x', 'd' => '2026-03-01 10:00:00', 'v' => '10' ),
-			array( 'name' => 'y', 'd' => '2025-12-31 23:59:59', 'v' => '9' ),
+			array(
+				'name' => 'x',
+				'd'    => '2026-03-01 10:00:00',
+				'v'    => '10',
+			),
+			array(
+				'name' => 'y',
+				'd'    => '2025-12-31 23:59:59',
+				'v'    => '9',
+			),
 		);
 		$by_d = $this->sorter->sort( $rows, new RowSortRule( 'manual', 'sub_field:d' ) );
 		$this->assertSame( array( 'y', 'x' ), $this->names( $by_d ) );
@@ -110,10 +136,22 @@ class RowSorterTest extends WP_UnitTestCase {
 	 */
 	public function test_post_date_sort() {
 		$rows = array(
-			array( 'name' => 'one', 'speaker' => 1 ),
-			array( 'name' => 'none', 'speaker' => null ),
-			array( 'name' => 'two', 'speaker' => array( 2 ) ),
-			array( 'name' => 'three', 'speaker' => 3 ),
+			array(
+				'name'    => 'one',
+				'speaker' => 1,
+			),
+			array(
+				'name'    => 'none',
+				'speaker' => null,
+			),
+			array(
+				'name'    => 'two',
+				'speaker' => array( 2 ),
+			),
+			array(
+				'name'    => 'three',
+				'speaker' => 3,
+			),
 		);
 		$out  = $this->sorter->sort( $rows, new RowSortRule( 'manual', 'post_date:speaker' ) );
 		$this->assertSame( array( 'two', 'three', 'one', 'none' ), $this->names( $out ) );
@@ -137,9 +175,18 @@ class RowSorterTest extends WP_UnitTestCase {
 		);
 		$this->assertSame( array( 'price_then_name' => 'Price, then name' ), $this->sorter->sorters() );
 		$rows = array(
-			array( 'name' => 'b', 'price' => 2 ),
-			array( 'name' => 'z', 'price' => 1 ),
-			array( 'name' => 'a', 'price' => 2 ),
+			array(
+				'name'  => 'b',
+				'price' => 2,
+			),
+			array(
+				'name'  => 'z',
+				'price' => 1,
+			),
+			array(
+				'name'  => 'a',
+				'price' => 2,
+			),
 		);
 		$out  = $this->sorter->sort( $rows, new RowSortRule( 'manual', 'callback:price_then_name' ) );
 		$this->assertSame( array( 'z', 'a', 'b' ), $this->names( $out ) );
