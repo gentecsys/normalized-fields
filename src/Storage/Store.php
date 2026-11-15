@@ -30,7 +30,7 @@ final class Store {
 	 * @param BackendInterface $db     Backend.
 	 * @param FieldMap         $fields Field map.
 	 */
-	public function __construct( private BackendInterface $db, private FieldMap $fields ) {}
+	public function __construct( private BackendInterface $db, private FieldMap $fields, private ?RowSorter $sorter = null ) {}
 
 	/**
 	 * Read a field. Scalar fields return the value or null; multi-valued fields return a list in order.
@@ -106,6 +106,23 @@ final class Store {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function getRows( ObjectType $type, int $id, string $key ): array {
+		$out  = $this->readRows( $type, $id, $key );
+		$rule = $this->sorter?->rule( $key );
+		if ( null !== $rule && RowSortRule::ON_READ === $rule->mode ) {
+			return $this->sorter->sort( $out, $rule, $key, $id );
+		}
+		return $out;
+	}
+
+	/**
+	 * Read Series rows in stored order.
+	 *
+	 * @param ObjectType $type Object type.
+	 * @param int        $id   Object ID.
+	 * @param string     $key  Series field key.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function readRows( ObjectType $type, int $id, string $key ): array {
 		$def  = $this->rowsField( $key );
 		$subs = $this->fields->children( $def->id );
 		$rows = $this->db->select(
@@ -132,6 +149,66 @@ final class Store {
 	}
 
 	/**
+	 * Sort the stored Series rows once and rewrite `row_order` in one statement (editor action, or any mode on demand).
+	 *
+	 * @param ObjectType       $type Object type.
+	 * @param int              $id   Object ID.
+	 * @param string           $key  Series field key.
+	 * @param RowSortRule|null $rule Rule; defaults to the field's own rule.
+	 * @return bool False when there is no rule or no sorter.
+	 */
+	public function sortRows( ObjectType $type, int $id, string $key, ?RowSortRule $rule = null ): bool {
+		$rule ??= $this->sorter?->rule( $key );
+		if ( null === $this->sorter || null === $rule ) {
+			return false;
+		}
+		$def    = $this->rowsField( $key );
+		$ids    = $this->db->select(
+			'SELECT row_id FROM ' . $this->db->table( 'nf_rows' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND parent_row_id = 0 ORDER BY row_order',
+			array( $type->value, $id, $def->id )
+		);
+		$rows   = $this->readRows( $type, $id, $key );
+		$rowIds = array_map( static fn( array $r ): int => (int) $r['row_id'], $ids );
+		$tagged = array();
+		foreach ( $rows as $i => $row ) {
+			$row['__nf_row_id'] = $rowIds[ $i ];
+			$tagged[]           = $row;
+		}
+		$sorted = $this->sorter->sort( $tagged, $rule->withMode( RowSortRule::MANUAL ), $key, $id );
+		$order  = array();
+		foreach ( $sorted as $row ) {
+			if ( isset( $row['__nf_row_id'] ) ) {
+				$order[] = (int) $row['__nf_row_id'];
+			}
+		}
+		if ( $order === $rowIds || count( $order ) !== count( $rowIds ) ) {
+			return true;
+		}
+		$case = 'CASE row_id';
+		$args = array();
+		foreach ( $order as $pos => $row_id ) {
+			$case  .= ' WHEN ? THEN ?';
+			$args[] = $row_id;
+			$args[] = $pos;
+		}
+		$case .= ' END';
+		$marks = implode( ',', array_fill( 0, count( $order ), '?' ) );
+		$this->db->execute(
+			'UPDATE ' . $this->db->table( 'nf_rows' ) . ' SET row_order = ' . $case . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND parent_row_id = 0 AND row_id IN (' . $marks . ')',
+			array_merge( $args, array( $type->value, $id, $def->id ), $order )
+		);
+		/**
+		 * Fires after rows were re-sorted and stored.
+		 *
+		 * @param string $key   Series field key.
+		 * @param int    $id    Object ID.
+		 * @param int[]  $order New row_id order.
+		 */
+		do_action( 'nf/repeater/sorted', array( 'key' => $key ), $id, $order );
+		return true;
+	}
+
+	/**
 	 * Replace all Series rows. Row order is the list order. Sub-fields must be registered with the Series as parent.
 	 *
 	 * @param ObjectType                     $type Object type.
@@ -144,6 +221,10 @@ final class Store {
 	public function setRows( ObjectType $type, int $id, string $key, array $rows ): void {
 		$def    = $this->rowsField( $key );
 		$byName = array();
+		$rule   = $this->sorter?->rule( $key );
+		if ( null !== $rule && RowSortRule::ON_SAVE === $rule->mode ) {
+			$rows = $this->sorter->sort( $rows, $rule, $key, $id );
+		}
 		foreach ( $this->fields->children( $def->id ) as $sub ) {
 			if ( ! $sub->table->hasValues() ) {
 				throw new \InvalidArgumentException( 'Nested Series are not supported yet.' );
