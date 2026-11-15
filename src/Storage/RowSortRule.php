@@ -27,14 +27,14 @@ final class RowSortRule {
 	 * @param string $by      sub_field:<name> | post_date:<sub_field> | callback:<sorter>.
 	 * @param string $order   asc | desc.
 	 * @param string $compare locale | natural | binary.
-	 * @param string $empty   first | last.
+	 * @param string $blanks first | last.
 	 */
 	public function __construct(
 		public readonly string $mode,
 		public readonly string $by,
 		public readonly string $order = 'asc',
 		public readonly string $compare = 'locale',
-		public readonly string $empty = 'last'
+		public readonly string $blanks = 'last'
 	) {}
 
 	/**
@@ -48,9 +48,9 @@ final class RowSortRule {
 		if ( '' === $by ) {
 			return null;
 		}
-		$pick = static function ( string $key, array $allowed, string $default ) use ( $setting ): string {
-			$value = isset( $setting[ $key ] ) ? (string) $setting[ $key ] : $default;
-			return in_array( $value, $allowed, true ) ? $value : $default;
+		$pick = static function ( string $key, array $allowed, string $fallback ) use ( $setting ): string {
+			$value = isset( $setting[ $key ] ) ? (string) $setting[ $key ] : $fallback;
+			return in_array( $value, $allowed, true ) ? $value : $fallback;
 		};
 		return new self(
 			$pick( 'mode', array( self::MANUAL, self::ON_SAVE, self::ON_READ ), self::MANUAL ),
@@ -68,6 +68,6 @@ final class RowSortRule {
 	 * @return self
 	 */
 	public function withMode( string $mode ): self {
-		return new self( $mode, $this->by, $this->order, $this->compare, $this->empty );
+		return new self( $mode, $this->by, $this->order, $this->compare, $this->blanks );
 	}
 }

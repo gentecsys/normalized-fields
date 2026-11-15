@@ -208,7 +208,7 @@ final class Store {
 		 * @param int    $id    Object ID.
 		 * @param int[]  $order New row_id order.
 		 */
-		do_action( 'nf/repeater/sorted', array( 'key' => $key ), $id, $order );
+		do_action( 'nf/repeater/sorted', array( 'key' => $key ), $id, $order ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		return true;
 	}
 
