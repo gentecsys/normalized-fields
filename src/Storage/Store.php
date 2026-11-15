@@ -204,9 +204,9 @@ final class Store {
 		/**
 		 * Fires after rows were re-sorted and stored.
 		 *
-		 * @param string $key   Series field key.
-		 * @param int    $id    Object ID.
-		 * @param int[]  $order New row_id order.
+		 * @param array{key:string} $field Field info.
+		 * @param int               $id    Object ID.
+		 * @param int[]             $order New row_id order.
 		 */
 		do_action( 'nf/repeater/sorted', array( 'key' => $key ), $id, $order ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		return true;
