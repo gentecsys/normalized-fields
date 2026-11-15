@@ -53,7 +53,7 @@ class DefinitionReader {
 			$wpdb->prepare( "SELECT ID, post_content, post_status FROM {$wpdb->posts} WHERE post_type = %s AND post_status IN ('publish','acf-disabled') ORDER BY ID ASC", $type ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
-		$out = array();
+		$out  = array();
 		foreach ( $rows as $row ) {
 			$data = self::decode( (string) $row['post_content'] );
 			if ( null === $data ) {

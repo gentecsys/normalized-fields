@@ -28,7 +28,7 @@ final class RawSqlScanner {
 	 */
 	public function scanSource( string $code ): array {
 		$hits = array();
-		foreach ( preg_split( '/\R/', $code ) ?: array() as $i => $line ) {
+		foreach ( (array) preg_split( '/\R/', $code ) as $i => $line ) {
 			if ( 1 === preg_match( self::PATTERN, $line ) ) {
 				$hits[] = $i + 1;
 			}

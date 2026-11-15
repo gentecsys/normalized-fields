@@ -32,20 +32,20 @@ final class DefinitionPorter {
 	 * @return array{post_types:array<int,array<string,mixed>>,taxonomies:array<int,array<string,mixed>>,options_pages:array<int,array<string,mixed>>,counts:array<string,int>}
 	 */
 	public function port( array $post_types, array $taxonomies, array $options_pages ): array {
-		$out = array(
+		$sections = array(
 			'post_types'    => $this->clean( $post_types, 'post_type' ),
 			'taxonomies'    => $this->clean( $taxonomies, 'taxonomy' ),
 			'options_pages' => $this->clean( $options_pages, 'menu_slug' ),
 		);
-		$out['counts'] = array(
-			'post_types'    => count( $out['post_types'] ),
-			'taxonomies'    => count( $out['taxonomies'] ),
-			'options_pages' => count( $out['options_pages'] ),
-			'skipped'       => ( count( $post_types ) - count( $out['post_types'] ) )
-				+ ( count( $taxonomies ) - count( $out['taxonomies'] ) )
-				+ ( count( $options_pages ) - count( $out['options_pages'] ) ),
+		$counts   = array(
+			'post_types'    => count( $sections['post_types'] ),
+			'taxonomies'    => count( $sections['taxonomies'] ),
+			'options_pages' => count( $sections['options_pages'] ),
+			'skipped'       => ( count( $post_types ) - count( $sections['post_types'] ) )
+				+ ( count( $taxonomies ) - count( $sections['taxonomies'] ) )
+				+ ( count( $options_pages ) - count( $sections['options_pages'] ) ),
 		);
-		return $out;
+		return $sections + array( 'counts' => $counts );
 	}
 
 	/**

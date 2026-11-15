@@ -32,7 +32,7 @@ class OrphanCounter {
 	/**
 	 * Count references to unknown field keys among a batch.
 	 *
-	 * @param iterable<string> $refs  Field keys that `_name` rows point at.
+	 * @param iterable    $refs  Field keys that `_name` rows point at.
 	 * @param string[]         $known Known field keys.
 	 * @return int
 	 */
@@ -75,7 +75,8 @@ class OrphanCounter {
 				$refs[] = (string) $row['meta_value'];
 			}
 			$total += $this->countOrphans( $refs, $known );
-		} while ( count( $rows ) >= max( 1, $chunk ) );
+			$more   = count( $rows ) >= max( 1, $chunk );
+		} while ( $more );
 		return $total;
 	}
 }
