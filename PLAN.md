@@ -61,8 +61,8 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.6b | Port: value reader and writer for posts | A9 | M | 2.6a, 2.5 | merged | wp/2.6b-port-posts | ACF values read raw (formatting off) and written through `Store` for one post type, resumable job on `JobRunner`; scanner feeder (`acf_get_field_groups()`), clone target resolution; unit tests |
 | 2.6c | Port: terms, users, options, comments (value jobs) | A9 | M | 2.6b | merged | wp/2.6c-port-objects | `port_objects` job copies terms, users (network-wide), comments and options pages; object/value/empty/unsupported counts in job state |
 | 2.6c2 | Port: definitions and report counts | A9 | S | 2.6c | merged | wp/2.6c2-port-definitions | ACF post types/taxonomies/options pages definitions ported; orphaned meta and raw-SQL scan counts in the report |
-| 2.6d | Port: verify, re-port, WP-CLI | A9 | M | 2.6c2 | in-review | wp/2.6d-port-verify | Dual load ACF vs NF, mismatch list, `wp nf port scan/run/verify`; zero mismatches on the bench dataset; owner confirms on a real-site copy at G2 |
-| 2.7 | Repeater sorting | A2 | S | 2.1 | ready | | Unit tests for all three modes |
+| 2.6d | Port: verify, re-port, WP-CLI | A9 | M | 2.6c2 | merged | wp/2.6d-port-verify | Dual load ACF vs NF, mismatch list, `wp nf port scan/run/verify`; zero mismatches on the bench dataset; owner confirms on a real-site copy at G2 |
+| 2.7 | Repeater sorting | A2 | S | 2.1 | in-review | wp/2.7-repeater-sorting | Unit tests for all three modes |
 
 **Gate G2 [owner]:** verify reports zero mismatches on a staging copy of a real site.
 
