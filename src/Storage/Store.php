@@ -34,6 +34,18 @@ final class Store {
 	public function __construct( private BackendInterface $db, private FieldMap $fields, private ?RowSorter $sorter = null ) {}
 
 	/**
+	 * Option listing the field IDs that have held an off-type value (see offTypeIds()).
+	 */
+	public const OFF_TYPE_OPTION = 'nf_offtype_fields';
+
+	/**
+	 * Memo of the option, keyed by field ID.
+	 *
+	 * @var array<int,true>|null
+	 */
+	private ?array $offType = null;
+
+	/**
 	 * Read a field. Scalar fields return the value or null; multi-valued fields return a list in order.
 	 *
 	 * @param ObjectType $type Object type.
@@ -365,7 +377,63 @@ final class Store {
 		if ( DataTable::Str === $def->table ) {
 			$rows = $this->withSpill( $def, $type, $id, $row_id, $rows );
 		}
+		if ( array() === $rows && $this->hasOffType( $def ) ) {
+			$json = $this->db->select(
+				'SELECT value FROM ' . $this->db->table( 'nf_json' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ? AND position = 0',
+				array( $type->value, $id, $def->id, $row_id )
+			);
+			return array() === $json ? array() : array( DataTable::Json->fromDb( $json[0]['value'] ) );
+		}
 		return array_map( fn( array $r ): mixed => $def->table->fromDb( $r['value'] ), $rows );
+	}
+
+	/**
+	 * Field IDs that have held an off-type value: an array in a scalar field (an importer that writes arrays
+	 * into an ACF text field). Only these fields pay for the nf_json lookup on an empty read.
+	 *
+	 * @return array<int,true>
+	 */
+	private function offTypeIds(): array {
+		if ( null === $this->offType ) {
+			$ids           = get_option( self::OFF_TYPE_OPTION, array() );
+			$this->offType = array_fill_keys( array_map( 'intval', is_array( $ids ) ? $ids : array() ), true );
+		}
+		return $this->offType;
+	}
+
+	/**
+	 * Whether a scalar field may have values in nf_json.
+	 *
+	 * @param FieldDef $def Field.
+	 * @return bool
+	 */
+	private function hasOffType( FieldDef $def ): bool {
+		return DataTable::Json !== $def->table && isset( $this->offTypeIds()[ $def->id ] );
+	}
+
+	/**
+	 * Whether a value cannot go into the field's typed table and is kept in nf_json instead, as ACF returns it.
+	 *
+	 * @param FieldDef $def   Field.
+	 * @param mixed    $value Value.
+	 * @return bool
+	 */
+	private static function isOffType( FieldDef $def, mixed $value ): bool {
+		return ! $def->multi && DataTable::Json !== $def->table && $def->table->hasValues() && ( is_array( $value ) || is_object( $value ) );
+	}
+
+	/**
+	 * Record that a field holds an off-type value.
+	 *
+	 * @param FieldDef $def Field.
+	 * @return void
+	 */
+	private function markOffType( FieldDef $def ): void {
+		if ( isset( $this->offTypeIds()[ $def->id ] ) ) {
+			return;
+		}
+		$this->offType[ $def->id ] = true;
+		update_option( self::OFF_TYPE_OPTION, array_keys( (array) $this->offType ), true );
 	}
 
 	/**
@@ -417,6 +485,14 @@ final class Store {
 	 */
 	private function writeValues( FieldDef $def, ObjectType $type, int $id, int $row_id, mixed $value ): void {
 		$this->deleteValues( $def, $type, $id, $row_id );
+		if ( self::isOffType( $def, $value ) ) {
+			$this->markOffType( $def );
+			$this->db->execute(
+				'INSERT INTO ' . $this->db->table( 'nf_json' ) . ' (object_type, object_id, field_id, row_id, position, value) VALUES (?, ?, ?, ?, 0, ?)',
+				array( $type->value, $id, $def->id, $row_id, DataTable::Json->toDb( $value ) )
+			);
+			return;
+		}
 		$list = $def->multi ? ( is_array( $value ) ? array_values( $value ) : ( null === $value ? array() : array( $value ) ) ) : ( null === $value ? array() : array( $value ) );
 		$t    = $this->db->table( $def->table->table() );
 		foreach ( $list as $pos => $v ) {
@@ -455,6 +531,12 @@ final class Store {
 				array( $type->value, $id, $def->id, $row_id )
 			);
 		}
+		if ( $this->hasOffType( $def ) ) {
+			$this->db->execute(
+				'DELETE FROM ' . $this->db->table( 'nf_json' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND row_id = ?',
+				array( $type->value, $id, $def->id, $row_id )
+			);
+		}
 	}
 
 	/**
@@ -490,6 +572,15 @@ final class Store {
 						array_merge( array( $type->value, $id ), $ids )
 					);
 				}
+			}
+		}
+		foreach ( $this->fields->children( $def->id ) as $sub ) {
+			if ( $this->hasOffType( $sub ) && ! isset( $seen['json'] ) ) {
+				$seen['json'] = true;
+				$this->db->execute(
+					'DELETE FROM ' . $this->db->table( 'nf_json' ) . ' WHERE object_type = ? AND object_id = ? AND row_id IN (' . $marks . ')',
+					array_merge( array( $type->value, $id ), $ids )
+				);
 			}
 		}
 		$this->db->execute(
