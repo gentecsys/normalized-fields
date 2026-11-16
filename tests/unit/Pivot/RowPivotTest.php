@@ -249,6 +249,25 @@ class RowPivotTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A Series that feeds row slots in one set cannot feed another set; the error names the first set.
+	 */
+	public function test_series_feeds_only_one_pivot_set(): void {
+		$other = $this->pivot->setId( ObjectType::Post, self::TYPE . '_b' );
+		try {
+			$this->pivot->rows()->assignSlot( $other, 'field_t22c_sessions', 'field_t22c_seats', 'i2' );
+			$this->fail( 'Second set should be refused' );
+		} catch ( InvalidArgumentException $e ) {
+			$this->assertStringContainsString( 'pivot set ' . $this->pivot_id, $e->getMessage() );
+			$this->assertStringContainsString( self::TYPE, $e->getMessage() );
+		}
+		// Re-assigning inside the owning set still works.
+		$this->pivot->rows()->assignSlot( $this->pivot_id, 'field_t22c_sessions', 'field_t22c_seats', 'i2' );
+		$db = nf_db();
+		$this->assertSame( array(), $db->select( 'SELECT slot FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $other ) ), 'The refused call wrote nothing.' );
+		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $other ) );
+	}
+
+	/**
 	 * Multi-valued, wrong-type and out-of-range assignments are refused.
 	 */
 	public function test_assignment_rules(): void {
