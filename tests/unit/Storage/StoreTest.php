@@ -99,6 +99,56 @@ class StoreTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An array in a scalar field (an importer writing arrays into an ACF text field) is kept as is in nf_json,
+	 * read back unchanged, replaced by a scalar again, and deleted with its Series row.
+	 */
+	public function test_off_type_values_round_trip() {
+		$websites = array(
+			array(
+				'business' => 'https://example.com/',
+				'booking'  => '',
+			),
+		);
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', $websites );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_price', array( array() ) );
+		$this->store->set( ObjectType::Post, 101, 'field_t11_cap', array( 'id' => '2' ) );
+		$this->assertSame( $websites, $this->store->get( ObjectType::Post, 101, 'field_t11_title' ) );
+		$this->assertSame( array( array() ), $this->store->get( ObjectType::Post, 101, 'field_t11_price' ) );
+		$this->assertSame( array( 'id' => '2' ), $this->store->get( ObjectType::Post, 101, 'field_t11_cap' ) );
+		$title = $this->fields->byKey( 'field_t11_title' );
+		$this->assertContains( $title->id, array_map( 'intval', (array) get_option( Store::OFF_TYPE_OPTION ) ) );
+
+		// Back to a scalar: the nf_json value goes.
+		$this->store->set( ObjectType::Post, 101, 'field_t11_title', 'Plain' );
+		$this->assertSame( 'Plain', $this->store->get( ObjectType::Post, 101, 'field_t11_title' ) );
+		$db = nf_db();
+		$this->assertSame( array(), $db->select( 'SELECT value FROM ' . $db->table( 'nf_json' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ?', array( ObjectType::Post->value, 101, $title->id ) ) );
+
+		// A new Store (another request) still finds the value; delete removes it.
+		$fresh = new Store( $db, $this->fields );
+		$this->assertSame( array( array() ), $fresh->get( ObjectType::Post, 101, 'field_t11_price' ) );
+		$fresh->delete( ObjectType::Post, 101, 'field_t11_price' );
+		$this->assertNull( $fresh->get( ObjectType::Post, 101, 'field_t11_price' ) );
+
+		// Inside a Series.
+		$this->store->setRows(
+			ObjectType::Post,
+			102,
+			'field_t11_sessions',
+			array(
+				array(
+					'name'   => array( 'en' => 'Talk' ),
+					'length' => 30,
+				),
+			)
+		);
+		$rows = $this->store->getRows( ObjectType::Post, 102, 'field_t11_sessions' );
+		$this->assertSame( array( 'en' => 'Talk' ), $rows[0]['name'] );
+		$this->store->delete( ObjectType::Post, 102, 'field_t11_sessions' );
+		$this->assertSame( array(), $db->select( 'SELECT value FROM ' . $db->table( 'nf_json' ) . ' WHERE object_type = ? AND object_id = ?', array( ObjectType::Post->value, 102 ) ) );
+	}
+
+	/**
 	 * Values are isolated per object and object type.
 	 */
 	public function test_isolation() {
