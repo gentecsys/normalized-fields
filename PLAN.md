@@ -71,7 +71,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 3.0a | Enforce one pivot set per Series | A3 | S | G2 | merged | wp/3.0a-one-set-per-series | Defining row slots for a Series that already feeds another pivot set fails with an error naming that set (DECISIONS 2026-11-16); test |
-| 3.0b | Scan and health report off-type values | A9 | S | G2 | ready | | `wp nf port scan` counts per field how many values are arrays in scalar fields (sampled, capped) and says they are kept in `nf_json` and not queryable; `nf_offtype_fields` listed in the health data; tests |
+| 3.0b | Scan and health report off-type values | A9 | S | G2 | in-progress | | `wp nf port scan` counts per field how many values are arrays in scalar fields (sampled, capped) and says they are kept in `nf_json` and not queryable; `nf_offtype_fields` listed in the health data; tests |
 | 3.1 | Compiler and planner | A4 | XL | G2 | ready | | Compiler corpus green; `explain()` matches |
 | 3.2 | `NF::query()` builder | A4 | L | 3.1 | todo | | Every design-doc example runs as a test |
 | 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` on `WP_Query` args; every "Pagination parity" case in `docs/design.md` passes |
