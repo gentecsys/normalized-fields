@@ -112,7 +112,9 @@ final class PortCommand {
 		$record = $runner->record( $id );
 		$state  = (array) ( $record['state'] ?? array() );
 		if ( 'done' !== $status || '' !== (string) ( $state['error'] ?? '' ) ) {
-			\WP_CLI::error( sprintf( 'Job %s ended as %s: %s', $id, $status, (string) ( $state['error'] ?? $record['error'] ?? '' ) ) );
+			// A failed job keeps its exception on the record; the state's own error is often ''.
+			$error = (string) ( $state['error'] ?? '' );
+			\WP_CLI::error( sprintf( 'Job %s ended as %s: %s', $id, $status, '' !== $error ? $error : (string) ( $record['error'] ?? '' ) ) );
 		}
 		return $state;
 	}
