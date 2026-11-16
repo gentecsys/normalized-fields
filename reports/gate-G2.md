@@ -29,3 +29,14 @@ Verify reports zero mismatches on a staging copy of a real site. This needs the 
 ## Decisions for the owner
 - Approve G2 by adding `- G2: approved YYYY-MM-DD` under "Gate approvals" in `DECISIONS.md`, or add `- G2: changes requested ...`.
 - Review any D-xx entries still marked "pending owner confirmation" and the "(made by daily agent)" contract changes in `DECISIONS.md`.
+
+## Owner run (2026-11-16, Claude on the owner's LocalWP)
+
+Site: a LocalWP clone (`nf-g2-visitmaine`) of visitmaine.com: WordPress 7.1.4, ACF PRO 6.6.1, 21 field groups (192 fields, 6 repeaters), all reported portable by `wp nf port scan`. The original site was only read (database export).
+
+First run: 18 of 20 post types clean. Findings, all fixed on `main`:
+- `wp nf port verify` compared raw ACF values with typed NF values (false mismatches on every date, time and repeater field): fixed in `927c590`.
+- The MDB importer stores arrays in ACF text fields (`products`, `websites`, `email_addresses`, `phone_numbers`, `custom`, and empty structures in `socials`, `hours`, `external_data`, `cities_served`): NF dropped them. Owner decision: keep them as is (DECISIONS 2026-11-16); 19 fields, 29,751 values now in `nf_json`.
+- The site's SEO plugin (`autodescription`) is missing `inc/classes/helper/query.class.php` on the original site too, so any post query in WP-CLI fatals; deactivated on the clone. The port CLI printed an empty error for the failed job; it now shows the job's exception.
+
+Second run: zero mismatches in all 20 post types, 7,470 posts, 127,684 values ported (largest: `mdb_listing` 3,633 posts, 101,292 values, port 24 s, verify 10 s). Verify covers posts only (terms, users, options: see `reports/WP-2.6d.md`).

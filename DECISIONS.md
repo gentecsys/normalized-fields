@@ -113,12 +113,18 @@ Owner agreed to more decimal places after Google Map `lat`/`lng` read back round
 - **Decision:** a Series (repeater) may feed row slots in only one pivot set. Defining row slots for a Series that already feeds another pivot set is rejected when the pivot set is defined, with an error naming the other set.
 - **Why:** `nf_row_pivot` is keyed by `row_id`; a second pivot set for the same Series would write the same rows twice (G2 open risk). One set covers every case in the design doc and can be relaxed later with a `set_id` column.
 
+### Arrays in scalar fields are kept as is (2026-11-16, owner)
+- **Decision:** when a scalar field (text, number, date, image/post ID) holds an array, as when an importer writes arrays into an ACF text field with `update_post_meta()`, NF keeps the array exactly as ACF returns it: the Store writes it to `nf_json` (same object, field, row, position 0) instead of the typed table, and reads return it unchanged. Field IDs that ever held one are listed in the autoloaded option `nf_offtype_fields`, so only those fields pay for the `nf_json` lookup on an empty read. An image/post array with `ID` still becomes the ID.
+- **Why:** found at G2 on a visitmaine.com clone: the MDB importer stores `products`, `websites`, `email_addresses`, `phone_numbers` and `custom` as arrays in text fields (about 24,000 values with data), and the theme reads them with `get_field()`. NF dropped them.
+- **Limits:** these values are not queryable (no pivot slot, no string index); the pivot, archive and other direct readers of the typed tables skip them.
+
 ## Gate approvals
 
 Only the owner edits this section. To approve a gate, add a line in the form `- G0: approved YYYY-MM-DD (notes)`. The daily build agent won't start the next phase until the matching line exists. To ask for changes instead, add a line in the form `- G0: changes requested YYYY-MM-DD: <what>`.
 
 - G0: approved 2026-11-06 (owner, after the contract changes below)
 - G1: approved 2026-11-10 (owner: go; `bench-spike` CI job confirmed; local nf-dev benchmark at 10k/100k follows in `reports/gate-G1.md`)
+- G2: approved 2026-11-16 (owner; recorded by Claude after the clean run: a LocalWP clone of visitmaine.com with ACF PRO 6.6.1, `wp nf port run` + `verify` on all 20 ACF post types, 7,470 posts and 127,684 values, zero mismatches; see `reports/gate-G2.md`)
 
 ### Contracts v0 drafted (2026-11-06, WP 0.5, made by daily agent, owner to review at G0)
 - **Decision:** `contracts/schema.sql` (all NF tables, MySQL dialect, `{p}` prefix, no `site_id`), `contracts/backend.md` (new: `BackendInterface` / `DialectInterface` seam), `contracts/rest.md` (public `nf/v1` part) and `contracts/nf-json.schema.json` are drafted; `contracts/api.md` came from WP 0.4.
