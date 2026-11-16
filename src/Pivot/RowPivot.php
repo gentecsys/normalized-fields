@@ -73,7 +73,7 @@ final class RowPivot {
 	/**
 	 * Refuse row slots for a Series that already feeds row slots in another pivot set (DECISIONS 2026-11-16).
 	 *
-	 * nf_row_pivot is keyed by row_id, so a second set would write the same rows twice.
+	 * The nf_row_pivot table is keyed by row_id, so a second set would write the same rows twice.
 	 *
 	 * @param int $pivotId  Pivot set id being defined.
 	 * @param int $seriesId Series field id.
@@ -92,7 +92,7 @@ final class RowPivot {
 					'This Series already feeds row slots in pivot set %1$d (object type %2$d, subtype "%3$s"). A Series can feed only one pivot set.',
 					(int) $rows[0]['pivot_id'],
 					(int) $rows[0]['object_type'],
-					(string) $rows[0]['subtype']
+					esc_html( (string) $rows[0]['subtype'] )
 				)
 			);
 		}
