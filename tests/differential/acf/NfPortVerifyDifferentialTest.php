@@ -2,7 +2,8 @@
 /**
  * Port verify (WP 2.6d) through real ACF: values saved with update_field() and mirrored by the bridge verify
  * with zero mismatches, including date and time pickers, Series rows and a sorted Series; a changed NF value
- * is still reported.
+ * is still reported. An importer that writes arrays into a text field with update_post_meta() ports and
+ * verifies clean, and get_field() keeps returning the array (found at G2).
  *
  * @package NormalizedFields
  */
@@ -12,6 +13,7 @@ declare(strict_types=1);
 namespace NF\Tests\Differential;
 
 use NF\Install\Schema;
+use NF\Migration\AcfCopier;
 use NF\Migration\PortVerifier;
 use NF\Plugin;
 use NF\Storage\ObjectType;
@@ -185,6 +187,33 @@ final class NfPortVerifyDifferentialTest extends TestCase {
 		} finally {
 			Plugin::sorter()->setRule( self::SERIES, null );
 		}
+	}
+
+	public function test_array_in_text_field_ports_and_verifies(): void {
+		$websites = array(
+			array(
+				'business' => 'https://example.com/',
+				'booking'  => '',
+			),
+		);
+		// What an importer does: raw meta plus ACF's reference, no update_field().
+		update_post_meta( self::$id, 'nfpv_title', $websites );
+		update_post_meta( self::$id, '_nfpv_title', 'field_nfpv_title' );
+		update_post_meta( self::$id, 'nfpv_date', array( array() ) );
+		update_post_meta( self::$id, '_nfpv_date', 'field_nfpv_date' );
+		// Earlier tests saved through ACF in this request; drop ACF's per-request value cache, as a new request would.
+		acf_get_store( 'values' )->reset();
+
+		$copier = new AcfCopier( Plugin::bridge() );
+		foreach ( $this->fields() as $field ) {
+			$copier->copy( self::$id, $field );
+		}
+		$copier->flush();
+
+		$this->assertSame( $websites, Plugin::store()->get( ObjectType::Post, self::$id, 'field_nfpv_title' ) );
+		$this->assertSame( array( array() ), Plugin::store()->get( ObjectType::Post, self::$id, 'field_nfpv_date' ) );
+		$this->assertSame( $websites, get_field( 'nfpv_title', self::$id ) );
+		$this->assertSame( array(), $this->verifier()->verify( self::$id, $this->fields() ) );
 	}
 
 	public function test_changed_nf_values_are_reported(): void {
