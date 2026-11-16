@@ -44,3 +44,4 @@
 2026-11-15 | WP 2.7 | labelled nf:ready | Series row sorting (RowSortRule, RowSorter, Store on_save/on_read/sortRows, nf_register_row_sorter); reviewer no hard blockers, numeric-compare and filter-guard fixed, CI green; 2.6d marked merged | PR #57 (wp/2.7-repeater-sorting)
 2026-11-16 | gate G2 | waiting Gn | PR #57 (2.7) confirmed merged; PLAN updated; gate-G2.md written, waiting for owner approval of G2 | main
 2026-11-16 | WP 3.0a | labelled nf:ready | RowPivot refuses row slots for a Series already feeding another pivot set; reviewer no blockers, CI running | PR #58 (wp/3.0a-one-set-per-series)
+2026-11-16 | WP 3.0b | labelled nf:ready (CI running) | OffTypeScanner + wp nf port scan reports arrays in scalar fields; reviewer no blockers; phpunit/phpcs/phpstan not run locally | PR #59 (wp/3.0b-offtype-scan)
