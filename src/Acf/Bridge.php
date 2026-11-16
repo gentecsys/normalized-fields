@@ -762,26 +762,7 @@ final class Bridge {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function normalizeRows( \NF\Storage\FieldDef $def, array $value ): array {
-		$subs = $this->fields->children( $def->id );
-		$rows = array();
-		foreach ( $value as $row ) {
-			if ( ! is_array( $row ) ) {
-				continue;
-			}
-			$out = array();
-			foreach ( $subs as $sub ) {
-				if ( array_key_exists( $sub->key, $row ) ) {
-					$raw = $row[ $sub->key ];
-				} elseif ( array_key_exists( $sub->name, $row ) ) {
-					$raw = $row[ $sub->name ];
-				} else {
-					continue;
-				}
-				$out[ $sub->name ] = TypeMap::normalize( $raw, $sub->table, $sub->multi );
-			}
-			$rows[] = $out;
-		}
-		return $rows;
+		return TypeMap::normalizeRows( $this->fields->children( $def->id ), $value );
 	}
 
 	/**
