@@ -62,7 +62,7 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 | 2.6c | Port: terms, users, options, comments (value jobs) | A9 | M | 2.6b | merged | wp/2.6c-port-objects | `port_objects` job copies terms, users (network-wide), comments and options pages; object/value/empty/unsupported counts in job state |
 | 2.6c2 | Port: definitions and report counts | A9 | S | 2.6c | merged | wp/2.6c2-port-definitions | ACF post types/taxonomies/options pages definitions ported; orphaned meta and raw-SQL scan counts in the report |
 | 2.6d | Port: verify, re-port, WP-CLI | A9 | M | 2.6c2 | merged | wp/2.6d-port-verify | Dual load ACF vs NF, mismatch list, `wp nf port scan/run/verify`; zero mismatches on the bench dataset; owner confirms on a real-site copy at G2 |
-| 2.7 | Repeater sorting | A2 | S | 2.1 | in-review | wp/2.7-repeater-sorting | Unit tests for all three modes |
+| 2.7 | Repeater sorting | A2 | S | 2.1 | merged | wp/2.7-repeater-sorting | Unit tests for all three modes |
 
 **Gate G2 [owner]:** verify reports zero mismatches on a staging copy of a real site.
 
@@ -70,12 +70,12 @@ Lanes: A1 runs 0.1 then 0.2, A12 runs 0.3 once 0.1 lands, and A5 runs 0.4 in par
 
 | WP | Title | Agent | Size | Depends on | State | Branch | Done when |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 3.1 | Compiler and planner | A4 | XL | G2 | todo | | Compiler corpus green; `explain()` matches |
+| 3.1 | Compiler and planner | A4 | XL | G2 | ready | | Compiler corpus green; `explain()` matches |
 | 3.2 | `NF::query()` builder | A4 | L | 3.1 | todo | | Every design-doc example runs as a test |
 | 3.3 | `WP_Query` integration | A4 | L | 3.1 | todo | | Same IDs, order, `found_posts` and `max_num_pages` on `WP_Query` args; every "Pagination parity" case in `docs/design.md` passes |
 | 3.4 | Counting tier | A3 | M | 3.1 | todo | | Rollup equals live `COUNT(*)` in fuzz tests; debounced background job recomputes count-cache entries for the top declared filter combinations, counts up to 60 s stale; a test proves an anonymous GET writes to no NF table |
 | 3.5 | Loading | A6 | L | 3.2 | todo | | 20-card listing in ≤ 15 queries |
-| 3.6 | Standalone ACF API | A5 | XL | G2 | todo | | Differential suite passes with ACF deactivated |
+| 3.6 | Standalone ACF API | A5 | XL | G2 | ready | | Differential suite passes with ACF deactivated |
 | 3.7 | Timber integration | A7 | M | 3.6 | todo | | Starter + two real Timber themes render identically |
 | 3.8 | Benchmark gates | A12 | M | 3.3, 3.4, 3.5 | todo | | CI fails on regression > 20% |
 | 3.9 | Public REST API, split into guard, profiles, cold slots and routes | A8 + A4 | L | 3.2, 3.6 | todo | | Every route in `contracts/rest.md` tested; `/query` matches `nf_query()` IDs and order; anonymous requests never see non-public statuses or fields; profiles are the default; forged cookies and headers change nothing; `_method`, `rest_route=` and `Origin` rotation are refused or normalised; saturated slots degrade as specified; no NF table, transient or option write on anonymous paths; k6 on a 1-CPU, no-cache rig with a measured bootstrap and facet baseline at 100k and 1M posts; Pantheon multidev checks for client IP, 4xx caching and stale directives; no route saves field values for an anonymous request, including `/wp/v2/comments` with `rest_allow_anonymous_comments` on; limit and oracle tests pass |

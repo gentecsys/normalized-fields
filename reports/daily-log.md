@@ -42,3 +42,4 @@
 2026-11-15 | WP 2.6c2 | labelled nf:ready (see PR) | DefinitionReader/Porter, OrphanCounter, RawSqlScanner with tests; PHPCS/PHPStan fixed, CI 28/28 green, reviewer no blockers; 2.6c marked merged | PR #55 (wp/2.6c2-port-definitions)
 2026-11-15 | WP 2.6d | labelled nf:ready (CI not started at label time) | PortVerifier/PortVerifyJob/ValueComparer + wp nf port scan|run|verify; reviewer had no confirmed blockers, fixes applied; bench-dataset zero-mismatch run and posts-only limit deferred (see report) | PR #56 (wp/2.6d-port-verify)
 2026-11-15 | WP 2.7 | labelled nf:ready | Series row sorting (RowSortRule, RowSorter, Store on_save/on_read/sortRows, nf_register_row_sorter); reviewer no hard blockers, numeric-compare and filter-guard fixed, CI green; 2.6d marked merged | PR #57 (wp/2.7-repeater-sorting)
+2026-11-16 | gate G2 | waiting Gn | PR #57 (2.7) confirmed merged; PLAN updated; gate-G2.md written, waiting for owner approval of G2 | main
