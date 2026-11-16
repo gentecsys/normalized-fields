@@ -77,7 +77,7 @@ class OffTypeScanner {
 		global $wpdb;
 		$cap = max( 1, $cap );
 		return (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->prepare( "SELECT COUNT(*) FROM ( SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s LIMIT %d ) AS t", $name, 'a:%', $cap ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT COUNT(*) FROM ( SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s LIMIT %d ) AS t", $name, 'a:%:{%', $cap ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		);
 	}
 

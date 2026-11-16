@@ -16,3 +16,6 @@ Agent: A9 (daily build agent). Branch `wp/3.0b-offtype-scan`.
 
 ## Contract change requested
 None.
+
+## Review follow-up
+Array match tightened to `a:%:{%` (plain strings starting "a:" no longer count; test row added). Known: the cap is on matches, not rows scanned; `registered()` and the PortCommand output have no tests; `offtype_fields` is IDs while `offtype` is by name (4.4 must map them); sub-fields and non-post objects are a follow-up.
