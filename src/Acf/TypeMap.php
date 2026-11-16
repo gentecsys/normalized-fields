@@ -299,4 +299,34 @@ final class TypeMap {
 		}
 		return $value;
 	}
+
+	/**
+	 * Normalise raw Series rows (keyed by sub-field key or name) for the store: rows keyed by sub-field name.
+	 * The bridge writes with this, and the port verifier compares with it.
+	 *
+	 * @param array<int,\NF\Storage\FieldDef> $subs  Sub-field definitions of the Series.
+	 * @param array<mixed>                    $value Raw rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function normalizeRows( array $subs, array $value ): array {
+		$rows = array();
+		foreach ( $value as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$out = array();
+			foreach ( $subs as $sub ) {
+				if ( array_key_exists( $sub->key, $row ) ) {
+					$raw = $row[ $sub->key ];
+				} elseif ( array_key_exists( $sub->name, $row ) ) {
+					$raw = $row[ $sub->name ];
+				} else {
+					continue;
+				}
+				$out[ $sub->name ] = self::normalize( $raw, $sub->table, $sub->multi );
+			}
+			$rows[] = $out;
+		}
+		return $rows;
+	}
 }
