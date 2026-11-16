@@ -64,6 +64,7 @@ class OffTypeScannerTest extends WP_UnitTestCase {
 			add_post_meta( $post, 'websites', array( 'https://example.org/' . $i ) );
 		}
 		add_post_meta( $post, 'websites', 'plain' );
+		add_post_meta( $post, 'websites', 'a: note' );
 		add_post_meta( $post, 'clean', 'plain' );
 		add_post_meta( $post, 'tags', array( 'a' ) );
 
