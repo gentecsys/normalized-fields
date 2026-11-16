@@ -263,11 +263,8 @@ class RowPivotTest extends WP_UnitTestCase {
 		// Re-assigning inside the owning set still works.
 		$this->pivot->rows()->assignSlot( $this->pivot_id, 'field_t22c_sessions', 'field_t22c_seats', 'i2' );
 		$db = nf_db();
-		foreach ( array( 'nf_pivot_slots', 'nf_pivot' ) as $t ) {
-			$db->execute( 'DELETE FROM ' . $db->table( $t ) . ' WHERE pivot_id = ?', array( $other ) );
-		}
+		$this->assertSame( array(), $db->select( 'SELECT slot FROM ' . $db->table( 'nf_pivot_slots' ) . ' WHERE pivot_id = ?', array( $other ) ), 'The refused call wrote nothing.' );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $other ) );
-		$this->assertTrue( true );
 	}
 
 	/**
