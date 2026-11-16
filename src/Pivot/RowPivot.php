@@ -66,7 +66,36 @@ final class RowPivot {
 		if ( $sub->multi || null === $spec || 1 !== preg_match( '/^' . $spec[0] . '([1-9])$/', $slot, $m ) || (int) $m[1] > $spec[1] ) {
 			throw new \InvalidArgumentException( 'Slot does not exist or does not match the sub-field type.' );
 		}
+		$this->assertSeriesFree( $pivotId, $series->id );
 		$this->saveSlot( $pivotId, $series->id, $slot, $sub->id, 'none' );
+	}
+
+	/**
+	 * Refuse row slots for a Series that already feeds row slots in another pivot set (DECISIONS 2026-11-16).
+	 *
+	 * The nf_row_pivot table is keyed by row_id, so a second set would write the same rows twice.
+	 *
+	 * @param int $pivotId  Pivot set id being defined.
+	 * @param int $seriesId Series field id.
+	 * @return void
+	 * @throws \InvalidArgumentException Naming the other set.
+	 */
+	private function assertSeriesFree( int $pivotId, int $seriesId ): void {
+		$rows = $this->db->select(
+			'SELECT s.pivot_id, ps.object_type, ps.subtype FROM ' . $this->db->table( 'nf_pivot_slots' ) . ' s JOIN ' . $this->db->table( 'nf_pivot_sets' ) .
+			' ps ON ps.pivot_id = s.pivot_id WHERE s.repeater_id = ? AND s.pivot_id <> ? ORDER BY s.pivot_id',
+			array( $seriesId, $pivotId )
+		);
+		if ( array() !== $rows ) {
+			throw new \InvalidArgumentException(
+				sprintf(
+					'This Series already feeds row slots in pivot set %1$d (object type %2$d, subtype "%3$s"). A Series can feed only one pivot set.',
+					(int) $rows[0]['pivot_id'],
+					(int) $rows[0]['object_type'],
+					esc_html( (string) $rows[0]['subtype'] )
+				)
+			);
+		}
 	}
 
 	/**
