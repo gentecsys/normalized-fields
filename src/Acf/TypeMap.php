@@ -278,6 +278,10 @@ final class TypeMap {
 			$list = is_array( $value ) ? $value : array( $value );
 			return array_map( fn( $v ) => self::normalize( $v, $table, false ), array_values( $list ) );
 		}
+		if ( is_array( $value ) && DataTable::Int !== $table ) {
+			// An array in a scalar field (an importer writing arrays into a text field): the Store keeps it as is.
+			return $value;
+		}
 		if ( DataTable::Date === $table ) {
 			$s = (string) $value;
 			if ( preg_match( '/^(\d{4})(\d{2})(\d{2})$/', $s, $m ) ) {
@@ -286,7 +290,8 @@ final class TypeMap {
 			return $s;
 		}
 		if ( DataTable::Int === $table && is_array( $value ) ) {
-			return isset( $value['ID'] ) ? (int) $value['ID'] : null;
+			// An image/post array becomes its ID; any other array is kept as is (the Store keeps it in nf_json).
+			return isset( $value['ID'] ) ? (int) $value['ID'] : $value;
 		}
 		if ( DataTable::Int === $table && is_object( $value ) ) {
 			// WP_Post, WP_User or WP_Term passed instead of an ID.
