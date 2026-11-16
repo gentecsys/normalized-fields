@@ -28,3 +28,9 @@ None.
 ## Review follow-up (same PR)
 Fixed: per-field try/catch in verify, skip Series/Group when ACF returns a non-array, `port run` success line, `docs/cron.md` has `port_verify`.
 Known limits (not fixed): numeric-looking strings compare numerically (so "007" equals "7"); no real-ACF run of the Series/Group branch or date/true_false conversions; verify is posts only. These need the wp-env/real-site run before G2.
+
+## Fix 2026-11-16: false mismatches (owner check on nf-dev)
+
+On nf-dev with ACF PRO, `wp nf port verify --post-type=nf_bench_event` reported 20,000 mismatches in 10,000 posts although the data matched (`nf-bench verify`, differential suite). `PortVerifier` diffed ACF's raw storage form against NF's typed form: date picker `20260130` vs `2026-01-30 00:00:00`, time picker `08:30` vs `30600`, Series rows keyed by sub-field key vs by name. The unit tests used fake readers, so they missed it.
+
+Fix: the ACF value is converted the way the port writes it before diffing (`TypeMap::normalize`, `normalizeComposite`, and the new `TypeMap::normalizeRows`, which the bridge now uses too), and a Series with an `on_save` or `on_read` rule is sorted with the same `RowSorter`. New `tests/differential/acf/NfPortVerifyDifferentialTest.php` (SCF in CI, ACF PRO on nf-dev): bridged values verify clean, a sorted Series verifies clean, a changed NF value is still reported; all three fail on the old verifier. nf-dev: 0 mismatches in 10,000 posts (21 s).
