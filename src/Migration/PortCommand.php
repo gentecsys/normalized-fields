@@ -36,13 +36,20 @@ final class PortCommand {
 		if ( ! $source->available() ) {
 			\WP_CLI::error( 'ACF (or Secure Custom Fields) is not active.' );
 		}
-		$report = ( new Scanner() )->scan( $source->groups() );
+		$groups                   = $source->groups();
+		$report                   = ( new Scanner() )->scan( $groups );
+		$offtype                  = new OffTypeScanner();
+		$report['offtype']        = $offtype->scan( $groups );
+		$report['offtype_fields'] = $offtype->registered();
 		if ( 'json' === ( $assoc['format'] ?? '' ) ) {
 			\WP_CLI::log( (string) wp_json_encode( $report, JSON_PRETTY_PRINT ) );
 			return;
 		}
 		foreach ( (array) ( $report['collections'] ?? array() ) as $c ) {
 			\WP_CLI::log( sprintf( '%s: %s', (string) ( $c['title'] ?? $c['key'] ?? '?' ), (string) ( $c['status'] ?? '?' ) ) );
+		}
+		foreach ( $report['offtype'] as $o ) {
+			\WP_CLI::warning( sprintf( 'Field %s (%s) holds arrays in %s%d value(s); NF keeps them in nf_json and they are not queryable.', $o['name'], $o['type'], $o['capped'] ? 'at least ' : '', $o['arrays'] ) );
 		}
 	}
 
