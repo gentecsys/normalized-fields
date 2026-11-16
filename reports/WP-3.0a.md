@@ -11,3 +11,9 @@
 
 ## Follow-ups
 - Surfacing this error in the admin collection builder belongs to a later WP.
+
+## Deviations
+None.
+
+## Open questions
+None. The check and write are not atomic; acceptable for admin-time definition.
