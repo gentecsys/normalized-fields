@@ -16,3 +16,4 @@ State: in-review. Branch `wp/3.1b-compiler-probes`.
 - **Not done, left for later in 3.1:** the DB-backed corpus against `WP_Query` named in the PLAN row, and the ACF `LIKE '"id"'` translation (that is the `WP_Query` integration, 3.3). Corpus needs a DB suite; take it with 3.1c/3.1d or 3.3.
 - Sorting by a probe-only field and driving from a probe are 3.1d (planner).
 - Callers must build the `$fields` map from `FieldMap`; no wiring exists until 3.2.
+- Review round: str guard now covers in/not_in/between and rejects ordering ops; sub-fields rejected; PLAN row text and 3.3 updated for the deferred corpus/LIKE work.

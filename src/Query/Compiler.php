@@ -189,6 +189,9 @@ final class Compiler {
 	 * @throws UnsupportedQueryException When the field's table cannot be probed.
 	 */
 	private function probe( Condition $c, FieldDef $f, ObjectType $type, array &$params ): string {
+		if ( 0 !== $f->parentId ) {
+			throw new UnsupportedQueryException( 'Sub-fields are queried with whereRow (WP 3.1c).' );
+		}
 		$d    = $this->db->dialect();
 		$kind = match ( $f->table ) {
 			DataTable::Int  => 'int',
@@ -221,8 +224,15 @@ final class Compiler {
 			// Empty NOT IN: restricts nothing.
 			return '1 = 1';
 		}
-		if ( 'str' === $kind && in_array( $cond->op, array( '=', '!=' ), true ) && is_scalar( $cond->value ) && strlen( (string) $cond->value ) > 191 ) {
-			throw new UnsupportedQueryException( 'String longer than the 191-character index prefix.' );
+		if ( 'str' === $kind ) {
+			if ( ! in_array( $cond->op, array( '=', '!=', 'in', 'not_in' ), true ) ) {
+				throw new UnsupportedQueryException( 'Only equality is supported on string fields.' );
+			}
+			foreach ( is_array( $cond->value ) ? $cond->value : array( $cond->value ) as $v ) {
+				if ( is_scalar( $v ) && mb_strlen( (string) $v ) > 191 ) {
+					throw new UnsupportedQueryException( 'String longer than the 191-character index prefix.' );
+				}
+			}
 		}
 		$params = array_merge( $params, $inner );
 		return "{$oid} " . ( $negate ? 'NOT IN' : 'IN' ) . " (SELECT {$oid} FROM {$tbl} WHERE {$base} AND {$sql})";
