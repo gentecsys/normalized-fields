@@ -60,8 +60,9 @@ final class Compiler {
 	/**
 	 * Constructor.
 	 *
-	 * @param BackendInterface $db         Backend.
-	 * @param Dictionary|null  $dictionary Dictionary, for bitmask bits and row-slot strings (read only).
+	 * @param BackendInterface $db          Backend.
+	 * @param Dictionary|null  $dictionary  Dictionary, for bitmask bits and row-slot strings (read only).
+	 * @param int              $deferOffset Offset above which a deferred join reads the page.
 	 */
 	public function __construct( private BackendInterface $db, private ?Dictionary $dictionary = null, private int $deferOffset = self::DEFER_OFFSET ) {}
 
