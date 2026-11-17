@@ -151,3 +151,6 @@ Only the owner edits this section. To approve a gate, add a line in the form `- 
 - **Caching:** post-type tags lose the write version; saves purge object keys only.
 - **Contract change:** `backend.md` gains `tryLock()`, `unlock()` and `statementTimeout()`. PostgreSQL pooled endpoints may break session locks; check in Phase 5.
 - **Unverified:** all latency and capacity figures are estimates, `GET_LOCK` and timeout support needs a version check across the matrix, and Pantheon behaviour needs a multidev test. WP 3.9 measures these.
+
+### WP 3.1 split into 3.1a to 3.1d (2026-11-17, made by daily agent, owner to review at next gate)
+- **Decision:** the XL WP 3.1 is split into 3.1a pivot tier, 3.1b typed-table probes, 3.1c rows and bitmasks, 3.1d planner and `explain()`. WPs 3.2, 3.3 and 3.4 now depend on 3.1d. Known semantics to pin in 3.1b's corpus: `!=`/`not_in` on a nullable slot exclude NULL rows (SQL three-valued logic).
