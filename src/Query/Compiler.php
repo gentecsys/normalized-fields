@@ -39,12 +39,31 @@ final class Compiler {
 	private const MAX_LIST = 1000;
 
 	/**
+	 * Offset above which the page is read by a deferred join (design doc, "Deep pages stay cheap").
+	 */
+	public const DEFER_OFFSET = 1000;
+
+	/**
+	 * A condition this selective (share of the pivot set) may drive the scan through its slot index.
+	 */
+	private const DRIVER_SHARE = 0.05;
+
+	/**
+	 * Index per core sort column.
+	 */
+	private const CORE_INDEX = array(
+		'published' => 'by_published',
+		'modified'  => 'by_modified',
+		'author_id' => 'by_author',
+	);
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackendInterface $db         Backend.
 	 * @param Dictionary|null  $dictionary Dictionary, for bitmask bits and row-slot strings (read only).
 	 */
-	public function __construct( private BackendInterface $db, private ?Dictionary $dictionary = null ) {}
+	public function __construct( private BackendInterface $db, private ?Dictionary $dictionary = null, private int $deferOffset = self::DEFER_OFFSET ) {}
 
 	/**
 	 * Compile.
@@ -54,10 +73,11 @@ final class Compiler {
 	 * @param array<string,array{name:string,table:DataTable,id?:int}>                                  $slots    Pivot::slots() of that set (`id` is needed for bitmask slots).
 	 * @param array<string,FieldDef>                                                                    $fields   Top-level fields by name, for conditions the pivot cannot answer (typed-table probes).
 	 * @param array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}> $rowSlots Row-pivot slots per Series name (series field id and its slots).
+	 * @param array<string,array{rows:int,distinct:int}>                                                $stats    Field statistics by field name (nf_fields row_count, distinct_count); `*` holds the pivot set's object count.
 	 * @return CompiledQuery
 	 * @throws UnsupportedQueryException When the pivot cannot answer the query alone.
 	 */
-	public function compile( QuerySpec $spec, int $pivotId, array $slots, array $fields = array(), array $rowSlots = array() ): CompiledQuery {
+	public function compile( QuerySpec $spec, int $pivotId, array $slots, array $fields = array(), array $rowSlots = array(), array $stats = array() ): CompiledQuery {
 		$d = $this->db->dialect();
 
 		$byName = array();
@@ -71,34 +91,40 @@ final class Compiler {
 		}
 
 		$statuses = array() === $spec->statuses ? array( \NF\Storage\Status::Publish ) : $spec->statuses;
-		$where    = array( $d->quoteIdentifier( 'pivot_id' ) . ' = ?', $d->quoteIdentifier( 'status' ) . ' IN (' . implode( ', ', array_fill( 0, count( $statuses ), '?' ) ) . ')' );
-		$params   = array( $pivotId );
+		$base     = $d->quoteIdentifier( 'pivot_id' ) . ' = ? AND ' . $d->quoteIdentifier( 'status' ) . ' IN (' . implode( ', ', array_fill( 0, count( $statuses ), '?' ) ) . ')';
+		$baseP    = array( $pivotId );
 		foreach ( $statuses as $st ) {
-			$params[] = $st->value;
+			$baseP[] = $st->value;
 		}
 
+		// Each clause carries its own parameters and an estimated share of the set, so they can be reordered.
+		$clauses    = array();
 		$conditions = array();
 		$probes     = array();
 		foreach ( $spec->conditions as $c ) {
 			$conditions[] = $c->field;
+			$p            = array();
 			if ( ! isset( self::CORE[ $c->field ] ) && ( ! isset( $byName[ $c->field ] ) || DataTable::Str === $byName[ $c->field ][1] ) && isset( $fields[ $c->field ] ) ) {
-				$where[]  = $this->probe( $c, $fields[ $c->field ], $spec->type, $params );
+				$sql      = $this->probe( $c, $fields[ $c->field ], $spec->type, $p );
 				$probes[] = $c->field;
-				continue;
+				$col      = null;
+			} else {
+				[ $column, $kind ] = $this->resolve( $c->field, $byName );
+				$sql               = $this->predicate( $d->quoteIdentifier( $column ), $c, $kind, $p );
+				$col               = $column;
 			}
-			[ $column, $kind ] = $this->resolve( $c->field, $byName );
-			$sql               = $this->predicate( $d->quoteIdentifier( $column ), $c, $kind, $params );
 			if ( null !== $sql ) {
-				$where[] = $sql;
+				$clauses[] = array( $sql, $p, $this->share( $c->op, $c->value, $stats[ $c->field ] ?? null ), $col, $c->field );
 			}
 		}
 
 		$from = $this->db->table( 'nf_pivot' );
 		foreach ( $spec->masks as $m ) {
 			$conditions[] = $m->field;
-			$sql          = $this->mask( $m, $masked, $fields, $spec->type, $params );
+			$p            = array();
+			$sql          = $this->mask( $m, $masked, $fields, $spec->type, $p );
 			if ( null !== $sql ) {
-				$where[] = $sql;
+				$clauses[] = array( $sql, $p, 0.2, null, $m->field );
 			}
 			if ( ! isset( $masked[ $m->field ] ) ) {
 				$probes[] = $m->field;
@@ -106,7 +132,22 @@ final class Compiler {
 		}
 		foreach ( $spec->rows as $r ) {
 			$conditions[] = $r->series;
-			$where[]      = $this->rowExists( $r, $rowSlots, $pivotId, $from, $params );
+			$p            = array();
+			$clauses[]    = array( $this->rowExists( $r, $rowSlots, $pivotId, $from, $p ), $p, 0.2, null, $r->series );
+		}
+
+		// With statistics: most selective clause first; ties keep the caller's order. Without: caller's order.
+		$indexed = array_keys( $clauses );
+		if ( array() !== $stats ) {
+			usort( $indexed, static fn( int $a, int $b ): int => array( $clauses[ $a ][2], $a ) <=> array( $clauses[ $b ][2], $b ) );
+		}
+		$where  = array( $base );
+		$params = $baseP;
+		$share  = 1.0;
+		foreach ( $indexed as $i ) {
+			$where[] = $clauses[ $i ][0];
+			$params  = array_merge( $params, $clauses[ $i ][1] );
+			$share  *= $clauses[ $i ][2];
 		}
 
 		if ( $spec->offset > 0 && $spec->limit <= 0 ) {
@@ -129,9 +170,42 @@ final class Compiler {
 		}
 
 		$whereS = implode( ' AND ', $where );
-		$sql    = 'SELECT ' . $d->quoteIdentifier( 'object_id' ) . " FROM {$from} WHERE {$whereS} ORDER BY " . implode( ', ', $parts );
-		if ( $spec->limit > 0 ) {
-			$sql .= ' ' . $d->limit( $spec->limit, $spec->offset );
+		$order  = implode( ', ', $parts );
+
+		// Driver: a selective slot condition, else the sort column's index (the scan stops at the LIMIT).
+		$driver = 'pivot index range (pivot_id, status, ...)';
+		$hint   = '';
+		$total  = isset( $stats['*'] ) ? max( 0, $stats['*']['rows'] ) : null;
+		foreach ( $indexed as $i ) {
+			[ , , $frac, $col, $name ] = $clauses[ $i ];
+			if ( null !== $col && $frac <= self::DRIVER_SHARE && 1 === preg_match( '/^[intsn]\d$/', $col ) ) {
+				$hint   = $d->indexHint( $from, $col );
+				$driver = $col . ' (' . $name . ')';
+				break;
+			}
+		}
+		if ( '' === $hint && $spec->limit > 0 && 1 === count( $orders ) ) {
+			[ $sortCol ] = $this->resolve( $orders[0][0], $byName );
+			$index       = self::CORE_INDEX[ $sortCol ] ?? ( 1 === preg_match( '/^[intsn]\d$/', $sortCol ) ? $sortCol : null );
+			if ( null !== $index && $share > self::DRIVER_SHARE ) {
+				$hint   = $d->indexHint( $from, $index );
+				$driver = $index . ' (sort: ' . $orders[0][0] . ')';
+			}
+		}
+		$fromH = trim( $from . ' ' . $hint );
+
+		$deferred = $spec->limit > 0 && $spec->offset > $this->deferOffset;
+		$oid      = $d->quoteIdentifier( 'object_id' );
+		$pid      = $d->quoteIdentifier( 'pivot_id' );
+		if ( $deferred ) {
+			// Read the page's keys from the index alone, then fetch in the same order.
+			$inner = "SELECT {$pid} AS kp, {$oid} AS ko FROM {$fromH} WHERE {$whereS} ORDER BY {$order} " . $d->limit( $spec->limit, $spec->offset );
+			$sql   = "SELECT {$oid} FROM {$from} INNER JOIN ({$inner}) AS x ON {$pid} = x.kp AND {$oid} = x.ko ORDER BY {$order}";
+		} else {
+			$sql = "SELECT {$oid} FROM {$fromH} WHERE {$whereS} ORDER BY {$order}";
+			if ( $spec->limit > 0 ) {
+				$sql .= ' ' . $d->limit( $spec->limit, $spec->offset );
+			}
 		}
 
 		return new CompiledQuery(
@@ -140,15 +214,41 @@ final class Compiler {
 			"SELECT COUNT(*) AS c FROM {$from} WHERE {$whereS}",
 			$params,
 			array(
-				'mode'       => array() === $probes ? 'pivot' : 'pivot+probe',
-				'rows'       => array_map( static fn( RowCondition $r ): string => $r->series, $spec->rows ),
-				'probes'     => $probes,
-				'pivot_id'   => $pivotId,
-				'conditions' => $conditions,
-				'order'      => $names,
-				'driver'     => 'pivot index range (pivot_id, status, ...)',
+				'mode'           => array() === $probes ? 'pivot' : 'pivot+probe',
+				'rows'           => array_map( static fn( RowCondition $r ): string => $r->series, $spec->rows ),
+				'probes'         => $probes,
+				'pivot_id'       => $pivotId,
+				'conditions'     => $conditions,
+				'order'          => $names,
+				'driver'         => $driver,
+				'clause_order'   => array_map( static fn( int $i ): string => $clauses[ $i ][4], $indexed ),
+				'estimated_rows' => null === $total ? null : (int) round( $total * $share ),
+				'deferred_join'  => $deferred,
+				'joins'          => $deferred ? 1 : 0,
 			)
 		);
+	}
+
+	/**
+	 * Estimated share of the pivot set a condition keeps (0-1), from the field's statistics.
+	 *
+	 * @param string                                  $op    Operator.
+	 * @param mixed                                   $value Value.
+	 * @param array{rows:int,distinct:int}|null       $stat  Statistics or null.
+	 * @return float
+	 */
+	private function share( string $op, mixed $value, ?array $stat ): float {
+		$distinct = null !== $stat && $stat['distinct'] > 0 ? (float) $stat['distinct'] : 10.0;
+		$count    = is_array( $value ) ? max( 1, count( $value ) ) : 1;
+		return match ( $op ) {
+			'='        => min( 1.0, 1.0 / $distinct ),
+			'in'       => min( 1.0, $count / $distinct ),
+			'between'  => 0.25,
+			'<', '<=', '>', '>=' => 0.33,
+			'null'     => 0.1,
+			'not_in', '!=', 'not_null' => 0.9,
+			default    => 0.5,
+		};
 	}
 
 	/**
