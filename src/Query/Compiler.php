@@ -45,9 +45,9 @@ final class Compiler {
 	/**
 	 * Compile.
 	 *
-	 * @param QuerySpec                                                    $spec    Query.
-	 * @param int                                                          $pivotId Pivot set of the spec's type.
-	 * @param array<string,array{name:string,table:DataTable}>             $slots   Pivot::slots() of that set.
+	 * @param QuerySpec                                        $spec    Query.
+	 * @param int                                              $pivotId Pivot set of the spec's type.
+	 * @param array<string,array{name:string,table:DataTable}> $slots   Pivot::slots() of that set.
 	 * @return CompiledQuery
 	 * @throws UnsupportedQueryException When the pivot cannot answer the query alone.
 	 */
@@ -158,8 +158,8 @@ final class Compiler {
 	/**
 	 * Column and value kind for a field name.
 	 *
-	 * @param string                                           $field  Field or core column name.
-	 * @param array<string,array{0:string,1:DataTable}>        $byName Slotted fields.
+	 * @param string                                    $field  Field or core column name.
+	 * @param array<string,array{0:string,1:DataTable}> $byName Slotted fields.
 	 * @return array{0:string,1:string} Column, kind (int|dec|date).
 	 * @throws UnsupportedQueryException When the field is not in the pivot.
 	 */
@@ -168,14 +168,14 @@ final class Compiler {
 			return self::CORE[ $field ];
 		}
 		if ( ! isset( $byName[ $field ] ) ) {
-			throw new UnsupportedQueryException( "Field {$field} has no pivot slot." );
+			throw new UnsupportedQueryException( 'Field ' . esc_html( $field ) . ' has no pivot slot.' );
 		}
 		[ $slot, $table ] = $byName[ $field ];
 		$kind             = match ( $table ) {
 			DataTable::Int  => 'int',
 			DataTable::Dec  => 'dec',
 			DataTable::Date => 'date',
-			default         => throw new UnsupportedQueryException( "Field {$field} is not a numeric or date slot." ),
+			default         => throw new UnsupportedQueryException( 'Field ' . esc_html( $field ) . ' is not a numeric or date slot.' ),
 		};
 		return array( $slot, $kind );
 	}

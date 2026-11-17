@@ -24,6 +24,7 @@ final class Condition {
 	 * @param string $field Field name, or a core column (`date`, `modified`, `author`, `parent`, `menu_order`, `ID`).
 	 * @param string $op    Operator.
 	 * @param mixed  $value Scalar, or an array for between / in / not_in; ignored for null / not_null.
+	 * @throws \InvalidArgumentException When the operator is unknown.
 	 */
 	public function __construct( public readonly string $field, public readonly string $op, public readonly mixed $value = null ) {
 		if ( ! in_array( $op, self::OPERATORS, true ) ) {
