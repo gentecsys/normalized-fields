@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+// phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid
+
 use NF\Backend\BackendInterface;
 use NF\Backend\DialectInterface;
 use NF\Backend\MysqlDialect;
@@ -20,6 +22,8 @@ use NF\Storage\Status;
 use PHPUnit\Framework\TestCase;
 
 /**
+ * Pivot-tier compiler.
+ *
  * @covers \NF\Query\Compiler
  * @covers \NF\Query\CompiledQuery
  * @covers \NF\Query\Condition
@@ -75,8 +79,8 @@ final class CompilerTest extends TestCase {
 			public function insertId(): int {
 				return 0;
 			}
-			public function transaction( callable $fn ): mixed {
-				return $fn();
+			public function transaction( callable $callback ): mixed {
+				return $callback();
 			}
 			public function ping(): bool {
 				return true;
@@ -112,8 +116,8 @@ final class CompilerTest extends TestCase {
 			$q->sql
 		);
 		$this->assertSame( array( 7, 1, 1, '50', '2026-11-01 00:00:00' ), $q->params );
-		$this->assertStringStartsWith( 'SELECT COUNT(*) AS c FROM wp_nf_pivot WHERE', $q->countSql );
-		$this->assertStringNotContainsString( 'LIMIT', $q->countSql );
+		$this->assertStringStartsWith( 'SELECT COUNT(*) AS c FROM wp_nf_pivot WHERE', $q->count_sql );
+		$this->assertStringNotContainsString( 'LIMIT', $q->count_sql );
 		$this->assertSame( 'pivot', $q->plan['mode'] );
 		$this->assertStringContainsString( "'2026-11-01 00:00:00'", $q->toSql() );
 	}
@@ -128,7 +132,7 @@ final class CompilerTest extends TestCase {
 	}
 
 	/**
-	 * between, in, not_in, null and not_null.
+	 * Set and null operators.
 	 */
 	public function test_set_operators(): void {
 		$spec = new QuerySpec(
