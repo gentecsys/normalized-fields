@@ -155,4 +155,21 @@ final class PlannerTest extends TestCase {
 		$this->assertSame( array( 'is_featured', 'venue' ), $q->plan['clause_order'] );
 		$this->assertNull( $q->plan['estimated_rows'] );
 	}
+
+	public function test_parameters_follow_reordered_multi_parameter_clauses(): void {
+		$spec = new QuerySpec(
+			ObjectType::Post,
+			'event',
+			array( Status::Publish ),
+			array( new Condition( 'start_date', 'between', array( '20261101', '20261130' ) ), new Condition( 'venue', 'in', array( 7, 8, 9 ) ), new Condition( 'is_featured', '=', 1 ) ),
+			array(),
+			10,
+			5000
+		);
+		$q    = $this->compiler()->compile( $spec, 1, self::SLOTS, array(), array(), self::STATS );
+		$this->assertSame( array( 'venue', 'start_date', 'is_featured' ), $q->plan['clause_order'] );
+		$this->assertSame( array( 1, 1, 7, 8, 9, '2026-11-01 00:00:00', '2026-11-30 00:00:00', 1 ), $q->params );
+		$this->assertSame( $q->params, $q->count_params );
+		$this->assertSame( substr_count( $q->sql, '?' ), count( $q->params ) );
+	}
 }

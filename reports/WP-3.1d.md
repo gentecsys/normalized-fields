@@ -20,3 +20,8 @@ State: in-review. Branch `wp/3.1d-planner`.
 - Selectivity constants are heuristics; the benchmark WP 3.8 should check choices with `EXPLAIN`.
 - No DB-backed test of the deferred join; the corpus is WP 3.3.
 - Row-pivot driving for selective repeater filters (design doc) is not done; left for a later slice.
+
+## Review round
+- No blocking issues. Added a parameter-order test (`in`, `between`, `=` reordered with the deferred join).
+- Fixed PHPCS docblock spacing from CI.
+- Open (non-blocking, for WP 3.8 EXPLAIN checks): the sort-column `FORCE INDEX` may not avoid a filesort because `nullsOrder()` adds an `IS NULL` term and `status IN (...)` can break index order; the deferred inner query is covering only when the filter touches indexed columns. Without stats no filter drives (default distinct 10). `plan` keys `clause_order`, `deferred_join`, `estimated_rows`, `joins` have no contract text yet; log with WP 3.2's `explain()`.
