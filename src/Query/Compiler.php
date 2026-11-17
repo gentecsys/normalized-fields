@@ -232,9 +232,9 @@ final class Compiler {
 	/**
 	 * Estimated share of the pivot set a condition keeps (0-1), from the field's statistics.
 	 *
-	 * @param string                                  $op    Operator.
-	 * @param mixed                                   $value Value.
-	 * @param array{rows:int,distinct:int}|null       $stat  Statistics or null.
+	 * @param string                            $op    Operator.
+	 * @param mixed                             $value Value.
+	 * @param array{rows:int,distinct:int}|null $stat  Statistics or null.
 	 * @return float
 	 */
 	private function share( string $op, mixed $value, ?array $stat ): float {
