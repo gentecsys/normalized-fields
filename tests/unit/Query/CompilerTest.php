@@ -194,6 +194,7 @@ final class CompilerTest extends TestCase {
 			'venue'      => new FieldDef( 11, 'field_venue', 'venue', 0, DataTable::Int, true ),
 			'tagline'    => new FieldDef( 12, 'field_tagline', 'tagline', 0, DataTable::Str, false ),
 			'title_text' => new FieldDef( 13, 'field_tt', 'title_text', 0, DataTable::Str, false ),
+			'sub'        => new FieldDef( 15, 'field_sub', 'sub', 9, DataTable::Int, false ),
 			'bio'        => new FieldDef( 14, 'field_bio', 'bio', 0, DataTable::Text, false ),
 		);
 	}
@@ -242,7 +243,7 @@ final class CompilerTest extends TestCase {
 		$c = $this->compiler();
 		$q = $c->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( new Condition( 'title_text', '=', 'Hi' ) ) ), 7, self::SLOTS, $this->fields() );
 		$this->assertStringContainsString( 'FROM wp_nf_str', $q->sql );
-		foreach ( array( new Condition( 'bio', '=', 'x' ), new Condition( 'tagline', '=', str_repeat( 'a', 192 ) ), new Condition( 'nope', '=', 1 ) ) as $cond ) {
+		foreach ( array( new Condition( 'bio', '=', 'x' ), new Condition( 'tagline', '=', str_repeat( 'a', 192 ) ), new Condition( 'nope', '=', 1 ), new Condition( 'tagline', 'in', array( 'a', str_repeat( 'a', 192 ) ) ), new Condition( 'tagline', '>', 'a' ), new Condition( 'sub', '=', 1 ) ) as $cond ) {
 			try {
 				$c->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( $cond ) ), 7, self::SLOTS, $this->fields() );
 				$this->fail( 'Expected UnsupportedQueryException for ' . $cond->field );
