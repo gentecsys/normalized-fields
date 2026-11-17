@@ -11,6 +11,8 @@ namespace NF\Query;
 
 use NF\Backend\BackendInterface;
 use NF\Storage\DataTable;
+use NF\Storage\FieldDef;
+use NF\Storage\ObjectType;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -48,10 +50,11 @@ final class Compiler {
 	 * @param QuerySpec                                        $spec    Query.
 	 * @param int                                              $pivotId Pivot set of the spec's type.
 	 * @param array<string,array{name:string,table:DataTable}> $slots   Pivot::slots() of that set.
+	 * @param array<string,FieldDef>                           $fields  Top-level fields by name, for conditions the pivot cannot answer (typed-table probes).
 	 * @return CompiledQuery
 	 * @throws UnsupportedQueryException When the pivot cannot answer the query alone.
 	 */
-	public function compile( QuerySpec $spec, int $pivotId, array $slots ): CompiledQuery {
+	public function compile( QuerySpec $spec, int $pivotId, array $slots, array $fields = array() ): CompiledQuery {
 		$d = $this->db->dialect();
 
 		$byName = array();
@@ -67,50 +70,18 @@ final class Compiler {
 		}
 
 		$conditions = array();
+		$probes     = array();
 		foreach ( $spec->conditions as $c ) {
+			$conditions[] = $c->field;
+			if ( ! isset( self::CORE[ $c->field ] ) && ( ! isset( $byName[ $c->field ] ) || DataTable::Str === $byName[ $c->field ][1] ) && isset( $fields[ $c->field ] ) ) {
+				$where[]  = $this->probe( $c, $fields[ $c->field ], $spec->type, $params );
+				$probes[] = $c->field;
+				continue;
+			}
 			[ $column, $kind ] = $this->resolve( $c->field, $byName );
-			$expr              = $d->quoteIdentifier( $column );
-			$conditions[]      = $c->field;
-			switch ( $c->op ) {
-				case 'null':
-					$where[] = "{$expr} IS NULL";
-					break;
-				case 'not_null':
-					$where[] = "{$expr} IS NOT NULL";
-					break;
-				case 'between':
-					$pair = is_array( $c->value ) ? array_values( $c->value ) : array();
-					if ( 2 !== count( $pair ) ) {
-						throw new UnsupportedQueryException( 'between needs two values.' );
-					}
-					$where[]  = "{$expr} BETWEEN ? AND ?";
-					$params[] = $this->value( $kind, $pair[0] );
-					$params[] = $this->value( $kind, $pair[1] );
-					break;
-				case 'in':
-				case 'not_in':
-					$list = is_array( $c->value ) ? array_values( $c->value ) : array();
-					if ( count( $list ) > self::MAX_LIST ) {
-						throw new UnsupportedQueryException( 'List too long.' );
-					}
-					if ( array() === $list ) {
-						// Empty IN matches nothing; empty NOT IN matches everything.
-						if ( 'in' === $c->op ) {
-							$where[] = '1 = 0';
-						}
-						break;
-					}
-					$where[] = $expr . ( 'in' === $c->op ? ' IN (' : ' NOT IN (' ) . implode( ', ', array_fill( 0, count( $list ), '?' ) ) . ')';
-					foreach ( $list as $v ) {
-						$params[] = $this->value( $kind, $v );
-					}
-					break;
-				default:
-					if ( is_array( $c->value ) || null === $c->value ) {
-						throw new UnsupportedQueryException( 'Comparison needs a scalar value.' );
-					}
-					$where[]  = "{$expr} {$c->op} ?";
-					$params[] = $this->value( $kind, $c->value );
+			$sql               = $this->predicate( $d->quoteIdentifier( $column ), $c, $kind, $params );
+			if ( null !== $sql ) {
+				$where[] = $sql;
 			}
 		}
 
@@ -146,13 +117,115 @@ final class Compiler {
 			"SELECT COUNT(*) AS c FROM {$from} WHERE {$whereS}",
 			$params,
 			array(
-				'mode'       => 'pivot',
+				'mode'       => array() === $probes ? 'pivot' : 'pivot+probe',
+				'probes'     => $probes,
 				'pivot_id'   => $pivotId,
 				'conditions' => $conditions,
 				'order'      => $names,
 				'driver'     => 'pivot index range (pivot_id, status, ...)',
 			)
 		);
+	}
+
+	/**
+	 * Predicate on one value expression, binding values in order.
+	 *
+	 * @param string            $expr   Quoted column.
+	 * @param Condition         $c      Condition (null / not_null are handled by the caller for probes).
+	 * @param string            $kind   int|dec|date|str.
+	 * @param array<int,scalar> $params Parameters, appended to.
+	 * @return string|null SQL, or null when the condition restricts nothing.
+	 * @throws UnsupportedQueryException When the value does not fit.
+	 */
+	private function predicate( string $expr, Condition $c, string $kind, array &$params ): ?string {
+		switch ( $c->op ) {
+			case 'null':
+				return "{$expr} IS NULL";
+			case 'not_null':
+				return "{$expr} IS NOT NULL";
+			case 'between':
+				$pair = is_array( $c->value ) ? array_values( $c->value ) : array();
+				if ( 2 !== count( $pair ) ) {
+					throw new UnsupportedQueryException( 'between needs two values.' );
+				}
+				$params[] = $this->value( $kind, $pair[0] );
+				$params[] = $this->value( $kind, $pair[1] );
+				return "{$expr} BETWEEN ? AND ?";
+			case 'in':
+			case 'not_in':
+				$list = is_array( $c->value ) ? array_values( $c->value ) : array();
+				if ( count( $list ) > self::MAX_LIST ) {
+					throw new UnsupportedQueryException( 'List too long.' );
+				}
+				if ( array() === $list ) {
+					// Empty IN matches nothing; empty NOT IN matches everything.
+					return 'in' === $c->op ? '1 = 0' : null;
+				}
+				foreach ( $list as $v ) {
+					$params[] = $this->value( $kind, $v );
+				}
+				return $expr . ( 'in' === $c->op ? ' IN (' : ' NOT IN (' ) . implode( ', ', array_fill( 0, count( $list ), '?' ) ) . ')';
+			default:
+				if ( is_array( $c->value ) || null === $c->value ) {
+					throw new UnsupportedQueryException( 'Comparison needs a scalar value.' );
+				}
+				$params[] = $this->value( $kind, $c->value );
+				return "{$expr} {$c->op} ?";
+		}
+	}
+
+	/**
+	 * Semi-join probe of a field's typed table, by primary key, for a field with no pivot slot.
+	 *
+	 * Single-valued: the object must hold a row that satisfies the predicate (so `!=` needs the field to exist,
+	 * as WP_Query does). Multi-valued: `any` semantics for = in < <= > >= between; `!=` and `not_in` mean
+	 * "no value matches" (NOT IN). `null` means the field has no row; `not_null` that it has one.
+	 *
+	 * @param Condition         $c      Condition.
+	 * @param FieldDef          $f      Field.
+	 * @param ObjectType        $type   Object type.
+	 * @param array<int,scalar> $params Parameters, appended to.
+	 * @return string
+	 * @throws UnsupportedQueryException When the field's table cannot be probed.
+	 */
+	private function probe( Condition $c, FieldDef $f, ObjectType $type, array &$params ): string {
+		$d    = $this->db->dialect();
+		$kind = match ( $f->table ) {
+			DataTable::Int  => 'int',
+			DataTable::Dec  => 'dec',
+			DataTable::Date => 'date',
+			DataTable::Str  => 'str',
+			default         => throw new UnsupportedQueryException( 'Field ' . esc_html( $f->name ) . ' cannot be filtered.' ),
+		};
+		$oid  = $d->quoteIdentifier( 'object_id' );
+		$val  = $d->quoteIdentifier( 'value' );
+		$base = $d->quoteIdentifier( 'object_type' ) . ' = ? AND ' . $d->quoteIdentifier( 'field_id' ) . ' = ?';
+		$tbl  = $this->db->table( 'nf_' . $f->table->value );
+
+		$negate = false;
+		if ( 'null' === $c->op || 'not_null' === $c->op ) {
+			$negate = 'null' === $c->op;
+			$params = array_merge( $params, array( $type->value, $f->id ) );
+			return "{$oid} " . ( $negate ? 'NOT IN' : 'IN' ) . " (SELECT {$oid} FROM {$tbl} WHERE {$base})";
+		}
+
+		$cond = $c;
+		if ( $f->multi && ( '!=' === $c->op || 'not_in' === $c->op ) ) {
+			// None of the values may match: negate the positive form.
+			$negate = true;
+			$cond   = new Condition( $c->field, '!=' === $c->op ? '=' : 'in', $c->value );
+		}
+		$inner = array( $type->value, $f->id );
+		$sql   = $this->predicate( $val, $cond, $kind, $inner );
+		if ( null === $sql ) {
+			// Empty NOT IN: restricts nothing.
+			return '1 = 1';
+		}
+		if ( 'str' === $kind && in_array( $cond->op, array( '=', '!=' ), true ) && is_scalar( $cond->value ) && strlen( (string) $cond->value ) > 191 ) {
+			throw new UnsupportedQueryException( 'String longer than the 191-character index prefix.' );
+		}
+		$params = array_merge( $params, $inner );
+		return "{$oid} " . ( $negate ? 'NOT IN' : 'IN' ) . " (SELECT {$oid} FROM {$tbl} WHERE {$base} AND {$sql})";
 	}
 
 	/**
@@ -183,7 +256,7 @@ final class Compiler {
 	/**
 	 * Bound value in the column's type, converted explicitly (never relying on implicit casts).
 	 *
-	 * @param string $kind  int|dec|date.
+	 * @param string $kind  int|dec|date|str.
 	 * @param mixed  $value Raw value.
 	 * @return int|string
 	 * @throws UnsupportedQueryException When the value does not fit the type.
@@ -205,6 +278,8 @@ final class Compiler {
 					throw new UnsupportedQueryException( 'Integer out of range.' );
 				}
 				return (int) $raw;
+			case 'str':
+				return (string) $value;
 			case 'dec':
 				if ( 1 !== preg_match( '/^-?\d+(\.\d+)?$/', $raw ) ) {
 					throw new UnsupportedQueryException( 'Not a number.' );
