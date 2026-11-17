@@ -19,17 +19,17 @@ final class CompiledQuery {
 	/**
 	 * Constructor.
 	 *
-	 * @param string                           $sql         Statement returning object_id in order.
-	 * @param array<int,scalar>                $params      Bound parameters.
-	 * @param string                           $countSql    COUNT(*) AS c over the same filter.
-	 * @param array<int,scalar>                $countParams Parameters of the count.
-	 * @param array<string,mixed>              $plan        Mode, driver and notes.
+	 * @param string              $sql          Statement returning object_id in order.
+	 * @param array<int,scalar>   $params       Bound parameters.
+	 * @param string              $count_sql    COUNT(*) AS c over the same filter.
+	 * @param array<int,scalar>   $count_params Parameters of the count.
+	 * @param array<string,mixed> $plan         Mode, driver and notes.
 	 */
 	public function __construct(
 		public readonly string $sql,
 		public readonly array $params,
-		public readonly string $countSql,
-		public readonly array $countParams,
+		public readonly string $count_sql,
+		public readonly array $count_params,
 		public readonly array $plan
 	) {}
 
