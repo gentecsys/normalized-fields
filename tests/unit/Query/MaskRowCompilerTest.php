@@ -101,6 +101,8 @@ final class MaskRowCompilerTest extends TestCase {
 	}
 
 	/**
+	 * Row-pivot slots of the Series.
+	 *
 	 * @return array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}>
 	 */
 	private function rowSlots(): array {
@@ -170,7 +172,10 @@ final class MaskRowCompilerTest extends TestCase {
 	 * Without a bitmask slot a multi-valued field falls back to typed-table probes.
 	 */
 	public function test_mask_probe_fallback(): void {
-		$fields = array( 'venue' => new FieldDef( 11, 'field_venue', 'venue', 0, DataTable::Int, true ), 'one' => new FieldDef( 12, 'field_one', 'one', 0, DataTable::Int, false ) );
+		$fields = array(
+			'venue' => new FieldDef( 11, 'field_venue', 'venue', 0, DataTable::Int, true ),
+			'one'   => new FieldDef( 12, 'field_one', 'one', 0, DataTable::Int, false ),
+		);
 		$c      = $this->compiler();
 		$q      = $c->compile( $this->spec( array( new MaskCondition( 'venue', 'any', array( 1, 2 ) ) ) ), 7, self::SLOTS, $fields );
 		$this->assertStringContainsString( '`object_id` IN (SELECT `object_id` FROM wp_nf_int WHERE `object_type` = ? AND `field_id` = ? AND `value` IN (?, ?))', $q->sql );
@@ -222,6 +227,12 @@ final class MaskRowCompilerTest extends TestCase {
 			} catch ( UnsupportedQueryException $e ) {
 				$this->assertNotSame( '', $e->getMessage() );
 			}
+		}
+		try {
+			$c->compile( $this->spec( array(), array( new RowCondition( 'sessions', array( new Condition( 'venue', 'in', array_fill( 0, 1001, 'x' ) ) ) ) ) ), 7, self::SLOTS, array(), $this->rowSlots() );
+			$this->fail( 'Expected a list-length error.' );
+		} catch ( UnsupportedQueryException $e ) {
+			$this->assertSame( 'List too long.', $e->getMessage() );
 		}
 		$this->expectException( InvalidArgumentException::class );
 		new RowCondition( 'sessions', array() );
