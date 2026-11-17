@@ -17,6 +17,7 @@ use NF\Query\Condition;
 use NF\Query\QuerySpec;
 use NF\Query\UnsupportedQueryException;
 use NF\Storage\DataTable;
+use NF\Storage\FieldDef;
 use NF\Storage\ObjectType;
 use NF\Storage\Status;
 use PHPUnit\Framework\TestCase;
@@ -181,5 +182,74 @@ final class CompilerTest extends TestCase {
 	public function test_unknown_operator(): void {
 		$this->expectException( InvalidArgumentException::class );
 		new Condition( 'price', 'LIKE', 1 );
+	}
+
+	/**
+	 * Probe fields by name.
+	 *
+	 * @return array<string,FieldDef>
+	 */
+	private function fields(): array {
+		return array(
+			'venue'      => new FieldDef( 11, 'field_venue', 'venue', 0, DataTable::Int, true ),
+			'tagline'    => new FieldDef( 12, 'field_tagline', 'tagline', 0, DataTable::Str, false ),
+			'title_text' => new FieldDef( 13, 'field_tt', 'title_text', 0, DataTable::Str, false ),
+			'sub'        => new FieldDef( 15, 'field_sub', 'sub', 9, DataTable::Int, false ),
+			'bio'        => new FieldDef( 14, 'field_bio', 'bio', 0, DataTable::Text, false ),
+		);
+	}
+
+	/**
+	 * A reverse relationship is one semi-join probe by primary key, next to pivot conditions.
+	 */
+	public function test_probe_reverse_relationship(): void {
+		$spec = new QuerySpec(
+			ObjectType::Post,
+			'event',
+			array(),
+			array( new Condition( 'venue', '=', 123 ), new Condition( 'is_featured', '=', 1 ) ),
+			array( array( 'start_date', 'ASC' ) ),
+			20
+		);
+		$q    = $this->compiler()->compile( $spec, 7, self::SLOTS, $this->fields() );
+		$this->assertStringContainsString( 'AND `object_id` IN (SELECT `object_id` FROM wp_nf_int WHERE `object_type` = ? AND `field_id` = ? AND `value` = ?) AND `i1` = ?', $q->sql );
+		$this->assertSame( array( 7, 1, 1, 11, 123, 1 ), $q->params );
+		$this->assertSame( 'pivot+probe', $q->plan['mode'] );
+		$this->assertSame( array( 'venue' ), $q->plan['probes'] );
+		$this->assertSame( $q->params, $q->count_params );
+	}
+
+	/**
+	 * Negations on multi-valued fields mean "no value matches"; null means no row.
+	 */
+	public function test_probe_negation_and_null(): void {
+		$spec = new QuerySpec(
+			ObjectType::Post,
+			'event',
+			array(),
+			array( new Condition( 'venue', 'not_in', array( 1, 2 ) ), new Condition( 'tagline', 'null' ), new Condition( 'tagline', '!=', 'x' ) )
+		);
+		$q    = $this->compiler()->compile( $spec, 7, self::SLOTS, $this->fields() );
+		$this->assertStringContainsString( '`object_id` NOT IN (SELECT `object_id` FROM wp_nf_int WHERE `object_type` = ? AND `field_id` = ? AND `value` IN (?, ?))', $q->sql );
+		$this->assertStringContainsString( '`object_id` NOT IN (SELECT `object_id` FROM wp_nf_str WHERE `object_type` = ? AND `field_id` = ?)', $q->sql );
+		$this->assertStringContainsString( '`object_id` IN (SELECT `object_id` FROM wp_nf_str WHERE `object_type` = ? AND `field_id` = ? AND `value` != ?)', $q->sql );
+		$this->assertSame( array( 7, 1, 1, 11, 1, 2, 1, 12, 1, 12, 'x' ), $q->params );
+	}
+
+	/**
+	 * A dictionary-slotted string field falls back to the str table; text and long strings are unsupported.
+	 */
+	public function test_probe_str_and_limits(): void {
+		$c = $this->compiler();
+		$q = $c->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( new Condition( 'title_text', '=', 'Hi' ) ) ), 7, self::SLOTS, $this->fields() );
+		$this->assertStringContainsString( 'FROM wp_nf_str', $q->sql );
+		foreach ( array( new Condition( 'bio', '=', 'x' ), new Condition( 'tagline', '=', str_repeat( 'a', 192 ) ), new Condition( 'nope', '=', 1 ), new Condition( 'tagline', 'in', array( 'a', str_repeat( 'a', 192 ) ) ), new Condition( 'tagline', '>', 'a' ), new Condition( 'sub', '=', 1 ) ) as $cond ) {
+			try {
+				$c->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( $cond ) ), 7, self::SLOTS, $this->fields() );
+				$this->fail( 'Expected UnsupportedQueryException for ' . $cond->field );
+			} catch ( UnsupportedQueryException $e ) {
+				$this->assertNotSame( '', $e->getMessage() );
+			}
+		}
 	}
 }
