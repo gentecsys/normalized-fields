@@ -45,4 +45,4 @@
 2026-11-16 | gate G2 | waiting Gn | PR #57 (2.7) confirmed merged; PLAN updated; gate-G2.md written, waiting for owner approval of G2 | main
 2026-11-16 | WP 3.0a | labelled nf:ready | RowPivot refuses row slots for a Series already feeding another pivot set; reviewer no blockers, CI running | PR #58 (wp/3.0a-one-set-per-series)
 2026-11-16 | WP 3.0b | labelled nf:ready (CI running) | OffTypeScanner + wp nf port scan reports arrays in scalar fields; reviewer no blockers; phpunit/phpcs/phpstan not run locally | PR #59 (wp/3.0b-offtype-scan)
-2026-11-17 | WP 3.1a | labelled nf:ready (CI running) | Split 3.1 into 3.1a-d; Compiler/QuerySpec/Condition pivot tier with unit tests; reviewer no code blockers, fixes applied; 3.0b marked merged in the PR's PLAN | PR #60 (wp/3.1a-compiler-pivot)
+2026-11-17 | WP 3.1b | labelled nf:ready (CI green) | Compiler typed-table semi-join probes; reviewer blockers (string guard, plan rows) fixed; corpus/LIKE moved to 3.3; 3.1a marked merged | PR #61 (wp/3.1b-compiler-probes)
