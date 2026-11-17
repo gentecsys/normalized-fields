@@ -47,3 +47,4 @@
 2026-11-16 | WP 3.0b | labelled nf:ready (CI running) | OffTypeScanner + wp nf port scan reports arrays in scalar fields; reviewer no blockers; phpunit/phpcs/phpstan not run locally | PR #59 (wp/3.0b-offtype-scan)
 2026-11-17 | WP 3.1a | labelled nf:ready (CI running) | Split 3.1 into 3.1a-d; Compiler/QuerySpec/Condition pivot tier with unit tests; reviewer no code blockers, fixes applied; 3.0b marked merged in the PR's PLAN | PR #60 (wp/3.1a-compiler-pivot)
 2026-11-17 | WP 3.1b | labelled nf:ready (CI green) | Compiler typed-table semi-join probes; reviewer blockers (string guard, plan rows) fixed; corpus/LIKE moved to 3.3; 3.1a marked merged | PR #61 (wp/3.1b-compiler-probes)
+2026-11-17 | WP 3.1c | labelled nf:ready | Compiler whereAny/All/None (bitmask or probe) and whereRow (EXISTS on nf_row_pivot); reviewer blockers fixed, CI green; 3.1b marked merged | PR #62 (wp/3.1c-compiler-rows)
