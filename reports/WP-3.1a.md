@@ -17,3 +17,4 @@ None. No contract change. Unchanged: `SpikeQuery` stays until 3.3 replaces it.
 ## Resume / follow-ups
 - 3.1b next: typed-table probes, building on `Compiler` (add a driver/probe stage; keep `UnsupportedQueryException` for what remains).
 - Corpus against `WP_Query` (differential) starts in 3.1b, since 3.1a has no DB-backed test.
+- Review round: DECISIONS entry added; offset-without-limit, >18-digit integers and lists over 1000 now throw UnsupportedQueryException. Open for 3.1b: NULL semantics of != / not_in.

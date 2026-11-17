@@ -33,6 +33,8 @@ final class Compiler {
 		'ID'         => array( 'object_id', 'int' ),
 	);
 
+	private const MAX_LIST = 1000;
+
 	/**
 	 * Constructor.
 	 *
@@ -88,6 +90,9 @@ final class Compiler {
 				case 'in':
 				case 'not_in':
 					$list = is_array( $c->value ) ? array_values( $c->value ) : array();
+					if ( count( $list ) > self::MAX_LIST ) {
+						throw new UnsupportedQueryException( 'List too long.' );
+					}
 					if ( array() === $list ) {
 						// Empty IN matches nothing; empty NOT IN matches everything.
 						if ( 'in' === $c->op ) {
@@ -109,6 +114,9 @@ final class Compiler {
 			}
 		}
 
+		if ( $spec->offset > 0 && $spec->limit <= 0 ) {
+			throw new UnsupportedQueryException( 'An offset needs a limit.' );
+		}
 		$orders = array() === $spec->orders ? array( array( 'date', 'DESC' ) ) : $spec->orders;
 		$parts  = array();
 		$last   = 'ASC';
@@ -142,7 +150,7 @@ final class Compiler {
 				'pivot_id'   => $pivotId,
 				'conditions' => $conditions,
 				'order'      => $names,
-				'driver'     => 'pivot primary key (pivot_id, status, ...)',
+				'driver'     => 'pivot index range (pivot_id, status, ...)',
 			)
 		);
 	}
@@ -192,6 +200,9 @@ final class Compiler {
 			case 'int':
 				if ( 1 !== preg_match( '/^-?\d+$/', $raw ) ) {
 					throw new UnsupportedQueryException( 'Not an integer.' );
+				}
+				if ( strlen( ltrim( $raw, '-' ) ) > 18 ) {
+					throw new UnsupportedQueryException( 'Integer out of range.' );
 				}
 				return (int) $raw;
 			case 'dec':
