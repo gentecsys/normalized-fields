@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace NF\Query;
 
 use NF\Backend\BackendInterface;
+use NF\Pivot\Dictionary;
 use NF\Storage\DataTable;
 use NF\Storage\FieldDef;
 use NF\Storage\ObjectType;
@@ -40,26 +41,33 @@ final class Compiler {
 	/**
 	 * Constructor.
 	 *
-	 * @param BackendInterface $db Backend.
+	 * @param BackendInterface $db         Backend.
+	 * @param Dictionary|null  $dictionary Dictionary, for bitmask bits and row-slot strings (read only).
 	 */
-	public function __construct( private BackendInterface $db ) {}
+	public function __construct( private BackendInterface $db, private ?Dictionary $dictionary = null ) {}
 
 	/**
 	 * Compile.
 	 *
 	 * @param QuerySpec                                        $spec    Query.
 	 * @param int                                              $pivotId Pivot set of the spec's type.
-	 * @param array<string,array{name:string,table:DataTable}> $slots   Pivot::slots() of that set.
+	 * @param array<string,array{name:string,table:DataTable,id?:int}> $slots   Pivot::slots() of that set (`id` is needed for bitmask slots).
 	 * @param array<string,FieldDef>                           $fields  Top-level fields by name, for conditions the pivot cannot answer (typed-table probes).
+	 * @param array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}> $rowSlots Row-pivot slots per Series name (series field id and its slots).
 	 * @return CompiledQuery
 	 * @throws UnsupportedQueryException When the pivot cannot answer the query alone.
 	 */
-	public function compile( QuerySpec $spec, int $pivotId, array $slots, array $fields = array() ): CompiledQuery {
+	public function compile( QuerySpec $spec, int $pivotId, array $slots, array $fields = array(), array $rowSlots = array() ): CompiledQuery {
 		$d = $this->db->dialect();
 
 		$byName = array();
+		$masked = array();
 		foreach ( $slots as $slot => $f ) {
 			$byName[ $f['name'] ] = array( $slot, $f['table'] );
+			if ( str_starts_with( $slot, 'm' ) ) {
+				$masked[ $f['name'] ] = array( $slot, (int) ( $f['id'] ?? 0 ) );
+				unset( $byName[ $f['name'] ] );
+			}
 		}
 
 		$statuses = array() === $spec->statuses ? array( \NF\Storage\Status::Publish ) : $spec->statuses;
@@ -85,6 +93,22 @@ final class Compiler {
 			}
 		}
 
+		$from = $this->db->table( 'nf_pivot' );
+		foreach ( $spec->masks as $m ) {
+			$conditions[] = $m->field;
+			$sql          = $this->mask( $m, $masked, $fields, $spec->type, $params );
+			if ( null !== $sql ) {
+				$where[] = $sql;
+			}
+			if ( ! isset( $masked[ $m->field ] ) ) {
+				$probes[] = $m->field;
+			}
+		}
+		foreach ( $spec->rows as $r ) {
+			$conditions[] = $r->series;
+			$where[]      = $this->rowExists( $r, $rowSlots, $pivotId, $from, $params );
+		}
+
 		if ( $spec->offset > 0 && $spec->limit <= 0 ) {
 			throw new UnsupportedQueryException( 'An offset needs a limit.' );
 		}
@@ -104,7 +128,6 @@ final class Compiler {
 			$parts[] = $d->quoteIdentifier( 'object_id' ) . " {$last}";
 		}
 
-		$from   = $this->db->table( 'nf_pivot' );
 		$whereS = implode( ' AND ', $where );
 		$sql    = 'SELECT ' . $d->quoteIdentifier( 'object_id' ) . " FROM {$from} WHERE {$whereS} ORDER BY " . implode( ', ', $parts );
 		if ( $spec->limit > 0 ) {
@@ -118,6 +141,7 @@ final class Compiler {
 			$params,
 			array(
 				'mode'       => array() === $probes ? 'pivot' : 'pivot+probe',
+					'rows'       => array_map( static fn( RowCondition $r ): string => $r->series, $spec->rows ),
 				'probes'     => $probes,
 				'pivot_id'   => $pivotId,
 				'conditions' => $conditions,
@@ -125,6 +149,153 @@ final class Compiler {
 				'driver'     => 'pivot index range (pivot_id, status, ...)',
 			)
 		);
+	}
+
+	/**
+	 * Any-of / all-of / none-of on a multi-valued field: one bitwise test on a bitmask slot, else typed-table probes.
+	 *
+	 * @param MaskCondition                  $m      Condition.
+	 * @param array<string,array{0:string,1:int}> $masked Bitmask slots by field name: slot and field id.
+	 * @param array<string,FieldDef>         $fields Fields by name.
+	 * @param ObjectType                     $type   Object type.
+	 * @param array<int,scalar>              $params Parameters, appended to.
+	 * @return string|null SQL, or null when the condition restricts nothing.
+	 * @throws UnsupportedQueryException When the field cannot be tested.
+	 */
+	private function mask( MaskCondition $m, array $masked, array $fields, ObjectType $type, array &$params ): ?string {
+		$values = array_values( array_unique( array_map( 'strval', $m->values ) ) );
+		if ( count( $values ) > self::MAX_LIST ) {
+			throw new UnsupportedQueryException( 'List too long.' );
+		}
+		if ( array() === $values ) {
+			// Any of nothing matches nothing; all of / none of nothing restrict nothing.
+			return 'any' === $m->mode ? '1 = 0' : null;
+		}
+		if ( isset( $masked[ $m->field ] ) ) {
+			[ $slot, $fieldId ] = $masked[ $m->field ];
+			if ( null === $this->dictionary || $fieldId <= 0 ) {
+				throw new UnsupportedQueryException( 'Bitmask conditions need the dictionary and the field id.' );
+			}
+			$bits = array();
+			foreach ( $values as $v ) {
+				$bit = $this->dictionary->findBit( $fieldId, $v );
+				if ( null === $bit ) {
+					if ( 'all' === $m->mode ) {
+						return '1 = 0'; // A value that has no bit is on no object.
+					}
+					continue;
+				}
+				$bits[ $bit ] = true;
+			}
+			if ( array() === $bits ) {
+				return 'any' === $m->mode ? '1 = 0' : null;
+			}
+			$mask = 0;
+			foreach ( array_keys( $bits ) as $bit ) {
+				$mask |= 1 << $bit;
+			}
+			if ( isset( $bits[ Dictionary::MAX_BIT ] ) && 'all' === $m->mode ) {
+				throw new UnsupportedQueryException( 'An all-of test on bit 63 is not supported.' );
+			}
+			return $this->db->dialect()->mask( $slot, $mask, $m->mode );
+		}
+		if ( ! isset( $fields[ $m->field ] ) || ! $fields[ $m->field ]->multi ) {
+			throw new UnsupportedQueryException( 'Field ' . esc_html( $m->field ) . ' is not a multi-valued field.' );
+		}
+		$f = $fields[ $m->field ];
+		if ( 'all' === $m->mode ) {
+			$parts = array();
+			foreach ( $values as $v ) {
+				$parts[] = $this->probe( new Condition( $m->field, '=', $v ), $f, $type, $params );
+			}
+			return implode( ' AND ', $parts );
+		}
+		return $this->probe( new Condition( $m->field, 'any' === $m->mode ? 'in' : 'not_in', $values ), $f, $type, $params );
+	}
+
+	/**
+	 * `EXISTS` on nf_row_pivot for one Series: every condition holds on the same row.
+	 *
+	 * @param RowCondition      $r        Condition.
+	 * @param array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}> $rowSlots Row slots per Series name.
+	 * @param int               $pivotId  Pivot set.
+	 * @param string            $outer    Outer (object pivot) table name.
+	 * @param array<int,scalar> $params   Parameters, appended to.
+	 * @return string
+	 * @throws UnsupportedQueryException When a sub-field has no row slot.
+	 */
+	private function rowExists( RowCondition $r, array $rowSlots, int $pivotId, string $outer, array &$params ): string {
+		if ( ! isset( $rowSlots[ $r->series ] ) ) {
+			throw new UnsupportedQueryException( 'Series ' . esc_html( $r->series ) . ' has no row-pivot slots.' );
+		}
+		$d      = $this->db->dialect();
+		$series = $rowSlots[ $r->series ];
+		$byName = array();
+		foreach ( $series['slots'] as $slot => $f ) {
+			$byName[ $f['name'] ] = array( $slot, $f['table'], $f['id'] );
+		}
+		$oid   = $d->quoteIdentifier( 'object_id' );
+		$inner = array( $pivotId, $series['id'] );
+		$parts = array( $d->quoteIdentifier( 'pivot_id' ) . ' = ?', $d->quoteIdentifier( 'field_id' ) . ' = ?', "{$oid} = {$outer}.{$oid}" );
+		foreach ( $r->conditions as $c ) {
+			if ( ! isset( $byName[ $c->field ] ) ) {
+				throw new UnsupportedQueryException( 'Sub-field ' . esc_html( $c->field ) . ' has no row slot.' );
+			}
+			[ $slot, $table, $fieldId ] = $byName[ $c->field ];
+			$col                        = $d->quoteIdentifier( $slot );
+			$kind                       = match ( $table ) {
+				DataTable::Int  => 'int',
+				DataTable::Dec  => 'dec',
+				DataTable::Date => 'date',
+				DataTable::Str  => 'dict',
+				default         => throw new UnsupportedQueryException( 'Sub-field ' . esc_html( $c->field ) . ' cannot be filtered.' ),
+			};
+			$sql                        = 'dict' === $kind ? $this->dictPredicate( $col, $c, $fieldId, $inner ) : $this->predicate( $col, $c, $kind, $inner );
+			if ( null !== $sql ) {
+				$parts[] = $sql;
+			}
+		}
+		$params = array_merge( $params, $inner );
+		return 'EXISTS (SELECT 1 FROM ' . $this->db->table( 'nf_row_pivot' ) . ' WHERE ' . implode( ' AND ', $parts ) . ')';
+	}
+
+	/**
+	 * Equality-style predicate on a dictionary slot: values become dictionary ids (read only).
+	 *
+	 * @param string            $col     Quoted column.
+	 * @param Condition         $c       Condition.
+	 * @param int               $fieldId Field id (dictionary scope).
+	 * @param array<int,scalar> $params  Parameters, appended to.
+	 * @return string|null
+	 * @throws UnsupportedQueryException When the operator is not an equality test.
+	 */
+	private function dictPredicate( string $col, Condition $c, int $fieldId, array &$params ): ?string {
+		if ( ! in_array( $c->op, array( '=', '!=', 'in', 'not_in', 'null', 'not_null' ), true ) ) {
+			throw new UnsupportedQueryException( 'Only equality is supported on string sub-fields.' );
+		}
+		if ( 'null' === $c->op || 'not_null' === $c->op ) {
+			return $this->predicate( $col, $c, 'int', $params );
+		}
+		if ( null === $this->dictionary ) {
+			throw new UnsupportedQueryException( 'String conditions need the dictionary.' );
+		}
+		$list = is_array( $c->value ) ? array_values( $c->value ) : array( $c->value );
+		$ids  = array();
+		foreach ( $list as $v ) {
+			if ( ! is_scalar( $v ) ) {
+				throw new UnsupportedQueryException( 'Value must be scalar.' );
+			}
+			$id = Dictionary::fits( (string) $v ) ? $this->dictionary->find( $fieldId, (string) $v ) : null;
+			if ( null !== $id ) {
+				$ids[] = $id;
+			}
+		}
+		$positive = in_array( $c->op, array( '=', 'in' ), true );
+		if ( array() === $ids ) {
+			// Unknown values match no row; "not" them and every row that has a value matches.
+			return $positive ? '1 = 0' : "{$col} IS NOT NULL";
+		}
+		return $this->predicate( $col, new Condition( $c->field, $positive ? 'in' : 'not_in', $ids ), 'int', $params );
 	}
 
 	/**
