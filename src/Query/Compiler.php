@@ -49,10 +49,10 @@ final class Compiler {
 	/**
 	 * Compile.
 	 *
-	 * @param QuerySpec                                        $spec    Query.
-	 * @param int                                              $pivotId Pivot set of the spec's type.
-	 * @param array<string,array{name:string,table:DataTable,id?:int}> $slots   Pivot::slots() of that set (`id` is needed for bitmask slots).
-	 * @param array<string,FieldDef>                           $fields  Top-level fields by name, for conditions the pivot cannot answer (typed-table probes).
+	 * @param QuerySpec                                                                                 $spec     Query.
+	 * @param int                                                                                       $pivotId  Pivot set of the spec's type.
+	 * @param array<string,array{name:string,table:DataTable,id?:int}>                                  $slots    Pivot::slots() of that set (`id` is needed for bitmask slots).
+	 * @param array<string,FieldDef>                                                                    $fields   Top-level fields by name, for conditions the pivot cannot answer (typed-table probes).
 	 * @param array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}> $rowSlots Row-pivot slots per Series name (series field id and its slots).
 	 * @return CompiledQuery
 	 * @throws UnsupportedQueryException When the pivot cannot answer the query alone.
@@ -141,7 +141,7 @@ final class Compiler {
 			$params,
 			array(
 				'mode'       => array() === $probes ? 'pivot' : 'pivot+probe',
-					'rows'       => array_map( static fn( RowCondition $r ): string => $r->series, $spec->rows ),
+				'rows'       => array_map( static fn( RowCondition $r ): string => $r->series, $spec->rows ),
 				'probes'     => $probes,
 				'pivot_id'   => $pivotId,
 				'conditions' => $conditions,
@@ -154,11 +154,11 @@ final class Compiler {
 	/**
 	 * Any-of / all-of / none-of on a multi-valued field: one bitwise test on a bitmask slot, else typed-table probes.
 	 *
-	 * @param MaskCondition                  $m      Condition.
+	 * @param MaskCondition                       $m      Condition.
 	 * @param array<string,array{0:string,1:int}> $masked Bitmask slots by field name: slot and field id.
-	 * @param array<string,FieldDef>         $fields Fields by name.
-	 * @param ObjectType                     $type   Object type.
-	 * @param array<int,scalar>              $params Parameters, appended to.
+	 * @param array<string,FieldDef>              $fields Fields by name.
+	 * @param ObjectType                          $type   Object type.
+	 * @param array<int,scalar>                   $params Parameters, appended to.
 	 * @return string|null SQL, or null when the condition restricts nothing.
 	 * @throws UnsupportedQueryException When the field cannot be tested.
 	 */
@@ -216,11 +216,11 @@ final class Compiler {
 	/**
 	 * `EXISTS` on nf_row_pivot for one Series: every condition holds on the same row.
 	 *
-	 * @param RowCondition      $r        Condition.
+	 * @param RowCondition                                                                              $r        Condition.
 	 * @param array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}> $rowSlots Row slots per Series name.
-	 * @param int               $pivotId  Pivot set.
-	 * @param string            $outer    Outer (object pivot) table name.
-	 * @param array<int,scalar> $params   Parameters, appended to.
+	 * @param int                                                                                       $pivotId  Pivot set.
+	 * @param string                                                                                    $outer    Outer (object pivot) table name.
+	 * @param array<int,scalar>                                                                         $params   Parameters, appended to.
 	 * @return string
 	 * @throws UnsupportedQueryException When a sub-field has no row slot.
 	 */
@@ -250,7 +250,7 @@ final class Compiler {
 				DataTable::Str  => 'dict',
 				default         => throw new UnsupportedQueryException( 'Sub-field ' . esc_html( $c->field ) . ' cannot be filtered.' ),
 			};
-			$sql                        = 'dict' === $kind ? $this->dictPredicate( $col, $c, $fieldId, $inner ) : $this->predicate( $col, $c, $kind, $inner );
+			$sql = 'dict' === $kind ? $this->dictPredicate( $col, $c, $fieldId, $inner ) : $this->predicate( $col, $c, $kind, $inner );
 			if ( null !== $sql ) {
 				$parts[] = $sql;
 			}
@@ -280,7 +280,10 @@ final class Compiler {
 			throw new UnsupportedQueryException( 'String conditions need the dictionary.' );
 		}
 		$list = is_array( $c->value ) ? array_values( $c->value ) : array( $c->value );
-		$ids  = array();
+		if ( count( $list ) > self::MAX_LIST ) {
+			throw new UnsupportedQueryException( 'List too long.' );
+		}
+		$ids = array();
 		foreach ( $list as $v ) {
 			if ( ! is_scalar( $v ) ) {
 				throw new UnsupportedQueryException( 'Value must be scalar.' );

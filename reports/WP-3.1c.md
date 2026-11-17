@@ -20,3 +20,8 @@ State: in-review. Branch `wp/3.1c-compiler-rows`.
 - `Pivot::slots()` is the source of slot `id`; no reader exists for row-pivot slots per Series (`RowPivot` has none). The caller (3.2) needs one, in `src/Pivot/` (A3): `RowPivot::slotsFor( pivotId )`.
 - Multi-valued sub-fields in rows (`nf_row_pivot.m1`) unused, as in 2.2c.
 - DB-backed corpus still pending (3.3).
+
+## Review round
+- Fixed (blocking): row-condition list length is capped before any dictionary lookup (test added); PLAN rows 3.1c/3.3 amended (mirrored taxonomy moved to 3.3).
+- Fixed: PHPCS formatting errors from CI.
+- Follow-ups (non-blocking): batch `Dictionary::findBits()` / `findMany()` (A3) to avoid one query per value; all-of on bit 63 needs an unsigned literal from the dialect; `rowExists()` correlates on the unaliased `nf_pivot` name, revisit in 3.1d; more tests (dict `in`/null, dec slots, no-dictionary path, parameter order with probes).
