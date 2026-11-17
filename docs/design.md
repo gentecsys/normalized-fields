@@ -599,7 +599,7 @@ $events = nf_query( 'event' )                     // post type, taxonomy ('term:
     ->whereAny( 'category', [ 'music', 'food' ] )        // bitmask slot: one bitwise check
     ->whereRelated( 'artists', 123 )                     // index seek on nf_int
     ->whereRow( 'sessions', fn( $row ) => $row           // conditions on the SAME repeater row
-        ->where( 'session_date', 'between', [ '2026-11-03 18:00', '2026-11-04' ] )
+        ->whereBetween( 'session_date', [ '2026-11-03 18:00', '2026-11-04' ] )
         ->where( 'speaker', 42 ) )
     ->search( 'jazz' )                                   // core post search, combined by the planner
     ->tax( 'region', 'varna' )                           // core taxonomy, or a mirrored bitmask slot
@@ -607,6 +607,8 @@ $events = nf_query( 'event' )                     // post type, taxonomy ('term:
     ->with( [ 'artists', 'venue' ] )                     // eager-load related posts and their fields
     ->paginate( 20, $page, count: 'exact' );             // exact | capped | none (counting tier)
 ```
+
+**`whereBetween()`.** `->whereBetween( $field, [ $min, $max ] )` is shorthand for `->where( $field, 'between', [ $min, $max ] )` and compiles to the same SQL `BETWEEN`: both ends are included. It works on the main builder and on the row builder inside `whereRow()`, for numbers, dates and times (dates take the same relative forms as `where()`, such as `'today'`). Anything other than exactly two values throws, as `between` does in the compiler. For a range on a multi-valued field it matches when any value is in range, like the other operators.
 
 **Results, all native:**
 
