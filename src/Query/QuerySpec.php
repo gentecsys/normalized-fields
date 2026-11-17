@@ -29,6 +29,8 @@ final class QuerySpec {
 	 * @param array<int,array{0:string,1:string}> $orders     [ field, 'ASC'|'DESC' ] in priority order; empty means date DESC.
 	 * @param int                                 $limit      Page size; 0 means no limit.
 	 * @param int                                 $offset     Rows to skip.
+	 * @param MaskCondition[]                     $masks      ANDed any / all / none conditions on multi-valued fields.
+	 * @param RowCondition[]                      $rows       ANDed same-row conditions on Series.
 	 */
 	public function __construct(
 		public readonly ObjectType $type,
@@ -37,6 +39,8 @@ final class QuerySpec {
 		public readonly array $conditions = array(),
 		public readonly array $orders = array(),
 		public readonly int $limit = 0,
-		public readonly int $offset = 0
+		public readonly int $offset = 0,
+		public readonly array $masks = array(),
+		public readonly array $rows = array()
 	) {}
 }
