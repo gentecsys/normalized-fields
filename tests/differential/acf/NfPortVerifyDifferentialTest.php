@@ -196,7 +196,7 @@ final class NfPortVerifyDifferentialTest extends TestCase {
 				'booking'  => '',
 			),
 		);
-		// What an importer does: raw meta plus ACF's reference, no update_field().
+		// What such an importer does: raw meta plus ACF's reference, no update_field().
 		update_post_meta( self::$id, 'nfpv_title', $websites );
 		update_post_meta( self::$id, '_nfpv_title', 'field_nfpv_title' );
 		update_post_meta( self::$id, 'nfpv_date', array( array() ) );

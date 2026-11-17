@@ -32,11 +32,11 @@ Verify reports zero mismatches on a staging copy of a real site. This needs the 
 
 ## Owner run (2026-11-16, Claude on the owner's LocalWP)
 
-Site: a LocalWP clone of a real client site: WordPress 7.1.4, ACF PRO 6.6.1, 21 field groups (192 fields, 6 repeaters), all reported portable by `wp nf port scan`. The original site was only read (database export).
+Site: a local staging copy of a real client site: WordPress 7.1.4, ACF PRO 6.6.1, 21 field groups (192 fields, 6 repeaters), all reported portable by `wp nf port scan`. The original site was only read (database export).
 
 First run: 18 of 20 post types clean. Findings, all fixed on `main`:
 - `wp nf port verify` compared raw ACF values with typed NF values (false mismatches on every date, time and repeater field): fixed in `927c590`.
 - The site's importer stores arrays in ACF text fields (lists such as websites and phone numbers, plus empty structures in other fields): NF dropped them. Owner decision: keep them as is (DECISIONS 2026-11-16); 19 fields, 29,751 values now in `nf_json`.
-- A third-party plugin on the site is missing one of its own files on the original site too, so any post query in WP-CLI fatals; deactivated on the clone. The port CLI printed an empty error for the failed job; it now shows the job's exception.
+- A third-party plugin on the site is missing one of its own files, so any post query in WP-CLI fatals; it was deactivated on the copy. The port CLI printed an empty error for the failed job; it now shows the job's exception.
 
-Second run: zero mismatches in all 20 post types, 7,470 posts, 127,684 values ported (largest: 3,633 posts, 101,292 values, port 24 s, verify 10 s). Verify covers posts only (terms, users, options: see `reports/WP-2.6d.md`).
+Second run: zero mismatches in all 20 post types, 7,470 posts, 127,684 values ported (largest post type: 3,633 posts, 101,292 values, port 24 s, verify 10 s). Verify covers posts only (terms, users, options: see `reports/WP-2.6d.md`).
