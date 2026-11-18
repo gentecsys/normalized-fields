@@ -13,6 +13,9 @@ State: in-review. Branch `wp/3.2c-results`.
 ## Tests run
 Only `php -l`. No vendor tooling in this sandbox; phpunit, phpcs and phpstan are left to CI.
 
+## Review fixes
+- `users()` passes `blog_id => 0` (network-wide users, ADR-0011); doc nits; users() wrong-target test.
+
 ## Follow-ups
 - Term and user hydration have no dedicated DB-backed test (the term/user pivot setup is covered with 3.2c3's design-doc examples).
 - Field lookup is still by top-level name across collections (see WP-3.2b).
