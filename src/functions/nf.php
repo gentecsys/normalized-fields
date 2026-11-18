@@ -33,3 +33,15 @@ if ( ! function_exists( 'nf_register_row_sorter' ) ) {
 		return \NF\Plugin::sorter()->register( $name, $args );
 	}
 }
+
+if ( ! function_exists( 'nf_query' ) ) {
+	/**
+	 * Start a query on a post type (`event`), taxonomy (`term:genre`) or `user` (D-15).
+	 *
+	 * @param string $target Target.
+	 * @return \NF\Query\Builder
+	 */
+	function nf_query( string $target ): \NF\Query\Builder {
+		return new \NF\Query\Builder( $target, \NF\Plugin::queryContext() );
+	}
+}
