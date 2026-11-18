@@ -239,4 +239,61 @@ class QueryContextTest extends WP_UnitTestCase {
 		$this->expectException( InvalidArgumentException::class );
 		$this->q()->whereRelated( 'ctxseats', 0 );
 	}
+
+	/**
+	 * Projection returns typed values per matching object in query order, and nulls for missing ones.
+	 */
+	public function test_values_projection(): void {
+		$a = $this->make( 30, 1 );
+		$b = $this->make( 10, 2 );
+		$this->assertSame(
+			array(
+				array(
+					'id'       => $b,
+					'ctxprice' => 10,
+					'ctxseats' => 2,
+				),
+				array(
+					'id'       => $a,
+					'ctxprice' => 30,
+					'ctxseats' => 1,
+				),
+			),
+			$this->q()->orderBy( 'ctxprice' )->values( array( 'ctxprice', 'ctxseats' ) )
+		);
+		$this->assertSame( array(), ( new NF\Query\Builder( 'nf_ctx_never_stored', $this->context ) )->values( array( 'ctxprice' ) ) );
+	}
+
+	/**
+	 * Unknown fields are refused.
+	 */
+	public function test_values_unknown_field_throws(): void {
+		$this->make( 1, 1 );
+		$this->expectException( InvalidArgumentException::class );
+		$this->q()->values( array( 'ctx_missing' ) );
+	}
+
+	/**
+	 * wp_query() returns a WP_Query with the page, the live total and page count, without core SQL for the posts.
+	 */
+	public function test_wp_query_found_posts_and_pages(): void {
+		$this->make( 30, 1 );
+		$b = $this->make( 10, 2 );
+		$c = $this->make( 20, 3 );
+
+		$query = $this->q()->orderBy( 'ctxprice' )->limit( 2 )->wp_query();
+		$this->assertInstanceOf( WP_Query::class, $query );
+		$this->assertSame( array( $b, $c ), wp_list_pluck( $query->posts, 'ID' ) );
+		$this->assertSame( 3, $query->found_posts );
+		$this->assertSame( 2, $query->max_num_pages );
+		$this->assertTrue( $query->have_posts() );
+	}
+
+	/**
+	 * wp_query() on a user query throws.
+	 */
+	public function test_wp_query_on_user_query_throws(): void {
+		$this->expectException( LogicException::class );
+		( new NF\Query\Builder( 'user', $this->context ) )->wp_query();
+	}
 }
