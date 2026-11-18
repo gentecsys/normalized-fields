@@ -13,7 +13,7 @@ use NF\Storage\ObjectType;
 use NF\Storage\Store;
 
 /**
- * ids(), count(), toSql() and explain() on a slotted field and a probed field.
+ * Query ids, counts, SQL text and explain output on a slotted field and a probed field.
  */
 class QueryContextTest extends WP_UnitTestCase {
 
@@ -166,7 +166,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * toSql() inlines values; explain() carries the plan and the database's rows.
+	 * The SQL text inlines values; explain output carries the plan and the database's rows.
 	 */
 	public function test_to_sql_and_explain(): void {
 		$this->make( 5, 1 );
@@ -178,7 +178,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * nf_query() is bound to the plugin's context.
+	 * The nf_query function is bound to the plugin's context.
 	 */
 	public function test_nf_query_function(): void {
 		$this->assertInstanceOf( NF\Query\Builder::class, nf_query( self::TYPE ) );

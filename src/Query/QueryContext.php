@@ -125,7 +125,7 @@ final class QueryContext {
 				'distinct' => (int) $r['distinct_count'],
 			);
 		}
-		$count = $this->db->select( 'SELECT COUNT(*) AS c FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
+		$count      = $this->db->select( 'SELECT COUNT(*) AS c FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
 		$stats['*'] = array(
 			'rows'     => (int) ( $count[0]['c'] ?? 0 ),
 			'distinct' => 0,
@@ -138,8 +138,8 @@ final class QueryContext {
 			array( $pivotId )
 		);
 		foreach ( $series as $r ) {
-			$sn = (string) $r['series_name'];
-			$rowSlots[ $sn ]['id']                    = (int) $r['repeater_id'];
+			$sn                                              = (string) $r['series_name'];
+			$rowSlots[ $sn ]['id']                           = (int) $r['repeater_id'];
 			$rowSlots[ $sn ]['slots'][ (string) $r['slot'] ] = array(
 				'name'  => (string) $r['field_name'],
 				'table' => DataTable::from( (string) $r['data_table'] ),
