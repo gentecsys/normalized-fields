@@ -32,7 +32,7 @@ final class RowBuilder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On an invalid condition.
 	 */
-	public function where( string $field, mixed $op = null, mixed $value = null ): static {
+	public function where( string $field, mixed $op = null, mixed $value = null ): self {
 		$this->conditions[] = 2 === func_num_args() ? Builder::condition( $field, null === $op ? 'null' : '=', $op ) : Builder::condition( $field, (string) $op, $value );
 		return $this;
 	}
@@ -45,7 +45,7 @@ final class RowBuilder {
 	 * @return $this
 	 * @throws \InvalidArgumentException Unless exactly two values are given.
 	 */
-	public function whereBetween( string $field, array $range ): static {
+	public function whereBetween( string $field, array $range ): self {
 		$this->conditions[] = Builder::condition( $field, 'between', $range );
 		return $this;
 	}
