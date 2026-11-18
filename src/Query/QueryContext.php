@@ -19,16 +19,10 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Reads NF's own tables through the backend only (no core tables, ADR-0009) and runs compiled queries.
- * Read only: it never writes, so it is safe on anonymous requests.
+ * Read only: it never writes, so it is safe on anonymous requests. Nothing is cached across calls: slots, stats and the
+ * site prefix can change within a request (switch_blog, writes); caching with the pivot write_version comes with WP 3.4.
  */
 final class QueryContext {
-
-	/**
-	 * Resolved inputs per `type|subtype`.
-	 *
-	 * @var array<string,array<string,mixed>>
-	 */
-	private array $memo = array();
 
 	/**
 	 * Constructor.
@@ -112,13 +106,9 @@ final class QueryContext {
 	 * @return array{pivot:int,slots:array<string,array{id:int,name:string,table:DataTable}>,fields:array<string,FieldDef>,rowSlots:array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}>,stats:array<string,array{rows:int,distinct:int}>}|null
 	 */
 	private function resolve( QuerySpec $spec ): ?array {
-		$memo = $spec->type->value . '|' . $spec->subtype;
-		if ( array_key_exists( $memo, $this->memo ) ) {
-			return $this->memo[ $memo ];
-		}
 		$pivotId = $this->pivot->findSetId( $spec->type, $spec->subtype );
 		if ( null === $pivotId ) {
-			return $this->memo[ $memo ] = null;
+			return null;
 		}
 
 		$fields = array();
@@ -157,7 +147,7 @@ final class QueryContext {
 			);
 		}
 
-		return $this->memo[ $memo ] = array(
+		return array(
 			'pivot'    => $pivotId,
 			'slots'    => $this->pivot->slots( $pivotId ),
 			'fields'   => $fields,

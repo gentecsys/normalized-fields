@@ -67,8 +67,8 @@ class QueryContextTest extends WP_UnitTestCase {
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t32b%' ) );
 		$fields = new FieldMap( $db );
 		$fields->flush();
-		$fields->register( 'field_t32b_price', 'price', DataTable::Int );
-		$fields->register( 'field_t32b_seats', 'seats', DataTable::Int );
+		$fields->register( 'field_t32b_price', 'ctxprice', DataTable::Int );
+		$fields->register( 'field_t32b_seats', 'ctxseats', DataTable::Int );
 		$this->store    = new Store( $db, $fields );
 		$this->pivot    = new Pivot( $db, $fields, $this->store );
 		$this->pivot_id = $this->pivot->setId( ObjectType::Post, self::TYPE );
@@ -129,11 +129,11 @@ class QueryContextTest extends WP_UnitTestCase {
 		$a = $this->make( 30, 1 );
 		$b = $this->make( 10, 2 );
 		$c = $this->make( 20, 3 );
-		$this->assertSame( array( $b, $c, $a ), $this->q()->orderBy( 'price' )->ids() );
-		$this->assertSame( array( $c, $a ), $this->q()->where( 'price', '>=', 20 )->orderBy( 'price' )->ids() );
-		$this->assertSame( array( $b ), $this->q()->orderBy( 'price' )->limit( 1 )->ids() );
+		$this->assertSame( array( $b, $c, $a ), $this->q()->orderBy( 'ctxprice' )->ids() );
+		$this->assertSame( array( $c, $a ), $this->q()->where( 'ctxprice', '>=', 20 )->orderBy( 'ctxprice' )->ids() );
+		$this->assertSame( array( $b ), $this->q()->orderBy( 'ctxprice' )->limit( 1 )->ids() );
 		$this->assertSame( 3, $this->q()->limit( 1 )->count(), 'count ignores limit' );
-		$this->assertSame( 2, $this->q()->whereBetween( 'price', array( 10, 20 ) )->count() );
+		$this->assertSame( 2, $this->q()->whereBetween( 'ctxprice', array( 10, 20 ) )->count() );
 	}
 
 	/**
@@ -142,7 +142,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	public function test_ids_on_probed_field(): void {
 		$this->make( 1, 5 );
 		$b = $this->make( 2, 7 );
-		$this->assertSame( array( $b ), $this->q()->where( 'seats', 7 )->ids() );
+		$this->assertSame( array( $b ), $this->q()->where( 'ctxseats', 7 )->ids() );
 	}
 
 	/**
@@ -170,7 +170,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	 */
 	public function test_to_sql_and_explain(): void {
 		$this->make( 5, 1 );
-		$q = $this->q()->where( 'price', '>', 3 );
+		$q = $this->q()->where( 'ctxprice', '>', 3 );
 		$this->assertStringContainsString( '> 3', $q->toSql() );
 		$e = $q->explain();
 		$this->assertArrayHasKey( 'plan', $e );

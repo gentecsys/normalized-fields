@@ -15,3 +15,9 @@ Only `php -l` here. Not run locally: phpunit (WP suite), phpcs, phpstan; CI is a
 - No contract change. The "design-doc examples compile as tests" criterion is covered for the shapes the compiler supports today; examples using `whereRelated`, `search`, `tax`, `with`, `after` belong to 3.2c.
 - `NF::query()` alias (class `NF`) not added; it comes with the ACF `NF` shim class (3.6) or 3.2c.
 - `stats['*']` uses `COUNT(*)` on `nf_pivot` per set, memoised per request; if costly at 1M objects, move to a cached counter (3.4).
+
+## Review follow-up (A13)
+- Fixed: no cross-call memo (stale `null`, slots, multisite prefix); a cache keyed by site prefix and `write_version` comes with 3.4.
+- Known limitation: `fields`/`stats` are matched by top-level field name across all of `nf_fields`; if two collections reuse a name with different types the first by `field_id` wins. Scoping fields to the pivot set is a follow-up (3.2c). Test fields use unique names for this reason.
+- **Follow-up (3.9 / D-18):** `ids()` has no default limit and `count()`/`explain()` have no count slots or statement timeout; the anonymous front-end guard lands with the REST/guard WP. Do not call `nf_query()->ids()` unbounded on anonymous requests until then.
+- Follow-up: tests for mask and row-slot resolution; a shared `Plugin::pivot()`.
