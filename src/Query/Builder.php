@@ -432,16 +432,7 @@ final class Builder {
 			remove_filter( 'posts_pre_query', $hook, 10 );
 			return $posts;
 		};
-		// Core computes max_num_pages from found_posts, so the count goes in through the found_posts filter (design: Pagination parity).
-		$total = static function ( $count, \WP_Query $query ) use ( &$total, $found, $none ) {
-			if ( ! $query->get( 'nf_builder' ) || $none ) {
-				return $count;
-			}
-			remove_filter( 'found_posts', $total, 0 );
-			return $found;
-		};
 		add_filter( 'posts_pre_query', $hook, 10, 2 );
-		add_filter( 'found_posts', $total, 0, 2 );
 		try {
 			$query = new \WP_Query(
 				array(
@@ -455,10 +446,9 @@ final class Builder {
 			);
 		} finally {
 			remove_filter( 'posts_pre_query', $hook, 10 );
-			remove_filter( 'found_posts', $total, 0 );
 		}
-		if ( ! $none && array() === $posts ) {
-			// Core skips the count for an empty page; a page past the end still reports the real total.
+		if ( ! $none ) {
+			// Core does not count after a posts_pre_query short-circuit, so the live total goes in here (an empty page past the end still reports it).
 			$query->found_posts   = $found;
 			$query->max_num_pages = $limit > 0 ? (int) ceil( $found / $limit ) : ( $found > 0 ? 1 : 0 );
 		}
