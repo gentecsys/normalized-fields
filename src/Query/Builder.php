@@ -418,32 +418,51 @@ final class Builder {
 			throw new \LogicException( 'wp_query() needs a post type query.' );
 		}
 		$posts = $this->posts();
-		$found = array() === $posts ? 0 : $this->count();
+		$none  = 'none' === $this->count;
+		$found = $none ? count( $posts ) : $this->count();
 		$limit = $this->limit;
-		$pages = $limit > 0 ? (int) ceil( $found / $limit ) : ( $found > 0 ? 1 : 0 );
-		$hook  = static function ( $pre, \WP_Query $query ) use ( &$hook, $posts, $found, $pages ) {
+		$stati = array();
+		foreach ( $this->statuses as $status ) {
+			$stati[] = Status::AutoDraft === $status ? 'auto-draft' : strtolower( $status->name );
+		}
+		$hook = static function ( $pre, \WP_Query $query ) use ( &$hook, $posts ) {
 			if ( ! $query->get( 'nf_builder' ) ) {
 				return $pre;
 			}
 			remove_filter( 'posts_pre_query', $hook, 10 );
-			$query->found_posts   = $found;
-			$query->max_num_pages = $pages;
 			return $posts;
 		};
+		// Core computes max_num_pages from found_posts, so the count goes in through the found_posts filter (design: Pagination parity).
+		$total = static function ( $count, \WP_Query $query ) use ( &$total, $found, $none ) {
+			if ( ! $query->get( 'nf_builder' ) || $none ) {
+				return $count;
+			}
+			remove_filter( 'found_posts', $total, 0 );
+			return $found;
+		};
 		add_filter( 'posts_pre_query', $hook, 10, 2 );
+		add_filter( 'found_posts', $total, 0, 2 );
 		try {
-			return new \WP_Query(
+			$query = new \WP_Query(
 				array(
 					'nf_builder'     => true,
 					'post_type'      => $this->subtype,
-					'post_status'    => 'any',
+					'post_status'    => array() === $stati ? 'any' : $stati,
 					'posts_per_page' => $limit > 0 ? $limit : -1,
-					'no_found_rows'  => false,
+					'offset'         => $this->offset,
+					'no_found_rows'  => $none,
 				)
 			);
 		} finally {
 			remove_filter( 'posts_pre_query', $hook, 10 );
+			remove_filter( 'found_posts', $total, 0 );
 		}
+		if ( ! $none && array() === $posts ) {
+			// Core skips the count for an empty page; a page past the end still reports the real total.
+			$query->found_posts   = $found;
+			$query->max_num_pages = $limit > 0 ? (int) ceil( $found / $limit ) : ( $found > 0 ? 1 : 0 );
+		}
+		return $query;
 	}
 
 	/**

@@ -154,7 +154,7 @@ final class QueryContext {
 		foreach ( $ids as $id ) {
 			$row = array( 'id' => $id );
 			foreach ( $defs as $name => $def ) {
-				$list        = $data[ $name ][ $id ] ?? array();
+				$list         = $data[ $name ][ $id ] ?? array();
 				$row[ $name ] = $def->multi ? $list : ( $list[0] ?? null );
 			}
 			$out[] = $row;
