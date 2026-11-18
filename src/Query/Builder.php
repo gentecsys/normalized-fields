@@ -366,6 +366,85 @@ final class Builder {
 	}
 
 	/**
+	 * Matching posts as native WP_Post objects, in query order.
+	 *
+	 * One `_prime_post_caches()` call hydrates the page; ids that no longer resolve are dropped.
+	 *
+	 * @return \WP_Post[]
+	 * @throws \LogicException For a term or user query, or without a context.
+	 */
+	public function posts(): array {
+		if ( ObjectType::Post !== $this->type ) {
+			throw new \LogicException( 'posts() needs a post type query; use terms() or users().' );
+		}
+		$ids = $this->ids();
+		if ( array() === $ids ) {
+			return array();
+		}
+		_prime_post_caches( $ids, true, true );
+		$posts = array();
+		foreach ( $ids as $id ) {
+			$post = get_post( $id );
+			if ( $post instanceof \WP_Post ) {
+				$posts[] = $post;
+			}
+		}
+		return $posts;
+	}
+
+	/**
+	 * Matching terms as native WP_Term objects, in query order.
+	 *
+	 * `get_terms` filters from other plugins can still alter the set.
+	 *
+	 * @return \WP_Term[]
+	 * @throws \LogicException For a non-term query, or without a context.
+	 */
+	public function terms(): array {
+		if ( ObjectType::Term !== $this->type ) {
+			throw new \LogicException( 'terms() needs a `term:<taxonomy>` query.' );
+		}
+		$ids = $this->ids();
+		if ( array() === $ids ) {
+			return array();
+		}
+		$found = get_terms(
+			array(
+				'taxonomy'   => $this->subtype,
+				'include'    => $ids,
+				'orderby'    => 'include',
+				'hide_empty' => false,
+				'number'     => 0,
+			)
+		);
+		return is_array( $found ) ? array_values( array_filter( $found, static fn( $t ): bool => $t instanceof \WP_Term ) ) : array();
+	}
+
+	/**
+	 * Matching users as native WP_User objects, in query order.
+	 *
+	 * @return \WP_User[]
+	 * @throws \LogicException For a non-user query, or without a context.
+	 */
+	public function users(): array {
+		if ( ObjectType::User !== $this->type ) {
+			throw new \LogicException( 'users() needs a `user` query.' );
+		}
+		$ids = $this->ids();
+		if ( array() === $ids ) {
+			return array();
+		}
+		return get_users(
+			array(
+				'include' => $ids,
+				'orderby' => 'include',
+				'number'  => -1,
+				'blog_id' => 0, // User values are network-wide (ADR-0011): do not drop users outside this site.
+			)
+		);
+	}
+
+	/**
 	 * The context, or an error for a spec-only builder.
 	 *
 	 * @return QueryContext
@@ -376,6 +455,21 @@ final class Builder {
 			throw new \LogicException( 'This builder has no query context; create it with nf_query().' );
 		}
 		return $this->context;
+	}
+
+	/**
+	 * Related-object condition: the relationship field holds the id (plain equality; the compiler resolves it).
+	 *
+	 * @param string $field Relationship field.
+	 * @param int    $id    Related object id.
+	 * @return $this
+	 * @throws \InvalidArgumentException On an empty field or a non-positive id.
+	 */
+	public function whereRelated( string $field, int $id ): self {
+		if ( $id < 1 ) {
+			throw new \InvalidArgumentException( 'whereRelated() needs a positive object id.' );
+		}
+		return $this->where( $field, '=', $id );
 	}
 
 	/**
