@@ -193,7 +193,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * posts() returns native WP_Post objects in query order.
+	 * Posts hydrate to native WP_Post objects in query order.
 	 */
 	public function test_posts_in_query_order(): void {
 		$a = $this->make( 30, 1 );
@@ -206,7 +206,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * terms() and users() refuse a post query; posts() refuses a user query.
+	 * Terms hydration refuses a post query.
 	 */
 	public function test_hydrators_check_target_type(): void {
 		$this->expectException( LogicException::class );
@@ -214,7 +214,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * users() on a post query throws.
+	 * Users hydration on a post query throws.
 	 */
 	public function test_users_on_post_query_throws(): void {
 		$this->expectException( LogicException::class );
@@ -222,7 +222,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * posts() on a user query throws.
+	 * Posts hydration on a user query throws.
 	 */
 	public function test_posts_on_user_query_throws(): void {
 		$this->expectException( LogicException::class );
@@ -230,7 +230,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * whereRelated() is an equality on the relationship field and needs a positive id.
+	 * Related-object condition is an equality on the relationship field and needs a positive id.
 	 */
 	public function test_where_related(): void {
 		$this->make( 1, 5 );
