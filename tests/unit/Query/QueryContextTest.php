@@ -214,6 +214,14 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * users() on a post query throws.
+	 */
+	public function test_users_on_post_query_throws(): void {
+		$this->expectException( LogicException::class );
+		$this->q()->users();
+	}
+
+	/**
 	 * posts() on a user query throws.
 	 */
 	public function test_posts_on_user_query_throws(): void {

@@ -395,6 +395,8 @@ final class Builder {
 	/**
 	 * Matching terms as native WP_Term objects, in query order.
 	 *
+	 * `get_terms` filters from other plugins can still alter the set.
+	 *
 	 * @return \WP_Term[]
 	 * @throws \LogicException For a non-term query, or without a context.
 	 */
@@ -437,6 +439,7 @@ final class Builder {
 				'include' => $ids,
 				'orderby' => 'include',
 				'number'  => -1,
+				'blog_id' => 0, // User values are network-wide (ADR-0011): do not drop users outside this site.
 			)
 		);
 	}
@@ -455,7 +458,7 @@ final class Builder {
 	}
 
 	/**
-	 * Related-object condition: the relationship field holds the id (reverse relationships too).
+	 * Related-object condition: the relationship field holds the id (plain equality; the compiler resolves it).
 	 *
 	 * @param string $field Relationship field.
 	 * @param int    $id    Related object id.
