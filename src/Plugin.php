@@ -101,6 +101,26 @@ final class Plugin {
 	}
 
 	/**
+	 * Query context, created on first use.
+	 *
+	 * @var Query\QueryContext|null
+	 */
+	private static ?Query\QueryContext $queryContext = null;
+
+	/**
+	 * The query context behind nf_query().
+	 *
+	 * @return Query\QueryContext
+	 */
+	public static function queryContext(): Query\QueryContext {
+		if ( null === self::$queryContext ) {
+			$pivot              = new Pivot\Pivot( self::db(), self::fields(), self::store() );
+			self::$queryContext = new Query\QueryContext( self::db(), $pivot, $pivot->dictionary() );
+		}
+		return self::$queryContext;
+	}
+
+	/**
 	 * ACF bridge, created on first use.
 	 *
 	 * @var Acf\Bridge|null
