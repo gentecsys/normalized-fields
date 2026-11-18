@@ -95,10 +95,11 @@ final class Builder {
 	/**
 	 * Constructor.
 	 *
-	 * @param string $target Post type (`event`), taxonomy (`term:genre`) or `user`.
+	 * @param string            $target  Post type (`event`), taxonomy (`term:genre`) or `user`.
+	 * @param QueryContext|null $context Resolver for toSql(), explain(), ids() and count(); none for a spec-only builder.
 	 * @throws \InvalidArgumentException When the target is empty.
 	 */
-	public function __construct( string $target ) {
+	public function __construct( string $target, private ?QueryContext $context = null ) {
 		$target = trim( $target );
 		if ( '' === $target || 'term:' === $target ) {
 			throw new \InvalidArgumentException( 'A query needs a post type, `term:<taxonomy>` or `user`.' );
@@ -326,6 +327,55 @@ final class Builder {
 	 */
 	public function toSpec(): QuerySpec {
 		return new QuerySpec( $this->type, $this->subtype, $this->statuses, $this->conditions, $this->orders, $this->limit, $this->offset, $this->masks, $this->rows );
+	}
+
+	/**
+	 * The SQL the query compiles to, with values inlined for reading (never run it).
+	 *
+	 * @return string Empty when the type has no pivot set yet.
+	 */
+	public function toSql(): string {
+		return $this->context()->compile( $this->toSpec() )?->toSql() ?? '';
+	}
+
+	/**
+	 * Compiler plan and the database's EXPLAIN.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function explain(): array {
+		return $this->context()->explain( $this->toSpec() );
+	}
+
+	/**
+	 * Matching object ids in query order.
+	 *
+	 * @return int[]
+	 */
+	public function ids(): array {
+		return $this->context()->ids( $this->toSpec() );
+	}
+
+	/**
+	 * Live count of matches, ignoring limit and offset.
+	 *
+	 * @return int
+	 */
+	public function count(): int {
+		return $this->context()->count( $this->toSpec() );
+	}
+
+	/**
+	 * The context, or an error for a spec-only builder.
+	 *
+	 * @return QueryContext
+	 * @throws \LogicException Without a context.
+	 */
+	private function context(): QueryContext {
+		if ( null === $this->context ) {
+			throw new \LogicException( 'This builder has no query context; create it with nf_query().' );
+		}
+		return $this->context;
 	}
 
 	/**
