@@ -154,3 +154,6 @@ Only the owner edits this section. To approve a gate, add a line in the form `- 
 
 ### WP 3.1 split into 3.1a to 3.1d (2026-11-17, made by daily agent, owner to review at next gate)
 - **Decision:** the XL WP 3.1 is split into 3.1a pivot tier, 3.1b typed-table probes, 3.1c rows and bitmasks, 3.1d planner and `explain()`. WPs 3.2, 3.3 and 3.4 now depend on 3.1d. Known semantics to pin in 3.1b's corpus: `!=`/`not_in` on a nullable slot exclude NULL rows (SQL three-valued logic).
+
+### WP 3.2 split into 3.2a-c (2026-11-18, made by daily agent, owner to review at next gate)
+- **Decision:** 3.2 (size L) is split: 3.2a fluent `Builder`/`RowBuilder` producing a `QuerySpec` (no database); 3.2b `QueryContext` resolver, `nf_query()`, `toSql`/`explain`/`ids`/`count`; 3.2c results and extras (`posts`, `wp_query`, `values`, `whereRelated`, `search`, `tax`, cursors). 3.5 and 3.9 now depend on 3.2c. The owner's `whereBetween` criterion (2026-11-17) sits in 3.2a; the SQL-level equality check with the compiler belongs in 3.2b's tests.

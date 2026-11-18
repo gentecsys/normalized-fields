@@ -109,6 +109,13 @@ final class Builder {
 		if ( ! in_array( $op, array( 'between', 'in', 'not_in', 'null', 'not_null' ), true ) && ! is_scalar( $value ) ) {
 			throw new \InvalidArgumentException( 'This operator needs a scalar value.' );
 		}
+		if ( is_array( $value ) ) {
+			foreach ( $value as $v ) {
+				if ( ! is_scalar( $v ) ) {
+					throw new \InvalidArgumentException( 'Array values must be scalars.' );
+				}
+			}
+		}
 		return new Condition( $field, $op, is_array( $value ) ? array_values( $value ) : $value );
 	}
 
@@ -120,6 +127,9 @@ final class Builder {
 	 * @throws \InvalidArgumentException On an unknown status.
 	 */
 	public function status( string|Status|array $status ): static {
+		if ( array() === $status ) {
+			throw new \InvalidArgumentException( 'status needs at least one status.' );
+		}
 		$this->statuses = array();
 		foreach ( (array) $status as $s ) {
 			$st = $s instanceof Status ? $s : Status::fromName( $s );
