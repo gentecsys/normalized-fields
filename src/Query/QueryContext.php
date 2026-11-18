@@ -138,8 +138,13 @@ final class QueryContext {
 			array( $pivotId )
 		);
 		foreach ( $series as $r ) {
-			$sn                                              = (string) $r['series_name'];
-			$rowSlots[ $sn ]['id']                           = (int) $r['repeater_id'];
+			$sn = (string) $r['series_name'];
+			if ( ! isset( $rowSlots[ $sn ] ) ) {
+				$rowSlots[ $sn ] = array(
+					'id'    => (int) $r['repeater_id'],
+					'slots' => array(),
+				);
+			}
 			$rowSlots[ $sn ]['slots'][ (string) $r['slot'] ] = array(
 				'name'  => (string) $r['field_name'],
 				'table' => DataTable::from( (string) $r['data_table'] ),
