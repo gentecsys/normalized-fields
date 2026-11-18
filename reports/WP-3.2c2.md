@@ -17,5 +17,5 @@ Only `php -l`. No vendor tooling in this sandbox; phpunit, phpcs and phpstan are
 - Not in this WP: `search`, `tax`, `after()`/`chunk()` (3.2c3).
 
 ## Review fixes
-- `wp_query()` now supplies the total through an early `found_posts` filter scoped to its query (core computes `max_num_pages`; no `FOUND_ROWS`), passes `offset` and the builder's statuses, reports the real total for an empty deep page, and maps count mode `none` to `no_found_rows`. Count mode `capped` is treated as `exact` for now (deviation; capping arrives with the counting tier, 3.4).
+- `wp_query()` sets `found_posts` and `max_num_pages` itself after the short-circuit (CI showed core does not count after `posts_pre_query`; no `FOUND_ROWS`), passes `offset` and the builder's statuses, reports the real total for an empty deep page, and maps count mode `none` to `no_found_rows`. Count mode `capped` is treated as `exact` for now (deviation; capping arrives with the counting tier, 3.4).
 - Follow-ups: `values()` has no core columns (`title`) or dotted relation paths, and does not chunk very large id lists; spill, multi-valued and decimal/date tests are still to add.
