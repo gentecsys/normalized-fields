@@ -82,6 +82,8 @@ final class BuilderTest extends TestCase {
 	}
 
 	/**
+	 * Ranges that are not exactly two values.
+	 *
 	 * @dataProvider bad_between
 	 */
 	public function test_between_needs_exactly_two_values( array $range ): void {

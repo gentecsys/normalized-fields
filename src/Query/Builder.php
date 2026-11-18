@@ -22,7 +22,18 @@ final class Builder {
 
 	public const COUNT_MODES = array( 'exact', 'capped', 'none' );
 
+	/**
+	 * Object type.
+	 *
+	 * @var ObjectType
+	 */
 	private ObjectType $type;
+
+	/**
+	 * Post type or taxonomy; empty for users.
+	 *
+	 * @var string
+	 */
 	private string $subtype;
 
 	/**
@@ -60,9 +71,26 @@ final class Builder {
 	 */
 	private array $orders = array();
 
-	private int $limit      = 0;
-	private int $offset     = 0;
-	private string $count   = 'exact';
+	/**
+	 * Page size.
+	 *
+	 * @var int
+	 */
+	private int $limit = 0;
+
+	/**
+	 * Rows to skip.
+	 *
+	 * @var int
+	 */
+	private int $offset = 0;
+
+	/**
+	 * Counting mode.
+	 *
+	 * @var string
+	 */
+	private string $count = 'exact';
 
 	/**
 	 * Constructor.
@@ -126,7 +154,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On an unknown status.
 	 */
-	public function status( string|Status|array $status ): static {
+	public function status( string|Status|array $status ): self {
 		if ( array() === $status ) {
 			throw new \InvalidArgumentException( 'status needs at least one status.' );
 		}
@@ -150,7 +178,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On an invalid condition.
 	 */
-	public function where( string $field, mixed $op = null, mixed $value = null ): static {
+	public function where( string $field, mixed $op = null, mixed $value = null ): self {
 		$this->conditions[] = 2 === func_num_args() ? self::condition( $field, null === $op ? 'null' : '=', $op ) : self::condition( $field, (string) $op, $value );
 		return $this;
 	}
@@ -163,7 +191,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException Unless exactly two values are given.
 	 */
-	public function whereBetween( string $field, array $range ): static {
+	public function whereBetween( string $field, array $range ): self {
 		$this->conditions[] = self::condition( $field, 'between', $range );
 		return $this;
 	}
@@ -175,7 +203,7 @@ final class Builder {
 	 * @param string[] $values Values.
 	 * @return $this
 	 */
-	public function whereAny( string $field, array $values ): static {
+	public function whereAny( string $field, array $values ): self {
 		return $this->mask( $field, 'any', $values );
 	}
 
@@ -186,7 +214,7 @@ final class Builder {
 	 * @param string[] $values Values.
 	 * @return $this
 	 */
-	public function whereAll( string $field, array $values ): static {
+	public function whereAll( string $field, array $values ): self {
 		return $this->mask( $field, 'all', $values );
 	}
 
@@ -197,7 +225,7 @@ final class Builder {
 	 * @param string[] $values Values.
 	 * @return $this
 	 */
-	public function whereNone( string $field, array $values ): static {
+	public function whereNone( string $field, array $values ): self {
 		return $this->mask( $field, 'none', $values );
 	}
 
@@ -209,7 +237,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException When the callback adds no condition.
 	 */
-	public function whereRow( string $series, callable $callback ): static {
+	public function whereRow( string $series, callable $callback ): self {
 		$row = new RowBuilder();
 		$callback( $row );
 		$this->rows[] = new RowCondition( $series, $row->conditions() );
@@ -224,7 +252,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On a bad direction.
 	 */
-	public function orderBy( string $field, string $direction = 'ASC' ): static {
+	public function orderBy( string $field, string $direction = 'ASC' ): self {
 		$dir = strtoupper( $direction );
 		if ( '' === $field || ! in_array( $dir, array( 'ASC', 'DESC' ), true ) ) {
 			throw new \InvalidArgumentException( 'orderBy needs a field and ASC or DESC.' );
@@ -240,7 +268,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException When negative.
 	 */
-	public function limit( int $limit ): static {
+	public function limit( int $limit ): self {
 		if ( $limit < 0 ) {
 			throw new \InvalidArgumentException( 'limit cannot be negative.' );
 		}
@@ -255,7 +283,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException When negative.
 	 */
-	public function offset( int $offset ): static {
+	public function offset( int $offset ): self {
 		if ( $offset < 0 ) {
 			throw new \InvalidArgumentException( 'offset cannot be negative.' );
 		}
@@ -272,7 +300,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On a bad page size or mode.
 	 */
-	public function paginate( int $per_page, int $page = 1, string $count = 'exact' ): static {
+	public function paginate( int $per_page, int $page = 1, string $count = 'exact' ): self {
 		if ( $per_page < 1 || ! in_array( $count, self::COUNT_MODES, true ) ) {
 			throw new \InvalidArgumentException( 'paginate needs a page size of at least 1 and a count mode of exact, capped or none.' );
 		}
@@ -309,7 +337,7 @@ final class Builder {
 	 * @return $this
 	 * @throws \InvalidArgumentException On empty field or values.
 	 */
-	private function mask( string $field, string $mode, array $values ): static {
+	private function mask( string $field, string $mode, array $values ): self {
 		if ( '' === $field || array() === $values ) {
 			throw new \InvalidArgumentException( 'A membership condition needs a field and at least one value.' );
 		}
