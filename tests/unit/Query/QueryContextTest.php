@@ -191,4 +191,44 @@ class QueryContextTest extends WP_UnitTestCase {
 		$this->expectException( LogicException::class );
 		( new NF\Query\Builder( 'event' ) )->ids();
 	}
+
+	/**
+	 * posts() returns native WP_Post objects in query order.
+	 */
+	public function test_posts_in_query_order(): void {
+		$a = $this->make( 30, 1 );
+		$b = $this->make( 10, 2 );
+
+		$posts = $this->q()->orderBy( 'ctxprice' )->posts();
+		$this->assertSame( array( $b, $a ), wp_list_pluck( $posts, 'ID' ) );
+		$this->assertInstanceOf( WP_Post::class, $posts[0] );
+		$this->assertSame( array(), ( new NF\Query\Builder( 'nf_ctx_never_stored', $this->context ) )->posts() );
+	}
+
+	/**
+	 * terms() and users() refuse a post query; posts() refuses a user query.
+	 */
+	public function test_hydrators_check_target_type(): void {
+		$this->expectException( LogicException::class );
+		$this->q()->terms();
+	}
+
+	/**
+	 * posts() on a user query throws.
+	 */
+	public function test_posts_on_user_query_throws(): void {
+		$this->expectException( LogicException::class );
+		( new NF\Query\Builder( 'user', $this->context ) )->posts();
+	}
+
+	/**
+	 * whereRelated() is an equality on the relationship field and needs a positive id.
+	 */
+	public function test_where_related(): void {
+		$this->make( 1, 5 );
+		$b = $this->make( 2, 7 );
+		$this->assertSame( array( $b ), $this->q()->whereRelated( 'ctxseats', 7 )->ids() );
+		$this->expectException( InvalidArgumentException::class );
+		$this->q()->whereRelated( 'ctxseats', 0 );
+	}
 }
