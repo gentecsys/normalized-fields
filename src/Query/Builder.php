@@ -393,6 +393,60 @@ final class Builder {
 	}
 
 	/**
+	 * Typed field values for the matches, straight from the typed tables: no WP_Post is built.
+	 *
+	 * Rows hold `id` plus the fields asked for, typed as stored (ints, strings, lists for multi-valued fields).
+	 *
+	 * @param string[] $fields Top-level field names.
+	 * @return array<int,array<string,mixed>>
+	 * @throws \InvalidArgumentException For an unknown field or a Series.
+	 */
+	public function values( array $fields ): array {
+		return $this->context()->values( $this->toSpec(), array_values( array_map( 'strval', $fields ) ) );
+	}
+
+	/**
+	 * A real WP_Query answered by this builder through `posts_pre_query`.
+	 *
+	 * Core skips its own SQL; `found_posts` is the live count and `max_num_pages` follows the limit.
+	 *
+	 * @return \WP_Query
+	 * @throws \LogicException For a term or user query.
+	 */
+	public function wp_query(): \WP_Query { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid -- Public API name from the design doc.
+		if ( ObjectType::Post !== $this->type ) {
+			throw new \LogicException( 'wp_query() needs a post type query.' );
+		}
+		$posts = $this->posts();
+		$found = array() === $posts ? 0 : $this->count();
+		$limit = $this->limit;
+		$pages = $limit > 0 ? (int) ceil( $found / $limit ) : ( $found > 0 ? 1 : 0 );
+		$hook  = static function ( $pre, \WP_Query $query ) use ( &$hook, $posts, $found, $pages ) {
+			if ( ! $query->get( 'nf_builder' ) ) {
+				return $pre;
+			}
+			remove_filter( 'posts_pre_query', $hook, 10 );
+			$query->found_posts   = $found;
+			$query->max_num_pages = $pages;
+			return $posts;
+		};
+		add_filter( 'posts_pre_query', $hook, 10, 2 );
+		try {
+			return new \WP_Query(
+				array(
+					'nf_builder'     => true,
+					'post_type'      => $this->subtype,
+					'post_status'    => 'any',
+					'posts_per_page' => $limit > 0 ? $limit : -1,
+					'no_found_rows'  => false,
+				)
+			);
+		} finally {
+			remove_filter( 'posts_pre_query', $hook, 10 );
+		}
+	}
+
+	/**
 	 * Matching terms as native WP_Term objects, in query order.
 	 *
 	 * `get_terms` filters from other plugins can still alter the set.
