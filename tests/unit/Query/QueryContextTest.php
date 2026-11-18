@@ -274,7 +274,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * wp_query() returns a WP_Query with the page, the live total and page count, without core SQL for the posts.
+	 * The wp_query() builder test returns a WP_Query with the page, the live total and page count, without core SQL for the posts.
 	 */
 	public function test_wp_query_found_posts_and_pages(): void {
 		$this->make( 30, 1 );
@@ -287,10 +287,16 @@ class QueryContextTest extends WP_UnitTestCase {
 		$this->assertSame( 3, $query->found_posts );
 		$this->assertSame( 2, $query->max_num_pages );
 		$this->assertTrue( $query->have_posts() );
+		$this->assertStringNotContainsString( 'FOUND_ROWS', $GLOBALS['wpdb']->last_query );
+
+		$deep = $this->q()->orderBy( 'ctxprice' )->limit( 2 )->offset( 10 )->wp_query();
+		$this->assertSame( array(), $deep->posts );
+		$this->assertSame( 3, $deep->found_posts, 'past the end still reports the total' );
+		$this->assertSame( 2, $deep->max_num_pages );
 	}
 
 	/**
-	 * wp_query() on a user query throws.
+	 * The wp_query() call on a user query throws.
 	 */
 	public function test_wp_query_on_user_query_throws(): void {
 		$this->expectException( LogicException::class );
