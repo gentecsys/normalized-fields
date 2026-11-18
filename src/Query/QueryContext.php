@@ -25,6 +25,11 @@ defined( 'ABSPATH' ) || exit;
 final class QueryContext {
 
 	/**
+	 * Length at which an nf_str value is a prefix of the full text in nf_text (mirrors Store).
+	 */
+	private const STR_MAX = 191;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackendInterface $db         Backend.
@@ -97,6 +102,103 @@ final class QueryContext {
 			'sql'  => $c->toSql(),
 			'db'   => $this->db->select( 'EXPLAIN ' . $c->sql, $c->params ),
 		);
+	}
+
+	/**
+	 * Typed projection for the objects a query matches: one read per field on its typed table, no object built.
+	 *
+	 * Each row has `id` plus the requested fields: scalars as `int` or `string` (decimals and dates stay strings),
+	 * multi-valued fields as lists in stored order, missing values as null or an empty list.
+	 *
+	 * @param QuerySpec $spec   Query.
+	 * @param string[]  $fields Top-level field names.
+	 * @return array<int,array<string,mixed>>
+	 * @throws \InvalidArgumentException For an unknown field or one without a typed value table (Series, groups).
+	 */
+	public function values( QuerySpec $spec, array $fields ): array {
+		$in = $this->resolve( $spec );
+		if ( null === $in ) {
+			return array();
+		}
+		$defs = array();
+		foreach ( $fields as $name ) {
+			$name = (string) $name;
+			if ( 'id' === $name ) {
+				continue;
+			}
+			if ( ! isset( $in['fields'][ $name ] ) || ! $in['fields'][ $name ]->table->hasValues() ) {
+				throw new \InvalidArgumentException( sprintf( 'values() cannot project the field "%s".', esc_html( $name ) ) );
+			}
+			$defs[ $name ] = $in['fields'][ $name ];
+		}
+		$ids = $this->ids( $spec );
+		if ( array() === $ids ) {
+			return array();
+		}
+		$marks = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+		$data  = array();
+		foreach ( $defs as $name => $def ) {
+			$params = array_merge( array( $spec->type->value, $def->id ), $ids );
+			$found  = $this->db->select(
+				'SELECT object_id, position, value FROM ' . $this->db->table( $def->table->table() ) . ' WHERE object_type = ? AND field_id = ? AND row_id = 0 AND object_id IN (' . $marks . ') ORDER BY object_id, position',
+				$params
+			);
+			if ( DataTable::Str === $def->table ) {
+				$found = $this->spill( $found, $def->id, $spec->type->value, $ids, $marks );
+			}
+			foreach ( $found as $r ) {
+				$data[ $name ][ (int) $r['object_id'] ][] = $def->table->fromDb( $r['value'] );
+			}
+		}
+		$out = array();
+		foreach ( $ids as $id ) {
+			$row = array( 'id' => $id );
+			foreach ( $defs as $name => $def ) {
+				$list         = $data[ $name ][ $id ] ?? array();
+				$row[ $name ] = $def->multi ? $list : ( $list[0] ?? null );
+			}
+			$out[] = $row;
+		}
+		return $out;
+	}
+
+	/**
+	 * Replace 191-char prefixes with the full text from nf_text, as Store does for single reads.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Rows of nf_str.
+	 * @param int                            $field_id Field id.
+	 * @param int                            $type     Object type value.
+	 * @param int[]                          $ids      Object ids.
+	 * @param string                         $marks    Placeholder list for $ids.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function spill( array $rows, int $field_id, int $type, array $ids, string $marks ): array {
+		$long = false;
+		foreach ( $rows as $r ) {
+			if ( mb_strlen( (string) $r['value'] ) >= self::STR_MAX ) {
+				$long = true;
+				break;
+			}
+		}
+		if ( ! $long ) {
+			return $rows;
+		}
+		$full = $this->db->select(
+			'SELECT object_id, position, value FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND field_id = ? AND row_id = 0 AND object_id IN (' . $marks . ')',
+			array_merge( array( $type, $field_id ), $ids )
+		);
+		$by   = array();
+		foreach ( $full as $f ) {
+			$by[ (int) $f['object_id'] ][ (int) $f['position'] ] = $f['value'];
+		}
+		foreach ( $rows as $i => $r ) {
+			$key = (int) $r['position'];
+			$oid = (int) $r['object_id'];
+			if ( isset( $by[ $oid ][ $key ] ) && mb_strlen( (string) $r['value'] ) >= self::STR_MAX ) {
+				$rows[ $i ]['value'] = $by[ $oid ][ $key ];
+			}
+		}
+		return $rows;
 	}
 
 	/**

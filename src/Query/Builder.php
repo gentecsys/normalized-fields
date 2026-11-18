@@ -393,6 +393,69 @@ final class Builder {
 	}
 
 	/**
+	 * Typed field values for the matches, straight from the typed tables: no WP_Post is built.
+	 *
+	 * Rows hold `id` plus the fields asked for, typed as stored (ints, strings, lists for multi-valued fields).
+	 *
+	 * @param string[] $fields Top-level field names.
+	 * @return array<int,array<string,mixed>>
+	 * @throws \InvalidArgumentException For an unknown field or a Series.
+	 */
+	public function values( array $fields ): array {
+		return $this->context()->values( $this->toSpec(), array_values( array_map( 'strval', $fields ) ) );
+	}
+
+	/**
+	 * A real WP_Query answered by this builder through `posts_pre_query`.
+	 *
+	 * Core skips its own SQL; `found_posts` is the live count and `max_num_pages` follows the limit.
+	 *
+	 * @return \WP_Query
+	 * @throws \LogicException For a term or user query.
+	 */
+	public function wp_query(): \WP_Query { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid -- Public API name from the design doc.
+		if ( ObjectType::Post !== $this->type ) {
+			throw new \LogicException( 'wp_query() needs a post type query.' );
+		}
+		$posts = $this->posts();
+		$none  = 'none' === $this->count;
+		$found = $none ? count( $posts ) : $this->count();
+		$limit = $this->limit;
+		$stati = array();
+		foreach ( $this->statuses as $status ) {
+			$stati[] = Status::AutoDraft === $status ? 'auto-draft' : strtolower( $status->name );
+		}
+		$hook = static function ( $pre, \WP_Query $query ) use ( &$hook, $posts ) {
+			if ( ! $query->get( 'nf_builder' ) ) {
+				return $pre;
+			}
+			remove_filter( 'posts_pre_query', $hook, 10 );
+			return $posts;
+		};
+		add_filter( 'posts_pre_query', $hook, 10, 2 );
+		try {
+			$query = new \WP_Query(
+				array(
+					'nf_builder'     => true,
+					'post_type'      => $this->subtype,
+					'post_status'    => array() === $stati ? 'any' : $stati,
+					'posts_per_page' => $limit > 0 ? $limit : -1,
+					'offset'         => $this->offset,
+					'no_found_rows'  => $none,
+				)
+			);
+		} finally {
+			remove_filter( 'posts_pre_query', $hook, 10 );
+		}
+		if ( ! $none ) {
+			// Core does not count after a posts_pre_query short-circuit, so the live total goes in here (an empty page past the end still reports it).
+			$query->found_posts   = $found;
+			$query->max_num_pages = $limit > 0 ? (int) ceil( $found / $limit ) : ( $found > 0 ? 1 : 0 );
+		}
+		return $query;
+	}
+
+	/**
 	 * Matching terms as native WP_Term objects, in query order.
 	 *
 	 * `get_terms` filters from other plugins can still alter the set.
