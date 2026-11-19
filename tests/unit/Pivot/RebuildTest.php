@@ -185,6 +185,8 @@ class RebuildTest extends WP_UnitTestCase {
 			)
 		);
 		$this->store->set( ObjectType::Post, $b, 'field_t22d_city', 'Rome' );
+		$gone = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		wp_delete_post( $gone, true );
 		$c = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 		$this->ids[] = $b;
 		$this->ids[] = $c;
@@ -193,11 +195,15 @@ class RebuildTest extends WP_UnitTestCase {
 		$t           = $db->table( 'nf_pivot' );
 		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, $other ) );
 		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, 99999999 ) );
+		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, $gone ) );
 		$this->assertSame( 3, $this->pivot->rebuildFromCore( $this->pivot_id, 2 ) );
 		$ids = array_map( 'intval', array_column( $this->snapshot()['pivot'], 'object_id' ) );
 		$this->assertSame( array( $a, $b, $c ), $ids );
 		$rows = array_column( $this->snapshot()['pivot'], null, 'object_id' );
 		$this->assertSame( 2, (int) $rows[ $b ]['status'] );
+		$this->assertSame( (int) get_post( $c )->post_author, (int) $rows[ $c ]['author_id'] );
+		$this->assertSame( get_post( $c )->post_date, $rows[ $c ]['published'] );
+		$this->assertSame( 1, (int) $rows[ $a ]['i1'] );
 		$this->assertNotNull( $rows[ $b ]['s1'] );
 		$this->assertNull( $rows[ $c ]['s1'] );
 		$before = $this->snapshot();

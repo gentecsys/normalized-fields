@@ -366,7 +366,7 @@ final class Pivot {
 	public function rebuildFromCoreChunk( int $pivotId, int $afterObjectId, int $limit = self::REBUILD_CHUNK ): array {
 		$limit = max( 1, $limit );
 		$set   = $this->db->select( 'SELECT object_type, subtype FROM ' . $this->db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
-		if ( ! $set ) {
+		if ( ! $set || ObjectType::Post->value !== (int) $set[0]['object_type'] ) {
 			return array(
 				'count'  => 0,
 				'last'   => $afterObjectId,
@@ -428,23 +428,8 @@ final class Pivot {
 					'menu_order' => (int) $r['menu_order'],
 				);
 			}
-		} elseif ( ObjectType::Term === $type ) {
-			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT term_id, parent FROM {$wpdb->term_taxonomy} WHERE taxonomy = %s AND term_id > %d ORDER BY term_id LIMIT %d", $subtype, $after, $limit ), ARRAY_A );
-			foreach ( (array) $rows as $r ) {
-				$out[ (int) $r['term_id'] ] = array(
-					'status'    => Status::Publish->value,
-					'parent_id' => (int) $r['parent'],
-				);
-			}
-		} elseif ( ObjectType::User === $type ) {
-			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, user_registered FROM {$wpdb->users} WHERE ID > %d ORDER BY ID LIMIT %d", $after, $limit ), ARRAY_A );
-			foreach ( (array) $rows as $r ) {
-				$out[ (int) $r['ID'] ] = array(
-					'status'    => Status::Publish->value,
-					'published' => $this->date( (string) $r['user_registered'] ),
-				);
-			}
 		}
+		// Term and user sets are not rebuilt yet: sync() and RowPivot read typed values as posts only (follow-up).
 		return $out;
 	}
 
