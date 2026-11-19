@@ -68,6 +68,37 @@ final class QueryContext {
 	}
 
 	/**
+	 * Cursor values (sort columns plus id) of one matching object, for seek pagination.
+	 *
+	 * @param QuerySpec $spec Query.
+	 * @param int       $id   Object id.
+	 * @return array<int,int|string>|null Null when the object is not in the pivot set or a sort value is null.
+	 * @throws UnsupportedQueryException When a sort field has no slot.
+	 */
+	public function cursor( QuerySpec $spec, int $id ): ?array {
+		$in = $this->resolve( $spec );
+		if ( null === $in ) {
+			return null;
+		}
+		$cols = ( new Compiler( $this->db, $this->dictionary ) )->cursorColumns( $spec, $in['slots'] );
+		$d    = $this->db->dialect();
+		$list = implode( ', ', array_map( static fn( string $c ): string => $d->quoteIdentifier( $c ), $cols ) );
+		$rows = $this->db->select( 'SELECT ' . $list . ' FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $in['pivot'], $id ) );
+		if ( array() === $rows ) {
+			return null;
+		}
+		$out = array();
+		foreach ( $cols as $c ) {
+			$v = $rows[0][ $c ] ?? null;
+			if ( null === $v ) {
+				return null;
+			}
+			$out[] = is_numeric( $v ) && ! str_contains( (string) $v, '-' ) && ! str_contains( (string) $v, '.' ) ? (int) $v : (string) $v;
+		}
+		return $out;
+	}
+
+	/**
 	 * Live count of matching objects, ignoring limit and offset.
 	 *
 	 * @param QuerySpec $spec Query.
