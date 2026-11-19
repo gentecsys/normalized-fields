@@ -177,6 +177,18 @@ class RebuildTest extends WP_UnitTestCase {
 	 * A rebuild from core gives every object of the type its base row, prunes orphans and equals write-through.
 	 */
 	public function test_rebuild_from_core_fills_missing_and_prunes_orphans(): void {
+		// Posts of this type left by other tests (the schema install commits) would change the counts.
+		$stale_ids = get_posts(
+			array(
+				'post_type'   => self::TYPE,
+				'post_status' => 'any',
+				'numberposts' => -1,
+				'fields'      => 'ids',
+			)
+		);
+		foreach ( $stale_ids as $stale ) {
+			wp_delete_post( (int) $stale, true );
+		}
 		$a = $this->make( 'Oslo', 1, array() );
 		$b = self::factory()->post->create(
 			array(
