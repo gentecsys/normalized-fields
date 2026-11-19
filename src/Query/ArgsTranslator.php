@@ -204,7 +204,7 @@ final class ArgsTranslator {
 			if ( ! is_int( $k ) || ! is_array( $clause ) || isset( $clause[0] ) ) {
 				return null; // Nested group or named clause.
 			}
-			$key = $clause['key'] ?? null;
+			$key  = $clause['key'] ?? null;
 			$kind = is_string( $key ) && '' !== $key ? $this->kind( $key, $post_type ) : null;
 			if ( null === $kind || array() !== array_diff( array_keys( $clause ), self::CLAUSE_KEYS ) ) {
 				return null;
@@ -228,7 +228,11 @@ final class ArgsTranslator {
 			}
 			$value = $clause['value'];
 			if ( in_array( $op, array( 'between', 'in', 'not_in' ), true ) ) {
-				$value = is_array( $value ) ? array_values( $value ) : array_map( 'trim', preg_split( '/[,\s]+/', trim( (string) $value ) ) ?: array() );
+				if ( ! is_array( $value ) ) {
+					$parts = preg_split( '/[,\s]+/', trim( (string) $value ) );
+					$value = false === $parts ? array() : $parts;
+				}
+				$value = array_values( $value );
 				if ( array() === $value || ( 'between' === $op && 2 !== count( $value ) ) ) {
 					return null;
 				}
@@ -275,7 +279,7 @@ final class ArgsTranslator {
 					break;
 				case 'meta_value':
 				case 'meta_value_num':
-					$key = $args['meta_key'] ?? null;
+					$key  = $args['meta_key'] ?? null;
 					$kind = is_string( $key ) ? $this->kind( $key, $type ) : null;
 					// meta_value sorts as text in core, meta_value_num as a number.
 					if ( null === $kind || ( 'meta_value_num' === $part ) !== ( 'number' === $kind ) ) {
