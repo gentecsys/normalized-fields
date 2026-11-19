@@ -6,7 +6,8 @@
 #   - every check run on the head commit has finished with success, skipped or neutral
 #   - the head commit is the one that was checked (no newer push since)
 #
-# After a merge it starts CI on main: a merge made with GITHUB_TOKEN triggers no push workflows.
+# After a merge it deletes the wp/* branch and starts CI on main: a merge made with GITHUB_TOKEN
+# triggers no push workflows and no automatic head-branch deletion.
 #
 # Remove the label to stop a merge. No PR code is checked out or run here.
 name: NF auto-merge
@@ -77,6 +78,14 @@ jobs:
             -f merge_method=merge -f sha="$sha" \
             -f commit_title="Merge pull request #$number from $OWNER/$BRANCH"
           echo "Merged PR #$number."
+
+          # "Automatically delete head branches" skips merges made with GITHUB_TOKEN; delete it here.
+          # A failure (branch already gone) must not stop the CI dispatch below.
+          if gh api -X DELETE "repos/$REPO/git/refs/heads/$BRANCH" >/dev/null; then
+            echo "Deleted branch $BRANCH."
+          else
+            echo "::notice::Could not delete $BRANCH (already deleted?)."
+          fi
 
           # The merge commit gets no push-triggered CI (GITHUB_TOKEN); run CI on main explicitly.
           gh workflow run ci.yml --repo "$REPO" --ref main
