@@ -93,6 +93,27 @@ final class Builder {
 	private string $count = 'exact';
 
 	/**
+	 * Core search term (posts only).
+	 *
+	 * @var string
+	 */
+	private string $search = '';
+
+	/**
+	 * Core taxonomy filters: taxonomy => terms (ids or slugs), ANDed across taxonomies, ORed within.
+	 *
+	 * @var array<int,array{0:string,1:array<int,int|string>}>
+	 */
+	private array $taxes = array();
+
+	/**
+	 * Seek cursor values.
+	 *
+	 * @var array<int,int|string|null>|null
+	 */
+	private ?array $after = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string            $target  Post type (`event`), taxonomy (`term:genre`) or `user`.
@@ -312,6 +333,116 @@ final class Builder {
 	}
 
 	/**
+	 * Core post search, combined with the field filters (ids resolved on the core side, then `ID IN`; no join).
+	 *
+	 * @param string $term Search text, as for `WP_Query` `s`.
+	 * @return $this
+	 * @throws \LogicException For a term or user query.
+	 */
+	public function search( string $term ): self {
+		if ( ObjectType::Post !== $this->type ) {
+			throw new \LogicException( 'search() needs a post type query.' );
+		}
+		$this->search = trim( $term );
+		return $this;
+	}
+
+	/**
+	 * Core taxonomy filter: objects in any of the terms. Several calls are ANDed.
+	 *
+	 * Terms are resolved on the core side, then `ID IN` (no join). Mirrored taxonomy slots are not in the pivot yet.
+	 *
+	 * @param string                           $taxonomy Taxonomy name.
+	 * @param string|int|array<int,int|string> $terms    Term slug(s) or id(s).
+	 * @return $this
+	 * @throws \LogicException For a term or user query.
+	 * @throws \InvalidArgumentException For an empty taxonomy or term list.
+	 */
+	public function tax( string $taxonomy, string|int|array $terms ): self {
+		if ( ObjectType::Post !== $this->type ) {
+			throw new \LogicException( 'tax() needs a post type query.' );
+		}
+		$list = array_values( (array) $terms );
+		if ( '' === $taxonomy || array() === $list ) {
+			throw new \InvalidArgumentException( 'tax needs a taxonomy and at least one term.' );
+		}
+		$this->taxes[] = array( sanitize_key( $taxonomy ), array_map( static fn( $t ) => is_int( $t ) ? $t : sanitize_title( (string) $t ), $list ) );
+		return $this;
+	}
+
+	/**
+	 * Seek pagination: continue after the row a cursor stands for.
+	 *
+	 * @param string $cursor Cursor from cursor().
+	 * @return $this
+	 * @throws \InvalidArgumentException For a cursor that cannot be decoded.
+	 */
+	public function after( string $cursor ): self {
+		$values = json_decode( rawurldecode( $cursor ), true );
+		if ( ! is_array( $values ) || array() === $values ) {
+			throw new \InvalidArgumentException( 'The cursor is not valid.' );
+		}
+		foreach ( $values as $v ) {
+			if ( null !== $v && ! is_int( $v ) && ! is_string( $v ) ) {
+				throw new \InvalidArgumentException( 'The cursor is not valid.' );
+			}
+		}
+		$this->after = array_values( $values );
+		return $this;
+	}
+
+	/**
+	 * Opaque cursor for the row with this id (its sort key and id), to pass to after().
+	 *
+	 * @param int $id Object id, usually the last of a page.
+	 * @return string|null Null when the object is not in the result set's pivot.
+	 */
+	public function cursor( int $id ): ?string {
+		$spec   = new QuerySpec( $this->type, $this->subtype, $this->statuses, array(), $this->orders );
+		$values = $this->context()->cursor( $spec, $id );
+		return null === $values ? null : rawurlencode( (string) wp_json_encode( $values ) );
+	}
+
+	/**
+	 * Walk the matches in chunks with seek pagination: constant memory, stable under writes.
+	 *
+	 * The callback gets native objects (posts, terms or users); returning false stops. Runtime object caches are
+	 * flushed after each chunk.
+	 *
+	 * @param int      $size     Rows per chunk, at least 1.
+	 * @param callable $callback Called with an array of objects.
+	 * @return int Rows visited.
+	 * @throws \InvalidArgumentException On a bad size.
+	 */
+	public function chunk( int $size, callable $callback ): int {
+		if ( $size < 1 ) {
+			throw new \InvalidArgumentException( 'chunk needs a size of at least 1.' );
+		}
+		$seen         = 0;
+		$page         = clone $this;
+		$page->limit  = $size;
+		$page->offset = 0;
+		while ( true ) {
+			$ids = $page->ids();
+			if ( array() === $ids ) {
+				break;
+			}
+			$objects = ObjectType::Post === $this->type ? $page->posts() : ( ObjectType::Term === $this->type ? $page->terms() : $page->users() );
+			$seen   += count( $ids );
+			$cursor  = $page->cursor( $ids[ count( $ids ) - 1 ] );
+			$stop    = false === $callback( $objects );
+			if ( function_exists( 'wp_cache_flush_runtime' ) ) {
+				wp_cache_flush_runtime();
+			}
+			if ( $stop || count( $ids ) < $size || null === $cursor ) {
+				break;
+			}
+			$page->after( $cursor );
+		}
+		return $seen;
+	}
+
+	/**
 	 * Counting mode set by paginate().
 	 *
 	 * @return string
@@ -326,7 +457,35 @@ final class Builder {
 	 * @return QuerySpec
 	 */
 	public function toSpec(): QuerySpec {
-		return new QuerySpec( $this->type, $this->subtype, $this->statuses, $this->conditions, $this->orders, $this->limit, $this->offset, $this->masks, $this->rows );
+		$conditions = $this->conditions;
+		if ( '' !== $this->search ) {
+			$ids          = ( new \WP_Query(
+				array(
+					'post_type'              => $this->subtype,
+					'post_status'            => 'any',
+					's'                      => $this->search,
+					'fields'                 => 'ids',
+					'nopaging'               => true,
+					'no_found_rows'          => true,
+					'orderby'                => 'none',
+					'update_post_meta_cache' => false,
+					'update_post_term_cache' => false,
+				)
+			) )->posts;
+			$conditions[] = new Condition( 'ID', 'in', array_map( 'intval', $ids ) );
+		}
+		foreach ( $this->taxes as [ $taxonomy, $terms ] ) {
+			$term_ids = array();
+			foreach ( $terms as $term ) {
+				$obj = is_int( $term ) ? get_term( $term, $taxonomy ) : get_term_by( 'slug', (string) $term, $taxonomy );
+				if ( $obj instanceof \WP_Term ) {
+					$term_ids[] = $obj->term_id;
+				}
+			}
+			$objects      = array() === $term_ids ? array() : get_objects_in_term( $term_ids, $taxonomy );
+			$conditions[] = new Condition( 'ID', 'in', is_array( $objects ) ? array_map( 'intval', $objects ) : array() );
+		}
+		return new QuerySpec( $this->type, $this->subtype, $this->statuses, $conditions, $this->orders, $this->limit, $this->offset, $this->masks, $this->rows, $this->after );
 	}
 
 	/**

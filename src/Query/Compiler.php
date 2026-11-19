@@ -154,22 +154,60 @@ final class Compiler {
 		if ( $spec->offset > 0 && $spec->limit <= 0 ) {
 			throw new UnsupportedQueryException( 'An offset needs a limit.' );
 		}
+		$plan   = $this->sortPlan( $spec, $byName );
 		$orders = array() === $spec->orders ? array( array( 'date', 'DESC' ) ) : $spec->orders;
 		$parts  = array();
-		$last   = 'ASC';
 		$names  = array();
-		foreach ( $orders as [ $field, $dir ] ) {
-			[ $column ] = $this->resolve( $field, $byName );
-			$dir        = 'DESC' === strtoupper( $dir ) ? 'DESC' : 'ASC';
-			$last       = $dir;
-			$names[]    = $field;
-			$parts[]    = 'object_id' === $column ? $d->quoteIdentifier( $column ) . " {$dir}" : $d->nullsOrder( $column, $dir, 'ASC' === $dir ? 'FIRST' : 'LAST' );
+		foreach ( $plan as [ $column, $dir, , $name ] ) {
+			if ( '' !== $name ) {
+				$names[] = $name;
+			}
+			$parts[] = 'object_id' === $column ? $d->quoteIdentifier( $column ) . " {$dir}" : $d->nullsOrder( $column, $dir, 'ASC' === $dir ? 'FIRST' : 'LAST' );
 		}
-		// Stable tie-break, as core does with ID.
-		if ( ! in_array( 'ID', $names, true ) ) {
-			$parts[] = $d->quoteIdentifier( 'object_id' ) . " {$last}";
+		if ( null !== $spec->after ) {
+			// Seek pagination: rows strictly after the cursor row in sort order (keyset, no offset).
+			if ( count( $spec->after ) !== count( $plan ) || $spec->offset > 0 ) {
+				throw new UnsupportedQueryException( 'The cursor does not match this query\'s sort order, or an offset was also given.' );
+			}
+			$ors = array();
+			foreach ( $plan as $i => [ $column, $dir, $kind ] ) {
+				$q  = $d->quoteIdentifier( $column );
+				$v  = $spec->after[ $i ];
+				$eq = array();
+				$ap = array();
+				foreach ( $plan as $j => [ $pc, , $pk ] ) {
+					if ( $j >= $i ) {
+						break;
+					}
+					$pq = $d->quoteIdentifier( $pc );
+					if ( null === $spec->after[ $j ] ) {
+						$eq[] = $pq . ' IS NULL';
+					} else {
+						$eq[] = $pq . ' = ?';
+						$ap[] = $this->value( $pk, $spec->after[ $j ] );
+					}
+				}
+				// NULLs sort first ascending and last descending, as in ORDER BY.
+				if ( null === $v ) {
+					if ( 'DESC' === $dir ) {
+						continue;
+					}
+					$eq[] = $q . ' IS NOT NULL';
+				} elseif ( 'ASC' === $dir ) {
+					$eq[] = $q . ' > ?';
+					$ap[] = $this->value( $kind, $v );
+				} else {
+					$eq[] = '(' . $q . ' < ? OR ' . $q . ' IS NULL)';
+					$ap[] = $this->value( $kind, $v );
+				}
+				$ors[]  = '(' . implode( ' AND ', $eq ) . ')';
+				$params = array_merge( $params, $ap );
+			}
+			if ( array() === $ors ) {
+				$ors[] = '1 = 0';
+			}
+			$where[] = '(' . implode( ' OR ', $ors ) . ')';
 		}
-
 		$whereS = implode( ' AND ', $where );
 		$order  = implode( ', ', $parts );
 
@@ -228,6 +266,50 @@ final class Compiler {
 				'joins'          => $deferred ? 1 : 0,
 			)
 		);
+	}
+
+	/**
+	 * Effective sort: the requested orders plus the object id tie-break (as core does with ID).
+	 *
+	 * @param QuerySpec                                 $spec   Query.
+	 * @param array<string,array{0:string,1:DataTable}> $byName Slotted fields.
+	 * @return array<int,array{0:string,1:string,2:string,3:string}> Column, direction, kind, requested field ('' for the tie-break).
+	 * @throws UnsupportedQueryException When a sort field has no slot.
+	 */
+	private function sortPlan( QuerySpec $spec, array $byName ): array {
+		$orders = array() === $spec->orders ? array( array( 'date', 'DESC' ) ) : $spec->orders;
+		$plan   = array();
+		$last   = 'ASC';
+		$names  = array();
+		foreach ( $orders as [ $field, $dir ] ) {
+			[ $column, $kind ] = $this->resolve( $field, $byName );
+			$dir               = 'DESC' === strtoupper( $dir ) ? 'DESC' : 'ASC';
+			$last              = $dir;
+			$names[]           = $field;
+			$plan[]            = array( $column, $dir, $kind, $field );
+		}
+		if ( ! in_array( 'ID', $names, true ) ) {
+			$plan[] = array( 'object_id', $last, 'int', '' );
+		}
+		return $plan;
+	}
+
+	/**
+	 * Pivot columns that make up a cursor for this query, in sort order (the last is the object id).
+	 *
+	 * @param QuerySpec                                                $spec  Query.
+	 * @param array<string,array{name:string,table:DataTable,id?:int}> $slots Pivot slots.
+	 * @return string[]
+	 * @throws UnsupportedQueryException When a sort field has no slot.
+	 */
+	public function cursorColumns( QuerySpec $spec, array $slots ): array {
+		$byName = array();
+		foreach ( $slots as $slot => $f ) {
+			if ( ! str_starts_with( $slot, 'm' ) ) {
+				$byName[ $f['name'] ] = array( $slot, $f['table'] );
+			}
+		}
+		return array_map( static fn( array $p ): string => $p[0], $this->sortPlan( $spec, $byName ) );
 	}
 
 	/**
