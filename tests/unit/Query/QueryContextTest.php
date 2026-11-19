@@ -337,7 +337,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * chunk() visits every match once and can stop early.
+	 * Chunking visits every match once and can stop early.
 	 */
 	public function test_chunk_visits_all(): void {
 		$ids = array();
@@ -371,7 +371,7 @@ class QueryContextTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * search() and tax() narrow through core ids combined with a field filter.
+	 * The search and tax filters narrow through core ids combined with a field filter.
 	 */
 	public function test_search_and_tax(): void {
 		register_taxonomy( 'nf_ctx_region', self::TYPE );
