@@ -69,6 +69,16 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 		$this->assertSame( 'not_null', $s->conditions[2]->op );
 	}
 
+	public function test_review_round_three_pass_through_cases(): void {
+		$base = array( 'post_type' => 'event' );
+		$this->assertNull( $this->t( $base + array( 'meta_key' => 'start_date', 'meta_value' => false ) ) );
+		$this->assertNull( $this->t( $base + array( 'author' => '1.5' ) ) );
+		$this->assertNull( $this->t( $base + array( 'post_parent' => '2.5' ) ) );
+		$date = static fn( $v ) => array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'start_date', 'value' => $v, 'compare' => '>=' ) ) );
+		$this->assertNull( $this->t( $date( '2024-01-05' ) ) );
+		$this->assertNotNull( $this->t( $date( '20240105' ) ) );
+	}
+
 	public function test_order_by_meta_value(): void {
 		$s = $this->t( array( 'post_type' => 'event', 'meta_key' => 'start_date', 'orderby' => 'meta_value', 'order' => 'ASC' ) );
 		$this->assertSame( array( array( 'start_date', 'ASC' ) ), $s->orders );

@@ -31,3 +31,9 @@ Only `php -l`. No vendor tooling in this sandbox; phpunit, phpcs and phpstan are
 - Fixed: `offset => 0` falls back to `paged`; `has_password` / `post_password` pass through whenever set; the constructor flag is now `$loggedIn` (core adds a logged-in user's own private posts when `post_status` is unset); `statuses()` simplified; `number` kind documented as integer-valued fields only (core casts `NUMERIC` to SIGNED), so the 3.3b key callback must not return `number` for decimal fields.
 - Not re-reviewed (budget stop rule): the second round of fixes needs a fresh reviewer before merge; the PR is NOT labelled `nf:ready`.
 - Open: date value normalisation and `EXISTS` on empty values vs NULL are left to the 3.3d differential corpus.
+
+## Review round 3 (fixes)
+- `meta_value => false` now passes through; `author`/`post_parent` need integer strings; date meta values only translate in `Ymd` form; number values must be integers; the `trim` before IN/BETWEEN splitting was removed.
+- Deferred to 3.3b (hooks): honour `fields` and `suppress_filters`; catch `UnsupportedQueryException` and pass the query through; gate default statuses on `is_admin()` and non-`publish` public statuses (translator currently assumes publish only).
+- Deferred to 3.3d corpus: text collation, NOT EXISTS on rows without NF data, duplicate postmeta rows, id tie-break.
+- CI on the PR head before these fixes was green on the full matrix; the PLAN.md 3.3a-d split is a daily-agent edit for the owner to review.
