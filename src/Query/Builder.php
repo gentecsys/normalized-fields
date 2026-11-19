@@ -109,7 +109,7 @@ final class Builder {
 	/**
 	 * Seek cursor values.
 	 *
-	 * @var array<int,int|string>|null
+	 * @var array<int,int|string|null>|null
 	 */
 	private ?array $after = null;
 
@@ -384,7 +384,7 @@ final class Builder {
 			throw new \InvalidArgumentException( 'The cursor is not valid.' );
 		}
 		foreach ( $values as $v ) {
-			if ( ! is_int( $v ) && ! is_string( $v ) ) {
+			if ( null !== $v && ! is_int( $v ) && ! is_string( $v ) ) {
 				throw new \InvalidArgumentException( 'The cursor is not valid.' );
 			}
 		}
@@ -396,7 +396,7 @@ final class Builder {
 	 * Opaque cursor for the row with this id (its sort key and id), to pass to after().
 	 *
 	 * @param int $id Object id, usually the last of a page.
-	 * @return string|null Null when the object is not in the result set's pivot or has a null sort value.
+	 * @return string|null Null when the object is not in the result set's pivot.
 	 */
 	public function cursor( int $id ): ?string {
 		$spec   = new QuerySpec( $this->type, $this->subtype, $this->statuses, array(), $this->orders );
@@ -420,7 +420,7 @@ final class Builder {
 			throw new \InvalidArgumentException( 'chunk needs a size of at least 1.' );
 		}
 		$seen = 0;
-		$page = clone $this;
+		$page         = clone $this;
 		$page->limit  = $size;
 		$page->offset = 0;
 		while ( true ) {

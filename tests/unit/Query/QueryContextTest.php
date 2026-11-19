@@ -400,4 +400,28 @@ class QueryContextTest extends WP_UnitTestCase {
 		$this->assertSame( array(), $this->q()->tax( 'nf_ctx_region', 'missing' )->ids() );
 		$this->assertSame( 2, $this->q()->tax( 'nf_ctx_region', 'varna' )->count() );
 	}
+
+	/**
+	 * Cursors cross NULL sort values in both directions without dropping rows.
+	 */
+	public function test_after_with_null_sort_values(): void {
+		$a = $this->make( 10, 1 );
+		$b = $this->make( 20, 1 );
+		$n = $this->make( 30, 1 );
+		$m = $this->make( 40, 1 );
+		nf_db()->execute( 'UPDATE ' . nf_db()->table( 'nf_pivot' ) . ' SET i1 = NULL WHERE pivot_id = ? AND object_id IN (?, ?)', array( $this->pivot_id, $n, $m ) );
+		foreach ( array( 'ASC', 'DESC' ) as $dir ) {
+			$full = $this->q()->orderBy( 'ctxprice', $dir )->ids();
+			$this->assertCount( 4, $full );
+			$seen = array();
+			$this->q()->orderBy( 'ctxprice', $dir )->chunk(
+				1,
+				function ( array $posts ) use ( &$seen ) {
+					$seen[] = $posts[0]->ID;
+				}
+			);
+			$this->assertSame( $full, $seen, "chunk visits NULL rows ($dir)" );
+		}
+		$this->assertSame( array( $a, $b ), array_values( array_intersect( $this->q()->orderBy( 'ctxprice' )->ids(), array( $a, $b ) ) ) );
+	}
 }

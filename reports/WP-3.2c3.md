@@ -15,6 +15,8 @@ Only `php -l`. No vendor tooling in this sandbox; phpunit, phpcs and phpstan are
 ## Deviations and follow-ups
 - Mirrored taxonomy slots (m-slot on `set_object_terms`) do not exist in the pivot yet, so `tax()` always resolves on the core side. When they land, `tax()` should prefer the bitmask slot.
 - `search()` / `tax()` ID lists above the compiler's 1000-entry list limit throw `UnsupportedQueryException`; large sets need a better path (follow-up, with 3.3).
-- Cursors do not support null sort values (`cursor()` returns null, so `chunk()` stops); sorting by a nullable field is a follow-up.
+- NULL sort values are supported in cursors (NULLs first ascending, last descending, as the ORDER BY); test added.
+- `count()` with `after()` set counts only rows after the cursor; cursors are not bound to a sort order (length check only); `tax()` does not include child terms. Follow-ups.
+- No contract change requested.
 - `search()`/`tax()` are re-resolved on each `ids()`/`count()` call, so `chunk()` repeats them per chunk.
 - Cursor sorts only on slotted or core columns, as `orderBy` does.
