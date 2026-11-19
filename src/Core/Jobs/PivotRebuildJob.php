@@ -14,7 +14,7 @@ use NF\Pivot\Pivot;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Rebuilds one pivot set in chunks of object ids (Pivot::rebuildChunk), then prunes the row pivot.
+ * Rebuilds one pivot set from core objects and the typed tables in chunks of object ids (Pivot::rebuildFromCoreChunk), then prunes the row pivot.
  * Arguments: pivot_id (int), chunk (int, optional).
  */
 final class PivotRebuildJob implements JobInterface {
@@ -64,10 +64,10 @@ final class PivotRebuildJob implements JobInterface {
 			$state['done'] = true;
 			return $state;
 		}
-		$res            = $this->pivot->rebuildChunk( $pivot_id, absint( $state['after'] ), $chunk );
+		$res            = $this->pivot->rebuildFromCoreChunk( $pivot_id, absint( $state['after'] ), $chunk );
 		$state['after'] = $res['last'];
 		$state['total'] = absint( $state['total'] ) + $res['count'];
-		if ( $res['count'] < $chunk ) {
+		if ( $res['done'] ) {
 			$this->pivot->pruneRowPivot( $pivot_id );
 			$state['done'] = true;
 		}

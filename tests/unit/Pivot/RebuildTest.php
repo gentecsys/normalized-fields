@@ -174,6 +174,38 @@ class RebuildTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A rebuild from core gives every object of the type its base row, prunes orphans and equals write-through.
+	 */
+	public function test_rebuild_from_core_fills_missing_and_prunes_orphans(): void {
+		$a = $this->make( 'Oslo', 1, array() );
+		$b = self::factory()->post->create(
+			array(
+				'post_type'   => self::TYPE,
+				'post_status' => 'draft',
+			)
+		);
+		$this->store->set( ObjectType::Post, $b, 'field_t22d_city', 'Rome' );
+		$c = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		$this->ids[] = $b;
+		$this->ids[] = $c;
+		$other       = self::factory()->post->create( array( 'post_type' => 'post' ) );
+		$db          = nf_db();
+		$t           = $db->table( 'nf_pivot' );
+		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, $other ) );
+		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, 99999999 ) );
+		$this->assertSame( 3, $this->pivot->rebuildFromCore( $this->pivot_id, 2 ) );
+		$ids = array_map( 'intval', array_column( $this->snapshot()['pivot'], 'object_id' ) );
+		$this->assertSame( array( $a, $b, $c ), $ids );
+		$rows = array_column( $this->snapshot()['pivot'], null, 'object_id' );
+		$this->assertSame( 2, (int) $rows[ $b ]['status'] );
+		$this->assertNotNull( $rows[ $b ]['s1'] );
+		$this->assertNull( $rows[ $c ]['s1'] );
+		$before = $this->snapshot();
+		$this->pivot->rebuildFromCore( $this->pivot_id, 500 );
+		$this->assertSame( $before, $this->snapshot() );
+	}
+
+	/**
 	 * Seeded fuzz: random writes, deletes and rewrites; a rebuild changes nothing and count rollups equal a live COUNT(*).
 	 */
 	public function test_fuzz_rebuild_equals_write_through(): void {
