@@ -196,7 +196,7 @@ class RebuildTest extends WP_UnitTestCase {
 		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, $other ) );
 		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, 99999999 ) );
 		$db->execute( "INSERT INTO {$t} (pivot_id, object_id, status) VALUES (?, ?, 1)", array( $this->pivot_id, $gone ) );
-		$this->assertSame( 3, $this->pivot->rebuildFromCore( $this->pivot_id, 2 ) );
+		$this->assertSame( 3, $this->pivot->rebuildFromCore( $this->pivot_id, 1 ) );
 		$ids = array_map( 'intval', array_column( $this->snapshot()['pivot'], 'object_id' ) );
 		$this->assertSame( array( $a, $b, $c ), $ids );
 		$rows = array_column( $this->snapshot()['pivot'], null, 'object_id' );
