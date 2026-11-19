@@ -416,8 +416,8 @@ final class Pivot {
 		global $wpdb;
 		$out = array();
 		if ( ObjectType::Post === $type ) {
-			$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				$wpdb->prepare( "SELECT ID, post_status, post_author, post_parent, post_date, post_modified, menu_order FROM {$wpdb->posts} WHERE post_type = %s AND ID > %d ORDER BY ID LIMIT %d", $subtype, $after, $limit ), ARRAY_A );
+			$sql  = $wpdb->prepare( "SELECT ID, post_status, post_author, post_parent, post_date, post_modified, menu_order FROM {$wpdb->posts} WHERE post_type = %s AND ID > %d ORDER BY ID LIMIT %d", $subtype, $after, $limit );
+			$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
 			foreach ( (array) $rows as $r ) {
 				$status                = Status::fromName( (string) $r['post_status'] );
 				$out[ (int) $r['ID'] ] = array(
