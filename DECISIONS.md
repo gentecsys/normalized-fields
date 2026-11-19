@@ -109,6 +109,11 @@ Owner agreed to more decimal places after Google Map `lat`/`lng` read back round
 - **Decision:** NF does not use Action Scheduler, neither bundled nor another plugin's copy. Background jobs (WP 2.5) run on WP-Cron (`nf_run_job`) only; the admin progress screen (WP 4.x) drives batches over REST.
 - **Consequences:** no `woocommerce/action-scheduler` dependency and no exception to the Strauss rule. Sites with `DISABLE_WP_CRON` need a system cron that requests `wp-cron.php`. Job runs are only ever queued by admin, WP-CLI or a running job; an anonymous `wp-cron.php` hit only runs what those queued.
 
+### Pivot sets and slots are set up by NF, before WP 3.3b (2026-11-19, owner)
+- **Decision:** add WP 3.0c (rebuild a pivot set from the typed tables) and 3.0d (default pivot sets and slot assignment) to Phase 3, ahead of 3.3b.
+- **Why:** found while checking WP 3.2 on a local site: only tests and the bench call `Pivot::setId()` / `assignSlot()`, so on a real site no type has a pivot set and `nf_query()` returns no results although the typed tables hold the data. `Pivot::rebuild()` only re-syncs existing `nf_pivot` rows, so it can't fill a new set. 3.3b would route `WP_Query` through an empty pivot.
+- **Rules:** assignment follows the design doc ("which fields get a slot"), never moves an existing slot, and runs only from WP-CLI, plugin upgrade or an authenticated admin save; anonymous reads never write.
+
 ### One pivot set per Series for row slots (2026-11-16, owner)
 - **Decision:** a Series (repeater) may feed row slots in only one pivot set. Defining row slots for a Series that already feeds another pivot set is rejected when the pivot set is defined, with an error naming the other set.
 - **Why:** `nf_row_pivot` is keyed by `row_id`; a second pivot set for the same Series would write the same rows twice (G2 open risk). One set covers every case in the design doc and can be relaxed later with a `set_id` column.
