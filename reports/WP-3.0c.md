@@ -3,7 +3,7 @@
 Agent: A3 (daily build agent). Branch `wp/3.0c-pivot-rebuild`.
 
 ## What changed
-- `Pivot::rebuildFromCore()` / `rebuildFromCoreChunk()`: keyset over core IDs (`$wpdb`, chunked, resumable) for the set's type and subtype (posts by `post_type`, terms by taxonomy, users all). Every core object gets its base row (status, author, parent, dates, menu_order) through `sync()`, so slots and row pivot are refilled from the typed tables. No join between core and NF tables.
+- `Pivot::rebuildFromCore()` / `rebuildFromCoreChunk()`: keyset over core IDs (`$wpdb`, chunked, resumable) for post sets (by `post_type`). Every core object gets its base row (status, author, parent, dates, menu_order) through `sync()`, so slots and row pivot are refilled from the typed tables. No join between core and NF tables.
 - Orphans (object deleted or of another type) are removed per chunk within the covered id range; the last chunk also covers ids above the last core id. `remove()` also drops row-pivot rows.
 - `PivotRebuildJob` now uses `rebuildFromCoreChunk()` (`done` flag instead of `count < chunk`).
 - `rebuild()` / `rebuildChunk()` (walk existing pivot rows) are kept unchanged.
@@ -14,7 +14,8 @@ Nothing ran locally: no WordPress test environment here and `vendor/` could not 
 
 ## Notes
 - Post dates use local `post_date` / `post_modified`; users use `user_registered`; terms have no dates; unknown post statuses map to 100 (the contract's 100+ range; the filter mapping is not wired here).
-- Users are rebuilt as all users (network-wide table set); no role subtype.
+- Term and user sets are skipped (reviewer: `sync()` and `RowPivot` read typed values as posts only). Follow-up: thread `ObjectType` through `sync()`/`syncRows()`, then add term/user branches to `coreObjects()`.
+- Deviations: none from contracts. Open questions: none.
 
 ## Follow-ups
 - 3.0d should queue `pivot_rebuild` when it assigns a new slot.
