@@ -297,7 +297,7 @@ final class Compiler {
 	/**
 	 * Pivot columns that make up a cursor for this query, in sort order (the last is the object id).
 	 *
-	 * @param QuerySpec                                 $spec  Query.
+	 * @param QuerySpec                                                $spec  Query.
 	 * @param array<string,array{name:string,table:DataTable,id?:int}> $slots Pivot slots.
 	 * @return string[]
 	 * @throws UnsupportedQueryException When a sort field has no slot.
