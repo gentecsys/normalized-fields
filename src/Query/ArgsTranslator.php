@@ -21,17 +21,17 @@ defined( 'ABSPATH' ) || exit;
 final class ArgsTranslator {
 
 	private const META_OPS = array(
-		'='           => '=',
-		'!='          => '!=',
-		'<'           => '<',
-		'<='          => '<=',
-		'>'           => '>',
-		'>='          => '>=',
-		'BETWEEN'     => 'between',
-		'IN'          => 'in',
-		'NOT IN'      => 'not_in',
-		'EXISTS'      => 'not_null',
-		'NOT EXISTS'  => 'null',
+		'='          => '=',
+		'!='         => '!=',
+		'<'          => '<',
+		'<='         => '<=',
+		'>'          => '>',
+		'>='         => '>=',
+		'BETWEEN'    => 'between',
+		'IN'         => 'in',
+		'NOT IN'     => 'not_in',
+		'EXISTS'     => 'not_null',
+		'NOT EXISTS' => 'null',
 	);
 
 	/**
@@ -52,26 +52,42 @@ final class ArgsTranslator {
 		'order',
 		'orderby',
 		'meta_key',
-		'meta_type',
 		'meta_query',
 		'post_type',
 		'post_status',
 		'posts_per_page',
-		'posts_per_archive_page',
 		'paged',
-		'page',
 		'offset',
 		'nopaging',
 		'author',
 		'post_parent',
 	);
 
+	private const NUMERIC_TYPES = array( 'NUMERIC', 'SIGNED', 'UNSIGNED', 'DECIMAL' );
+
+	private const CLAUSE_KEYS = array( 'key', 'value', 'compare', 'type' );
+
 	/**
 	 * Constructor.
 	 *
-	 * @param callable(string):bool $isManaged Whether NF manages a meta key as a field of the post type.
+	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` or `date` for a managed single-valued
+	 *                                                              scalar field; null for an unmanaged, multi-valued or serialized one.
+	 * @param bool                                  $canReadPrivate Whether the current user can read private posts; core then adds `private` to a
+	 *                                                              query without `post_status`, which the translator does not answer.
 	 */
-	public function __construct( private $isManaged ) {}
+	public function __construct( private $fieldKind, private bool $canReadPrivate = false ) {}
+
+	/**
+	 * Field kind of a key, or null.
+	 *
+	 * @param string $key  Meta key.
+	 * @param string $type Post type.
+	 * @return string|null
+	 */
+	private function kind( string $key, string $type ): ?string {
+		$kind = ( $this->fieldKind )( $key, $type );
+		return in_array( $kind, array( 'text', 'number', 'date' ), true ) ? $kind : null;
+	}
 
 	/**
 	 * Translate.
@@ -81,8 +97,12 @@ final class ArgsTranslator {
 	 */
 	public function translate( array $args ): ?QuerySpec {
 		foreach ( array_keys( $args ) as $name ) {
-			if ( ! in_array( $name, self::IGNORED, true ) && ! empty( $args[ $name ] ) ) {
-				return null;
+			if ( in_array( $name, self::IGNORED, true ) ) {
+				continue;
+			}
+			$v = $args[ $name ];
+			if ( null !== $v && false !== $v && '' !== $v && array() !== $v ) {
+				return null; // Includes 0 and '0', which are real filters in core.
 			}
 		}
 
@@ -91,7 +111,7 @@ final class ArgsTranslator {
 			return null;
 		}
 
-		$statuses = $this->statuses( $args['post_status'] ?? 'publish' );
+		$statuses = $this->statuses( $args['post_status'] ?? null );
 		if ( null === $statuses ) {
 			return null;
 		}
@@ -104,7 +124,7 @@ final class ArgsTranslator {
 			$conditions[] = new Condition( 'author', '=', (int) $args['author'] );
 		}
 		if ( isset( $args['post_parent'] ) && '' !== $args['post_parent'] && false !== $args['post_parent'] ) {
-			if ( ! is_numeric( $args['post_parent'] ) ) {
+			if ( ! is_numeric( $args['post_parent'] ) || (int) $args['post_parent'] < 0 ) {
 				return null;
 			}
 			$conditions[] = new Condition( 'parent', '=', (int) $args['post_parent'] );
@@ -114,20 +134,20 @@ final class ArgsTranslator {
 		if ( ! is_array( $meta_query ) ) {
 			return null;
 		}
-		$clauses = $this->metaClauses( $meta_query );
+		$clauses = $this->metaClauses( $meta_query, $type );
 		if ( null === $clauses ) {
 			return null;
 		}
 		if ( ! empty( $args['meta_key'] ) ) {
 			// A bare meta_key without orderby only filters on existence in core.
-			if ( ! is_string( $args['meta_key'] ) || ! ( $this->isManaged )( $args['meta_key'] ) ) {
+			if ( ! is_string( $args['meta_key'] ) || null === $this->kind( $args['meta_key'], $type ) ) {
 				return null;
 			}
 			$clauses[] = new Condition( $args['meta_key'], 'not_null' );
 		}
 		$conditions = array_merge( $conditions, $clauses );
 
-		$orders = $this->orders( $args );
+		$orders = $this->orders( $args, $type );
 		if ( null === $orders ) {
 			return null;
 		}
@@ -147,6 +167,12 @@ final class ArgsTranslator {
 	 * @return Status[]|null
 	 */
 	private function statuses( mixed $status ): ?array {
+		if ( null === $status || '' === $status ) {
+			return $this->canReadPrivate ? null : array( Status::Publish );
+		}
+		if ( 'publish' !== $status ) {
+			return null; // Other statuses depend on the user's capabilities (WP 3.3b).
+		}
 		$names = is_array( $status ) ? $status : array_map( 'trim', explode( ',', (string) $status ) );
 		$out   = array();
 		foreach ( $names as $name ) {
@@ -163,9 +189,10 @@ final class ArgsTranslator {
 	 * Flat AND meta clauses; nesting, OR, named clauses and unmanaged keys return null.
 	 *
 	 * @param array<mixed> $meta_query The meta_query argument.
+	 * @param string       $post_type  Post type.
 	 * @return Condition[]|null
 	 */
-	private function metaClauses( array $meta_query ): ?array {
+	private function metaClauses( array $meta_query, string $post_type ): ?array {
 		$out = array();
 		foreach ( $meta_query as $k => $clause ) {
 			if ( 'relation' === $k ) {
@@ -178,7 +205,8 @@ final class ArgsTranslator {
 				return null; // Nested group or named clause.
 			}
 			$key = $clause['key'] ?? null;
-			if ( ! is_string( $key ) || '' === $key || ! ( $this->isManaged )( $key ) ) {
+			$kind = is_string( $key ) && '' !== $key ? $this->kind( $key, $post_type ) : null;
+			if ( null === $kind || array() !== array_diff( array_keys( $clause ), self::CLAUSE_KEYS ) ) {
 				return null;
 			}
 			$compare = strtoupper( (string) ( $clause['compare'] ?? '=' ) );
@@ -186,7 +214,9 @@ final class ArgsTranslator {
 			if ( null === $op ) {
 				return null; // LIKE, REGEXP and the rest are for later WPs.
 			}
-			if ( ! empty( $clause['type'] ) && ! in_array( strtoupper( (string) $clause['type'] ), array( 'NUMERIC', 'CHAR', 'DATE', 'DATETIME', 'DECIMAL', 'SIGNED', 'UNSIGNED' ), true ) ) {
+			// Core compares as CHAR unless typed; NF compares by the field's own type. Only agree when they match.
+			$type = isset( $clause['type'] ) && is_string( $clause['type'] ) ? strtoupper( $clause['type'] ) : '';
+			if ( 'number' === $kind ? ! in_array( $type, self::NUMERIC_TYPES, true ) : ( '' !== $type && 'CHAR' !== $type ) ) {
 				return null;
 			}
 			if ( in_array( $op, array( 'null', 'not_null' ), true ) ) {
@@ -198,7 +228,7 @@ final class ArgsTranslator {
 			}
 			$value = $clause['value'];
 			if ( in_array( $op, array( 'between', 'in', 'not_in' ), true ) ) {
-				$value = is_array( $value ) ? array_values( $value ) : array_map( 'trim', explode( ',', (string) $value ) );
+				$value = is_array( $value ) ? array_values( $value ) : array_map( 'trim', preg_split( '/[,\s]+/', trim( (string) $value ) ) ?: array() );
 				if ( array() === $value || ( 'between' === $op && 2 !== count( $value ) ) ) {
 					return null;
 				}
@@ -218,9 +248,10 @@ final class ArgsTranslator {
 	 * Sort keys, matching core: `meta_value` and `meta_value_num` order by the `meta_key` field.
 	 *
 	 * @param array<string,mixed> $args Arguments.
+	 * @param string              $type Post type.
 	 * @return array<int,array{0:string,1:string}>|null
 	 */
-	private function orders( array $args ): ?array {
+	private function orders( array $args, string $type ): ?array {
 		$dir     = strtoupper( (string) ( $args['order'] ?? 'DESC' ) );
 		$orderby = $args['orderby'] ?? 'date';
 		if ( ! in_array( $dir, array( 'ASC', 'DESC' ), true ) || ! is_string( $orderby ) ) {
@@ -245,7 +276,9 @@ final class ArgsTranslator {
 				case 'meta_value':
 				case 'meta_value_num':
 					$key = $args['meta_key'] ?? null;
-					if ( ! is_string( $key ) || ! ( $this->isManaged )( $key ) ) {
+					$kind = is_string( $key ) ? $this->kind( $key, $type ) : null;
+					// meta_value sorts as text in core, meta_value_num as a number.
+					if ( null === $kind || ( 'meta_value_num' === $part ) !== ( 'number' === $kind ) ) {
 						return null;
 					}
 					$out[] = array( $key, $dir );
@@ -268,6 +301,11 @@ final class ArgsTranslator {
 			return array( 0, 0 );
 		}
 		$per = $args['posts_per_page'] ?? get_option( 'posts_per_page', 10 );
+		foreach ( array( 'paged', 'offset' ) as $n ) {
+			if ( isset( $args[ $n ] ) && '' !== $args[ $n ] && ( ! is_numeric( $args[ $n ] ) || (int) $args[ $n ] < 0 ) ) {
+				return null;
+			}
+		}
 		if ( ! is_numeric( $per ) ) {
 			return null;
 		}
@@ -281,7 +319,7 @@ final class ArgsTranslator {
 		if ( isset( $args['offset'] ) && '' !== $args['offset'] ) {
 			return array( $per, max( 0, (int) $args['offset'] ) );
 		}
-		$paged = max( 1, (int) ( $args['paged'] ?? 0 ), (int) ( $args['page'] ?? 0 ) );
+		$paged = max( 1, (int) ( $args['paged'] ?? 0 ) );
 		return array( $per, ( $paged - 1 ) * $per );
 	}
 }
