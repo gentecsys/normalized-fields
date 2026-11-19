@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-// phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid
+// phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,WordPress.Arrays.ArrayDeclarationSpacing,WordPress.DB.SlowDBQuery,Generic.Commenting.DocComment.MissingShort
 
 use NF\Query\ArgsTranslator;
 use NF\Storage\Status;
@@ -68,9 +68,11 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Untranslatable arguments pass through.
+	 *
 	 * @dataProvider untranslatable
 	 */
-	public function test_passes_through(array $args): void {
+	public function test_passes_through( array $args ): void {
 		$this->assertNull( $this->t( $args + array( 'post_type' => 'event' ) ) );
 	}
 
