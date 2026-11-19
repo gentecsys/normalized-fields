@@ -352,7 +352,7 @@ final class Builder {
 	 *
 	 * Terms are resolved on the core side, then `ID IN` (no join). Mirrored taxonomy slots are not in the pivot yet.
 	 *
-	 * @param string                    $taxonomy Taxonomy name.
+	 * @param string                           $taxonomy Taxonomy name.
 	 * @param string|int|array<int,int|string> $terms    Term slug(s) or id(s).
 	 * @return $this
 	 * @throws \LogicException For a term or user query.
@@ -378,8 +378,7 @@ final class Builder {
 	 * @throws \InvalidArgumentException For a cursor that cannot be decoded.
 	 */
 	public function after( string $cursor ): self {
-		$json   = base64_decode( strtr( $cursor, '-_', '+/' ), true );
-		$values = false === $json ? null : json_decode( $json, true );
+		$values = json_decode( rawurldecode( $cursor ), true );
 		if ( ! is_array( $values ) || array() === $values ) {
 			throw new \InvalidArgumentException( 'The cursor is not valid.' );
 		}
@@ -401,7 +400,7 @@ final class Builder {
 	public function cursor( int $id ): ?string {
 		$spec   = new QuerySpec( $this->type, $this->subtype, $this->statuses, array(), $this->orders );
 		$values = $this->context()->cursor( $spec, $id );
-		return null === $values ? null : rtrim( strtr( base64_encode( (string) wp_json_encode( $values ) ), '+/', '-_' ), '=' );
+		return null === $values ? null : rawurlencode( (string) wp_json_encode( $values ) );
 	}
 
 	/**
@@ -419,7 +418,7 @@ final class Builder {
 		if ( $size < 1 ) {
 			throw new \InvalidArgumentException( 'chunk needs a size of at least 1.' );
 		}
-		$seen = 0;
+		$seen         = 0;
 		$page         = clone $this;
 		$page->limit  = $size;
 		$page->offset = 0;
