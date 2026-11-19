@@ -302,4 +302,102 @@ class QueryContextTest extends WP_UnitTestCase {
 		$this->expectException( LogicException::class );
 		( new NF\Query\Builder( 'user', $this->context ) )->wp_query();
 	}
+
+	/**
+	 * Seek pagination: cursor pages cover the set once, in order, with ties on the sort value.
+	 */
+	public function test_after_cursor_pages(): void {
+		$a = $this->make( 10, 1 );
+		$b = $this->make( 20, 1 );
+		$c = $this->make( 20, 1 );
+		$d = $this->make( 30, 1 );
+		$e = $this->make( 40, 1 );
+		$q = $this->q()->orderBy( 'ctxprice' )->limit( 2 );
+
+		$page1 = $q->ids();
+		$this->assertSame( array( $a, $b ), $page1 );
+		$cursor = $q->cursor( $page1[1] );
+		$this->assertIsString( $cursor );
+		$page2 = $this->q()->orderBy( 'ctxprice' )->limit( 2 )->after( $cursor )->ids();
+		$this->assertSame( array( $c, $d ), $page2, 'a tie on price continues with the next id' );
+		$page3 = $this->q()->orderBy( 'ctxprice' )->limit( 2 )->after( (string) $q->cursor( $page2[1] ) )->ids();
+		$this->assertSame( array( $e ), $page3 );
+
+		$desc = $this->q()->orderBy( 'ctxprice', 'DESC' )->limit( 2 );
+		$this->assertSame( array( $e, $d ), $desc->ids() );
+		$this->assertSame( array( $c, $b ), $this->q()->orderBy( 'ctxprice', 'DESC' )->limit( 2 )->after( (string) $desc->cursor( $d ) )->ids() );
+	}
+
+	/**
+	 * A malformed cursor throws.
+	 */
+	public function test_after_rejects_bad_cursor(): void {
+		$this->expectException( InvalidArgumentException::class );
+		$this->q()->after( '!!!' );
+	}
+
+	/**
+	 * chunk() visits every match once and can stop early.
+	 */
+	public function test_chunk_visits_all(): void {
+		$ids = array();
+		foreach ( array( 5, 15, 25, 35, 45 ) as $p ) {
+			$ids[] = $this->make( $p, 1 );
+		}
+		$sizes = array();
+		$seen  = array();
+		$n     = $this->q()->orderBy( 'ctxprice' )->chunk(
+			2,
+			function ( array $posts ) use ( &$sizes, &$seen ) {
+				$sizes[] = count( $posts );
+				foreach ( $posts as $post ) {
+					$seen[] = $post->ID;
+				}
+			}
+		);
+		$this->assertSame( 5, $n );
+		$this->assertSame( array( 2, 2, 1 ), $sizes );
+		$this->assertSame( $ids, $seen );
+
+		$calls = 0;
+		$this->q()->orderBy( 'ctxprice' )->chunk(
+			2,
+			function () use ( &$calls ) {
+				++$calls;
+				return false;
+			}
+		);
+		$this->assertSame( 1, $calls );
+	}
+
+	/**
+	 * search() and tax() narrow through core ids combined with a field filter.
+	 */
+	public function test_search_and_tax(): void {
+		register_taxonomy( 'nf_ctx_region', self::TYPE );
+		$a = $this->make( 10, 1 );
+		$b = $this->make( 20, 1 );
+		$c = $this->make( 30, 1 );
+		wp_update_post(
+			array(
+				'ID'         => $b,
+				'post_title' => 'Jazz night',
+			)
+		);
+		wp_update_post(
+			array(
+				'ID'         => $c,
+				'post_title' => 'Jazz brunch',
+			)
+		);
+		wp_set_object_terms( $a, array( 'varna' ), 'nf_ctx_region' );
+		wp_set_object_terms( $c, array( 'varna' ), 'nf_ctx_region' );
+
+		$this->assertSame( array( $b, $c ), $this->q()->search( 'jazz' )->orderBy( 'ctxprice' )->ids() );
+		$this->assertSame( array( $c ), $this->q()->search( 'jazz' )->where( 'ctxprice', '>', 20 )->ids() );
+		$this->assertSame( array( $a, $c ), $this->q()->tax( 'nf_ctx_region', 'varna' )->orderBy( 'ctxprice' )->ids() );
+		$this->assertSame( array( $c ), $this->q()->tax( 'nf_ctx_region', 'varna' )->search( 'jazz' )->ids() );
+		$this->assertSame( array(), $this->q()->tax( 'nf_ctx_region', 'missing' )->ids() );
+		$this->assertSame( 2, $this->q()->tax( 'nf_ctx_region', 'varna' )->count() );
+	}
 }

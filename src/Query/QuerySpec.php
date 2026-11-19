@@ -31,6 +31,7 @@ final class QuerySpec {
 	 * @param int                                 $offset     Rows to skip.
 	 * @param MaskCondition[]                     $masks      ANDed any / all / none conditions on multi-valued fields.
 	 * @param RowCondition[]                      $rows       ANDed same-row conditions on Series.
+	 * @param array<int,int|string>|null          $after      Cursor values, one per sort column plus the id tie-break; null for none.
 	 */
 	public function __construct(
 		public readonly ObjectType $type,
@@ -41,6 +42,7 @@ final class QuerySpec {
 		public readonly int $limit = 0,
 		public readonly int $offset = 0,
 		public readonly array $masks = array(),
-		public readonly array $rows = array()
+		public readonly array $rows = array(),
+		public readonly ?array $after = null
 	) {}
 }
