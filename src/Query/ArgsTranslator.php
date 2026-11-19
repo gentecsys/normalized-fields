@@ -70,12 +70,12 @@ final class ArgsTranslator {
 	/**
 	 * Constructor.
 	 *
-	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` or `date` for a managed single-valued
+	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` (integer-valued only: core casts to SIGNED) or `date` for a managed single-valued
 	 *                                                              scalar field; null for an unmanaged, multi-valued or serialized one.
-	 * @param bool                                  $canReadPrivate Whether the current user can read private posts; core then adds `private` to a
+	 * @param bool                                  $loggedIn       Whether a user is logged in; core then adds their own `private` posts to a
 	 *                                                              query without `post_status`, which the translator does not answer.
 	 */
-	public function __construct( private $fieldKind, private bool $canReadPrivate = false ) {}
+	public function __construct( private $fieldKind, private bool $loggedIn = false ) {}
 
 	/**
 	 * Field kind of a key, or null.
@@ -101,6 +101,9 @@ final class ArgsTranslator {
 				continue;
 			}
 			$v = $args[ $name ];
+			if ( in_array( $name, array( 'has_password', 'post_password' ), true ) && null !== $v ) {
+				return null; // Core filters on these whenever they are set, even when false or empty.
+			}
 			if ( null !== $v && false !== $v && '' !== $v && array() !== $v ) {
 				return null; // Includes 0 and '0', which are real filters in core.
 			}
@@ -168,21 +171,9 @@ final class ArgsTranslator {
 	 */
 	private function statuses( mixed $status ): ?array {
 		if ( null === $status || '' === $status ) {
-			return $this->canReadPrivate ? null : array( Status::Publish );
+			return $this->loggedIn ? null : array( Status::Publish );
 		}
-		if ( 'publish' !== $status ) {
-			return null; // Other statuses depend on the user's capabilities (WP 3.3b).
-		}
-		$names = is_array( $status ) ? $status : array_map( 'trim', explode( ',', (string) $status ) );
-		$out   = array();
-		foreach ( $names as $name ) {
-			$st = is_string( $name ) ? Status::fromName( $name ) : null;
-			if ( null === $st ) {
-				return null; // 'any', custom statuses.
-			}
-			$out[] = $st;
-		}
-		return array() === $out ? null : $out;
+		return 'publish' === $status ? array( Status::Publish ) : null; // Other statuses depend on the user's capabilities (WP 3.3b).
 	}
 
 	/**
@@ -320,8 +311,8 @@ final class ArgsTranslator {
 		if ( $per < 1 ) {
 			return null;
 		}
-		if ( isset( $args['offset'] ) && '' !== $args['offset'] ) {
-			return array( $per, max( 0, (int) $args['offset'] ) );
+		if ( isset( $args['offset'] ) && (int) $args['offset'] > 0 ) {
+			return array( $per, (int) $args['offset'] );
 		}
 		$paged = max( 1, (int) ( $args['paged'] ?? 0 ) );
 		return array( $per, ( $paged - 1 ) * $per );

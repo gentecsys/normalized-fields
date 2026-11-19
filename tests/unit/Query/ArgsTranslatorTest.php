@@ -44,6 +44,13 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 		$this->assertSame( 0, $this->t( array( 'post_type' => 'event', 'nopaging' => true, 'paged' => 4 ) )->offset );
 	}
 
+	public function test_offset_zero_falls_back_to_paged_and_login_gate(): void {
+		$s = $this->t( array( 'post_type' => 'event', 'posts_per_page' => 10, 'paged' => 3, 'offset' => 0 ) );
+		$this->assertSame( 20, $s->offset );
+		$translator = new ArgsTranslator( static fn(): ?string => null, true );
+		$this->assertNull( $translator->translate( array( 'post_type' => 'event' ) ) );
+	}
+
 	public function test_meta_query_operators(): void {
 		$s = $this->t(
 			array(
@@ -101,6 +108,7 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'bad offset'       => array( array( 'offset' => 'abc' ) ),
 			'draft status'     => array( array( 'post_status' => 'draft' ) ),
 			'negative parent'  => array( array( 'post_parent' => -5 ) ),
+			'has_password'    => array( array( 'has_password' => false ) ),
 			'multi post type'  => array( array( 'post_type' => array( 'a', 'b' ) ) ),
 		);
 	}
