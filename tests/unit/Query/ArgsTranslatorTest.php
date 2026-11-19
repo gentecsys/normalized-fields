@@ -108,7 +108,7 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'bad offset'       => array( array( 'offset' => 'abc' ) ),
 			'draft status'     => array( array( 'post_status' => 'draft' ) ),
 			'negative parent'  => array( array( 'post_parent' => -5 ) ),
-			'has_password'    => array( array( 'has_password' => false ) ),
+			'has_password'     => array( array( 'has_password' => false ) ),
 			'multi post type'  => array( array( 'post_type' => array( 'a', 'b' ) ) ),
 		);
 	}
