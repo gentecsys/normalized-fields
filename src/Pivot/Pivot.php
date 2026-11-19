@@ -13,6 +13,7 @@ use NF\Backend\BackendInterface;
 use NF\Storage\DataTable;
 use NF\Storage\FieldMap;
 use NF\Storage\ObjectType;
+use NF\Storage\Status;
 use NF\Storage\Store;
 
 defined( 'ABSPATH' ) || exit;
@@ -326,6 +327,135 @@ final class Pivot {
 			'count' => count( $rows ),
 			'last'  => $last,
 		);
+	}
+
+	/**
+	 * Rebuild a set from WordPress core plus the typed tables: every object of the set's type and subtype gets its
+	 * base row, rows of objects that no longer exist (or are of another type) are removed, slots and row pivot are refilled.
+	 *
+	 * @param int           $pivotId  Pivot set id.
+	 * @param int           $chunk    Objects per chunk.
+	 * @param callable|null $progress Called with (objects so far) after each chunk.
+	 * @return int Objects rebuilt.
+	 */
+	public function rebuildFromCore( int $pivotId, int $chunk = self::REBUILD_CHUNK, ?callable $progress = null ): int {
+		$total = 0;
+		$after = 0;
+		do {
+			$res    = $this->rebuildFromCoreChunk( $pivotId, $after, $chunk );
+			$after  = $res['last'];
+			$total += $res['count'];
+			if ( $res['count'] > 0 && null !== $progress ) {
+				$progress( $total );
+			}
+		} while ( ! $res['done'] );
+		$this->pruneRowPivot( $pivotId );
+		return $total;
+	}
+
+	/**
+	 * One chunk of rebuildFromCore(): the next $limit core objects of the set above $afterObjectId, in id order (keyset over
+	 * core IDs through $wpdb; no join between core and NF tables). Orphan pivot rows inside the covered id range are
+	 * removed; the last chunk also covers everything above the last core id.
+	 *
+	 * @param int $pivotId       Pivot set id.
+	 * @param int $afterObjectId Last object id already handled (0 to start).
+	 * @param int $limit         Objects in the chunk.
+	 * @return array{count:int,last:int,done:bool,pruned:int}
+	 */
+	public function rebuildFromCoreChunk( int $pivotId, int $afterObjectId, int $limit = self::REBUILD_CHUNK ): array {
+		$limit = max( 1, $limit );
+		$set   = $this->db->select( 'SELECT object_type, subtype FROM ' . $this->db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
+		if ( ! $set ) {
+			return array(
+				'count'  => 0,
+				'last'   => $afterObjectId,
+				'done'   => true,
+				'pruned' => 0,
+			);
+		}
+		$objects = $this->coreObjects( ObjectType::from( (int) $set[0]['object_type'] ), (string) $set[0]['subtype'], $afterObjectId, $limit );
+		$done    = count( $objects ) < $limit;
+		$last    = $objects ? (int) array_key_last( $objects ) : $afterObjectId;
+		foreach ( $objects as $id => $core ) {
+			$this->sync( $pivotId, (int) $id, $core );
+		}
+		$t      = $this->db->table( 'nf_pivot' );
+		$sql    = "SELECT object_id FROM {$t} WHERE pivot_id = ? AND object_id > ?";
+		$params = array( $pivotId, $afterObjectId );
+		if ( ! $done ) {
+			$sql     .= ' AND object_id <= ?';
+			$params[] = $last;
+		}
+		$pruned = 0;
+		foreach ( $this->db->select( $sql, $params ) as $r ) {
+			$id = (int) $r['object_id'];
+			if ( ! isset( $objects[ $id ] ) ) {
+				$this->remove( $pivotId, $id );
+				++$pruned;
+			}
+		}
+		return array(
+			'count'  => count( $objects ),
+			'last'   => $last,
+			'done'   => $done,
+			'pruned' => $pruned,
+		);
+	}
+
+	/**
+	 * Core columns of the next objects of a set, keyed by object id in id order.
+	 *
+	 * @param ObjectType $type    Object type.
+	 * @param string     $subtype Post type or taxonomy.
+	 * @param int        $after   Last id handled.
+	 * @param int        $limit   Maximum objects.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function coreObjects( ObjectType $type, string $subtype, int $after, int $limit ): array {
+		global $wpdb;
+		$out = array();
+		if ( ObjectType::Post === $type ) {
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_status, post_author, post_parent, post_date, post_modified, menu_order FROM {$wpdb->posts} WHERE post_type = %s AND ID > %d ORDER BY ID LIMIT %d", $subtype, $after, $limit ), ARRAY_A );
+			foreach ( (array) $rows as $r ) {
+				$status                = Status::fromName( (string) $r['post_status'] );
+				$out[ (int) $r['ID'] ] = array(
+					'status'     => null !== $status ? $status->value : 100,
+					'author_id'  => (int) $r['post_author'],
+					'parent_id'  => (int) $r['post_parent'],
+					'published'  => $this->date( (string) $r['post_date'] ),
+					'modified'   => $this->date( (string) $r['post_modified'] ),
+					'menu_order' => (int) $r['menu_order'],
+				);
+			}
+		} elseif ( ObjectType::Term === $type ) {
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT term_id, parent FROM {$wpdb->term_taxonomy} WHERE taxonomy = %s AND term_id > %d ORDER BY term_id LIMIT %d", $subtype, $after, $limit ), ARRAY_A );
+			foreach ( (array) $rows as $r ) {
+				$out[ (int) $r['term_id'] ] = array(
+					'status'    => Status::Publish->value,
+					'parent_id' => (int) $r['parent'],
+				);
+			}
+		} elseif ( ObjectType::User === $type ) {
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, user_registered FROM {$wpdb->users} WHERE ID > %d ORDER BY ID LIMIT %d", $after, $limit ), ARRAY_A );
+			foreach ( (array) $rows as $r ) {
+				$out[ (int) $r['ID'] ] = array(
+					'status'    => Status::Publish->value,
+					'published' => $this->date( (string) $r['user_registered'] ),
+				);
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * A core date, or null for the zero date.
+	 *
+	 * @param string $date Date string.
+	 * @return string|null
+	 */
+	private function date( string $date ): ?string {
+		return '' === $date || str_starts_with( $date, '0000-00-00' ) ? null : $date;
 	}
 
 	/**
