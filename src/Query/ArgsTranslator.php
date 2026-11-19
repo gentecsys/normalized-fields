@@ -104,6 +104,9 @@ final class ArgsTranslator {
 			if ( in_array( $name, array( 'has_password', 'post_password' ), true ) && null !== $v ) {
 				return null; // Core filters on these whenever they are set, even when false or empty.
 			}
+			if ( 'meta_value' === $name && false === $v ) {
+				return null; // Core's isset() and !== '' test makes false a filter on an empty value.
+			}
 			if ( null !== $v && false !== $v && '' !== $v && array() !== $v ) {
 				return null; // Includes 0 and '0', which are real filters in core.
 			}
@@ -121,13 +124,13 @@ final class ArgsTranslator {
 
 		$conditions = array();
 		if ( ! empty( $args['author'] ) ) {
-			if ( ! is_numeric( $args['author'] ) || (int) $args['author'] < 1 ) {
+			if ( ! is_scalar( $args['author'] ) || 1 !== preg_match( '/^\d+$/', (string) $args['author'] ) || (int) $args['author'] < 1 ) {
 				return null;
 			}
 			$conditions[] = new Condition( 'author', '=', (int) $args['author'] );
 		}
 		if ( isset( $args['post_parent'] ) && '' !== $args['post_parent'] && false !== $args['post_parent'] ) {
-			if ( ! is_numeric( $args['post_parent'] ) || (int) $args['post_parent'] < 0 ) {
+			if ( ! is_scalar( $args['post_parent'] ) || 1 !== preg_match( '/^\d+$/', (string) $args['post_parent'] ) ) {
 				return null;
 			}
 			$conditions[] = new Condition( 'parent', '=', (int) $args['post_parent'] );
@@ -220,7 +223,7 @@ final class ArgsTranslator {
 			$value = $clause['value'];
 			if ( in_array( $op, array( 'between', 'in', 'not_in' ), true ) ) {
 				if ( ! is_array( $value ) ) {
-					$parts = preg_split( '/[,\s]+/', trim( (string) $value ) );
+					$parts = preg_split( '/[,\s]+/', (string) $value );
 					$value = false === $parts ? array() : $parts;
 				}
 				$value = array_values( $value );
@@ -229,6 +232,19 @@ final class ArgsTranslator {
 				}
 			} elseif ( ! is_scalar( $value ) ) {
 				return null;
+			}
+			foreach ( (array) $value as $one ) {
+				if ( ! is_scalar( $one ) ) {
+					return null;
+				}
+				$str = (string) $one;
+				// Core compares dates as raw strings; NF normalises them. Only agree on one canonical form.
+				if ( 'date' === $kind && 1 !== preg_match( '/^\d{8}$/', $str ) ) {
+					return null;
+				}
+				if ( 'number' === $kind && 1 !== preg_match( '/^-?\d+$/', $str ) ) {
+					return null;
+				}
 			}
 			try {
 				$out[] = Builder::condition( $key, $op, $value );
