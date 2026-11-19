@@ -20,7 +20,11 @@ use NF\Storage\Status;
 final class ArgsTranslatorTest extends WP_UnitTestCase {
 
 	private function t( array $args ): ?\NF\Query\QuerySpec {
-		return ( new ArgsTranslator( static fn( string $k ): bool => in_array( $k, array( 'price', 'start_date', 'is_featured' ), true ) ) )->translate( $args );
+		return ( new ArgsTranslator( static fn( string $k ): ?string => array(
+			'price'       => 'number',
+			'start_date'  => 'date',
+			'is_featured' => 'text',
+		)[ $k ] ?? null ) )->translate( $args );
 	}
 
 	public function test_basic_paging_and_defaults(): void {
@@ -82,6 +86,18 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'orderby title'   => array( array( 'orderby' => 'title' ) ),
 			'status any'      => array( array( 'post_status' => 'any' ) ),
 			'post_type any'   => array( array( 'post_type' => 'any' ) ),
+			'meta_value 0'    => array( array( 'meta_key' => 'price', 'meta_value' => 0 ) ),
+			'menu_order 0'    => array( array( 'menu_order' => 0 ) ),
+			'meta_type'       => array( array( 'meta_key' => 'price', 'meta_type' => 'NUMERIC' ) ),
+			'untyped number'  => array( array( 'meta_query' => array( array( 'key' => 'price', 'value' => 5, 'compare' => '<' ) ) ) ),
+			'typed text'      => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => 1, 'type' => 'NUMERIC' ) ) ) ),
+			'compare_key'     => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => 1, 'compare_key' => 'LIKE' ) ) ) ),
+			'num sort on text' => array( array( 'meta_key' => 'is_featured', 'orderby' => 'meta_value_num' ) ),
+			'archive page'    => array( array( 'posts_per_archive_page' => 5 ) ),
+			'negative paged'  => array( array( 'paged' => -3 ) ),
+			'bad offset'      => array( array( 'offset' => 'abc' ) ),
+			'draft status'    => array( array( 'post_status' => 'draft' ) ),
+			'negative parent' => array( array( 'post_parent' => -5 ) ),
 			'multi post type' => array( array( 'post_type' => array( 'a', 'b' ) ) ),
 		);
 	}

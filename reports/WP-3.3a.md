@@ -16,3 +16,13 @@ Only `php -l`. No vendor tooling in this sandbox; phpunit, phpcs and phpstan are
 - 3.3b wires the translator to `posts_pre_query` and does the counting.
 - Not yet handled: sticky posts, taxonomy mirrors (`tax_query`), several post types, `meta_value` type casts (`type` is validated but the compiler uses the field's own type), per-clause `orderby` arrays.
 - `meta_key` with no `orderby` is treated as an existence filter, as in core.
+
+## Review fixes
+- Reviewer found silent divergences from core; fixed by passing through: falsy-but-real filters (`meta_value => 0`, `menu_order => 0`), `meta_type`, `posts_per_archive_page`, `page`, negative or non-numeric `paged` / `offset`, negative `post_parent`, extra clause keys (`compare_key`, `type_key`), explicit statuses other than `publish`, and a missing `post_status` when the user can read private posts (`$canReadPrivate`).
+- The key callback is now `fn( $key, $postType ): ?string` returning `text`, `number` or `date` for managed single-valued scalar fields. A number field needs a numeric clause `type` and `meta_value_num`; text and date fields need no type (or CHAR) and `meta_value`. Other combinations pass through. `IN` strings split like core (`/[,\s]+/`).
+
+## Deviations and open questions
+- Draft, private and other statuses are left to 3.3b, which has the user's capabilities.
+- Serialized values (relationship, checkbox) are `null` kind, so they pass through until 3.3c.
+- Core's `orderby date` has no tie-break; NF's compiler adds an id tie-break. Watch for this in 3.3d.
+- `suppress_filters` handling and third-party `posts_*` filters belong to 3.3b.
