@@ -171,19 +171,40 @@ final class Compiler {
 			}
 			$ors = array();
 			foreach ( $plan as $i => [ $column, $dir, $kind ] ) {
+				$q  = $d->quoteIdentifier( $column );
+				$v  = $spec->after[ $i ];
 				$eq = array();
 				$ap = array();
 				foreach ( $plan as $j => [ $pc, , $pk ] ) {
 					if ( $j >= $i ) {
 						break;
 					}
-					$eq[] = $d->quoteIdentifier( $pc ) . ' = ?';
-					$ap[] = $this->value( $pk, $spec->after[ $j ] );
+					$pq = $d->quoteIdentifier( $pc );
+					if ( null === $spec->after[ $j ] ) {
+						$eq[] = $pq . ' IS NULL';
+					} else {
+						$eq[] = $pq . ' = ?';
+						$ap[] = $this->value( $pk, $spec->after[ $j ] );
+					}
 				}
-				$eq[]  = $d->quoteIdentifier( $column ) . ( 'ASC' === $dir ? ' > ?' : ' < ?' );
-				$ap[]  = $this->value( $kind, $spec->after[ $i ] );
-				$ors[] = '(' . implode( ' AND ', $eq ) . ')';
+				// NULLs sort first ascending and last descending, as in ORDER BY.
+				if ( null === $v ) {
+					if ( 'DESC' === $dir ) {
+						continue;
+					}
+					$eq[] = $q . ' IS NOT NULL';
+				} elseif ( 'ASC' === $dir ) {
+					$eq[] = $q . ' > ?';
+					$ap[] = $this->value( $kind, $v );
+				} else {
+					$eq[] = '(' . $q . ' < ? OR ' . $q . ' IS NULL)';
+					$ap[] = $this->value( $kind, $v );
+				}
+				$ors[]  = '(' . implode( ' AND ', $eq ) . ')';
 				$params = array_merge( $params, $ap );
+			}
+			if ( array() === $ors ) {
+				$ors[] = '1 = 0';
 			}
 			$where[] = '(' . implode( ' OR ', $ors ) . ')';
 		}

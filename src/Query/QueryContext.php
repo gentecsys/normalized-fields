@@ -72,7 +72,7 @@ final class QueryContext {
 	 *
 	 * @param QuerySpec $spec Query.
 	 * @param int       $id   Object id.
-	 * @return array<int,int|string>|null Null when the object is not in the pivot set or a sort value is null.
+	 * @return array<int,int|string|null>|null Null when the object is not in the pivot set; a null sort value stays null in the list.
 	 * @throws UnsupportedQueryException When a sort field has no slot.
 	 */
 	public function cursor( QuerySpec $spec, int $id ): ?array {
@@ -91,7 +91,8 @@ final class QueryContext {
 		foreach ( $cols as $c ) {
 			$v = $rows[0][ $c ] ?? null;
 			if ( null === $v ) {
-				return null;
+				$out[] = null;
+				continue;
 			}
 			$out[] = is_numeric( $v ) && ! str_contains( (string) $v, '-' ) && ! str_contains( (string) $v, '.' ) ? (int) $v : (string) $v;
 		}
