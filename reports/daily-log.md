@@ -55,3 +55,4 @@
 2026-11-18 | WP 3.2c2 | labelled nf:ready (CI running) | Builder values() typed projection and wp_query() via posts_pre_query + found_posts filter; reviewer blockers fixed, re-review clean; 3.2c1 marked merged | PR #67 (wp/3.2c2-values)
 2026-11-19 | WP 3.2c3 | labelled nf:ready (CI green, reviewer clean) | Builder search/tax/after/cursor/chunk with NULL-safe keyset cursors; 3.2c2 marked merged | PR #68 (wp/3.2c3-search-after)
 2026-11-19 | WP 3.3a | in-review (no label; second reviewer round fixes not re-reviewed) | Split 3.3 into 3.3a-d; pure WP_Query args translator, pass-through for any divergent case; PHPCS fixes pushed, needs fresh review then nf:ready | PR #69 (wp/3.3a-args-translator)
+2026-11-19 | WP 3.3a | labelled nf:ready (CI green, reviewer clean after round 3) | WP_Query args translator; round-3 fixes (meta_value=>false, Ymd-only dates, integer author/parent); non-blocking nits left for 3.3b | PR #69 (wp/3.3a-args-translator)
