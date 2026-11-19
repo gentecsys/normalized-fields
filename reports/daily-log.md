@@ -53,3 +53,4 @@
 2026-11-18 | WP 3.2b | in-review (CI green, awaiting nf:ready label) | QueryContext resolver + nf_query() + Builder toSql/explain/ids/count; reviewer blockers fixed; label step denied by permission classifier, owner must add nf:ready | PR #65 (wp/3.2b-resolver)
 2026-11-18 | WP 3.2c1 | labelled nf:ready (CI not yet reported; reviewer blocker B1 users() blog_id fixed, not re-reviewed) | Split 3.2c into c1-c3; Builder posts()/terms()/users()/whereRelated; 3.2b marked merged | PR #66 (wp/3.2c-results)
 2026-11-18 | WP 3.2c2 | labelled nf:ready (CI running) | Builder values() typed projection and wp_query() via posts_pre_query + found_posts filter; reviewer blockers fixed, re-review clean; 3.2c1 marked merged | PR #67 (wp/3.2c2-values)
+2026-11-19 | WP 3.2c3 | labelled nf:ready (CI green, reviewer clean) | Builder search/tax/after/cursor/chunk with NULL-safe keyset cursors; 3.2c2 marked merged | PR #68 (wp/3.2c3-search-after)
