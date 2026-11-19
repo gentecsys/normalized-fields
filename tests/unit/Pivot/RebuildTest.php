@@ -199,7 +199,7 @@ class RebuildTest extends WP_UnitTestCase {
 		$this->store->set( ObjectType::Post, $b, 'field_t22d_city', 'Rome' );
 		$gone = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 		wp_delete_post( $gone, true );
-		$c = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		$c           = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 		$this->ids[] = $b;
 		$this->ids[] = $c;
 		$other       = self::factory()->post->create( array( 'post_type' => 'post' ) );
