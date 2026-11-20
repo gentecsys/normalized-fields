@@ -29,6 +29,22 @@ final class SlotSync {
 	private array $pending = array();
 
 	/**
+	 * Field group source (injectable for tests).
+	 *
+	 * @var AcfSource
+	 */
+	private AcfSource $source;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param AcfSource|null $source Field group source; defaults to ACF's own API.
+	 */
+	public function __construct( ?AcfSource $source = null ) {
+		$this->source = $source ?? new AcfSource();
+	}
+
+	/**
 	 * Hook the triggers.
 	 *
 	 * @return void
@@ -59,9 +75,8 @@ final class SlotSync {
 	 */
 	public function onUpgraded(): void {
 		// `nf/upgraded` fires only from the manual upgrade entry points (activation, admin button, `wp nf upgrade`).
-		$source = new AcfSource();
-		if ( $source->available() ) {
-			$this->syncGroups( $source->groups() );
+		if ( $this->source->available() ) {
+			$this->syncGroups( $this->source->groups() );
 		}
 	}
 
@@ -75,8 +90,7 @@ final class SlotSync {
 		if ( ! self::trusted() ) {
 			return;
 		}
-		$source = new AcfSource();
-		if ( ! $source->available() ) {
+		if ( ! $this->source->available() ) {
 			return;
 		}
 		$post_type = sanitize_key( (string) $post_type );
@@ -84,7 +98,7 @@ final class SlotSync {
 			return;
 		}
 		$groups = array();
-		foreach ( $source->groups() as $group ) {
+		foreach ( $this->source->groups() as $group ) {
 			$fields = SlotAssigner::fieldsByPostType( array( $group ) );
 			if ( isset( $fields[ $post_type ] ) ) {
 				$groups[] = $group;
