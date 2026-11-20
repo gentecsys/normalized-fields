@@ -165,7 +165,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ) );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync() );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *
