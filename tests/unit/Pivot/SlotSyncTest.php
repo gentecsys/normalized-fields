@@ -60,12 +60,44 @@ class SlotSyncTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A schema that is behind skips the sync and flags a resync.
+	 * A synthetic group.
+	 *
+	 * @return array<string,mixed>
 	 */
-	public function test_schema_behind_skips_and_flags(): void {
+	private function group(): array {
+		return array(
+			'key'      => 'group_t30e',
+			'location' => array( array( array( 'param' => 'post_type', 'operator' => '==', 'value' => 'nf_sync_t30e' ) ) ),
+			'fields'   => array( array( 'key' => 'field_t30e_n', 'name' => 'n', 'label' => 'N', 'type' => 'number' ) ),
+		);
+	}
+
+	/**
+	 * Syncing assigns the slot and queues one rebuild; a second sync is a no-op.
+	 */
+	public function test_sync_assigns_and_is_idempotent(): void {
+		$sync  = new SlotSync();
+		$first = $sync->syncGroups( array( $this->group() ) );
+		$this->assertSame( array( 'nf_sync_t30e' => array( 'n1' ) ), $first );
+		$this->assertSame( array(), $sync->syncGroups( array( $this->group() ) ) );
+	}
+
+	/**
+	 * A trusted group save hooks shutdown; an untrusted flush does nothing.
+	 */
+	public function test_trusted_save_hooks_shutdown(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		set_current_screen( 'dashboard' );
+		$sync = new SlotSync();
+		$sync->onGroupSaved( $this->group() );
+		$this->assertNotFalse( has_action( 'shutdown', array( $sync, 'flush' ) ) );
+	}
+
+	/**
+	 * Schema behind: nothing is written.
+	 */
+	public function test_schema_behind_with_group_writes_nothing(): void {
 		update_option( NF\Install\Upgrader::OPTION, '0' );
-		delete_option( NF\Install\Upgrader::NEEDS_RESYNC );
-		$this->assertSame( array(), ( new SlotSync() )->syncGroups( array() ) );
-		$this->assertNotEmpty( get_option( NF\Install\Upgrader::NEEDS_RESYNC ) );
+		$this->assertSame( array(), ( new SlotSync() )->syncGroups( array( $this->group() ) ) );
 	}
 }

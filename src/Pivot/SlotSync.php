@@ -44,9 +44,7 @@ final class SlotSync {
 	 * @return bool
 	 */
 	public static function trusted(): bool {
-		if ( wp_doing_cron() && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
-			return false;
-		}
+		// wp-cron.php is public, so cron alone is never trusted; WP-CLI (even running cron events) is.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			return true;
 		}
@@ -59,6 +57,7 @@ final class SlotSync {
 	 * @return void
 	 */
 	public function onUpgraded(): void {
+		// `nf/upgraded` fires only from the manual upgrade entry points (activation, admin button, `wp nf upgrade`).
 		$source = new AcfSource();
 		if ( $source->available() ) {
 			$this->syncGroups( $source->groups() );
@@ -108,7 +107,7 @@ final class SlotSync {
 	 */
 	public function syncGroups( array $groups ): array {
 		if ( ! Upgrader::isCurrent() ) {
-			update_option( Upgrader::NEEDS_RESYNC, 1, false );
+			// No NEEDS_RESYNC here: Bridge stores a structured value in it, and nf/upgraded re-runs this sync anyway.
 			do_action( 'nf/pivot/slots_skipped', '' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			return array();
 		}

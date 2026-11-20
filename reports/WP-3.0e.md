@@ -10,5 +10,6 @@ Agent: A3 (daily build agent). Branch `wp/3.0e-slot-sync-triggers`.
 Only `php -l`. No WP test env here; rely on CI.
 
 ## Deviations / follow-ups (3.0e is not finished)
-- **Not done: `wp nf port run` trigger.** Needs a completion action in `src/Migration/` (A9). Request: fire `do_action( 'nf/port/finished' )` there, then SlotSync hooks it. Keep 3.0e `in-review` here; remaining: port trigger, term/user sets (needs `Pivot::sync()` / `RowPivot` to take `ObjectType`), bench-type nf_query parity test, reviewer B1 "built" marker.
+- **Not done: `wp nf port run` trigger.** Needs a completion action in `src/Migration/` (A9). Request: fire `do_action( 'nf/port/finished' )` there, then SlotSync hooks it. Remainder moved to new row 3.0f: port trigger, term/user sets (needs `Pivot::sync()` / `RowPivot` to take `ObjectType`), bench-type nf_query parity test, reviewer B1 "built" marker.
+- Plugin.php one-line wiring is outside A3 paths; owner to confirm. Review round 1 fixes: no NEEDS_RESYNC clobbering, more tests.
 - Contract change requested: none.
