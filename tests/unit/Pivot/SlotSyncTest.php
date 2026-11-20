@@ -67,8 +67,23 @@ class SlotSyncTest extends WP_UnitTestCase {
 	private function group(): array {
 		return array(
 			'key'      => 'group_t30e',
-			'location' => array( array( array( 'param' => 'post_type', 'operator' => '==', 'value' => 'nf_sync_t30e' ) ) ),
-			'fields'   => array( array( 'key' => 'field_t30e_n', 'name' => 'n', 'label' => 'N', 'type' => 'number' ) ),
+			'location' => array(
+				array(
+					array(
+						'param'    => 'post_type',
+						'operator' => '==',
+						'value'    => 'nf_sync_t30e',
+					),
+				),
+			),
+			'fields'   => array(
+				array(
+					'key'   => 'field_t30e_n',
+					'name'  => 'n',
+					'label' => 'N',
+					'type'  => 'number',
+				),
+			),
 		);
 	}
 
