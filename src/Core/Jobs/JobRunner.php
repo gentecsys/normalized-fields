@@ -77,6 +77,7 @@ final class JobRunner {
 		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( '\\WP_CLI' ) ) {
 			\WP_CLI::add_command( 'nf job', JobCommand::class );
 			\WP_CLI::add_command( 'nf port', \NF\Migration\PortCommand::class );
+			\WP_CLI::add_command( 'nf pivot', \NF\Pivot\PivotCommand::class );
 		}
 	}
 
