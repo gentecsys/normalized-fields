@@ -61,3 +61,4 @@
 2026-11-20 | WP 3.0e | labelled nf:ready (CI green, reviewer clean round 2) | Slot sync on nf/upgraded and capability-checked ACF group save; remainder split to 3.0f; 3.0d marked merged | PR #72 (wp/3.0e-slot-sync-triggers)
 2026-11-20 | WP 3.0e | labelled nf:ready (merge conflict in PLAN.md fixed, CI re-running on 72fd7e3) | auto-merge failed once on the conflict; merged main into branch; label kept, next run's bookkeeping re-checks | PR #72
 2026-11-20 | WP 3.0f | in-review (no label; reviewer round 2 blocks on a test that cannot fail) | nf/port/finished trigger for slot sync; 3.0e marked merged on the branch, remainder split to 3.0g | PR #73 (wp/3.0f-port-trigger-term-user)
+2026-11-20 | WP 3.0f | labelled nf:ready (CI running, reviewer clean round 3) | Injected AcfSource into SlotSync so port-finished trust tests can fail; 3.0e confirmed merged | PR #73 (wp/3.0f-port-trigger-term-user)
