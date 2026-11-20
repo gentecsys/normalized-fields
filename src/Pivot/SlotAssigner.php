@@ -129,6 +129,16 @@ final class SlotAssigner {
 	 * @return array{pivot_id:int|null,assigned:array<string,string>,skipped:string[],created:bool}
 	 */
 	public function assign( string $post_type, array $fields, bool $dry_run = false ): array {
+		if ( ! $dry_run && ! \NF\Install\Upgrader::isCurrent() ) {
+			update_option( \NF\Install\Upgrader::NEEDS_RESYNC, 1, false );
+			do_action( 'nf/pivot/slots_skipped', $post_type ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			return array(
+				'pivot_id' => null,
+				'assigned' => array(),
+				'skipped'  => array(),
+				'created'  => false,
+			);
+		}
 		$set_id  = $this->pivot->findSetId( ObjectType::Post, $post_type );
 		$created = false;
 		$taken   = array();
@@ -144,7 +154,7 @@ final class SlotAssigner {
 		foreach ( $fields as $field ) {
 			$letter = self::letter( $field );
 			$key    = (string) ( $field['key'] ?? '' );
-			if ( null === $letter || isset( $have[ $key ] ) ) {
+			if ( null === $letter || isset( $have[ $key ] ) || isset( $plan[ $key ] ) ) {
 				continue;
 			}
 			$slot = null;

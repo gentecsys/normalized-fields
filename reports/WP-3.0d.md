@@ -16,3 +16,8 @@ Only `php -l`. No WordPress test environment, `vendor/` could not be installed, 
 
 ## Contract change requested
 None.
+
+## Review follow-up
+- Known window (reviewer B1): new slots are visible to queries before `pivot_rebuild` finishes. Mitigation here: `wp nf pivot sync --rebuild` rebuilds sets after an interrupted run. A planner guard or rebuild-then-publish ordering is a follow-up for 3.0e (needs a "built" marker; contract change request: none yet).
+- Fixed: duplicate keys no longer leak slots; `assign()` checks `Upgrader::isCurrent()` (sets `NEEDS_RESYNC`, fires `nf/pivot/slots_skipped`); one bad field warns instead of aborting; rebuild loop capped.
+- Not done: bitmask >64 values check, PivotCommand tests, nf_query parity test (3.0e).

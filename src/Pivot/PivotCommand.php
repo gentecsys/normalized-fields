@@ -27,6 +27,9 @@ final class PivotCommand {
 	 *
 	 * ## OPTIONS
 	 *
+	 * [--rebuild]
+	 * : Also rebuild sets that got no new slots (use after an interrupted sync; new slots are queried before their rebuild finishes).
+	 *
 	 * [--dry-run]
 	 * : Print the sets and slots that would be assigned; write nothing.
 	 *
@@ -48,14 +51,19 @@ final class PivotCommand {
 		$assign  = new SlotAssigner( new Pivot( Plugin::db(), Plugin::fields(), Plugin::store() ), Plugin::fields() );
 		$changed = 0;
 		foreach ( $by_type as $post_type => $fields ) {
-			$res = $assign->assign( (string) $post_type, $fields, $dry );
+			try {
+				$res = $assign->assign( (string) $post_type, $fields, $dry );
+			} catch ( \InvalidArgumentException $e ) {
+				\WP_CLI::warning( sprintf( '%s: %s', $post_type, $e->getMessage() ) );
+				continue;
+			}
 			foreach ( $res['assigned'] as $key => $slot ) {
 				\WP_CLI::log( sprintf( '%s: %s => %s%s', $post_type, $key, $slot, $dry ? ' (dry run)' : '' ) );
 			}
 			foreach ( $res['skipped'] as $key ) {
 				\WP_CLI::warning( sprintf( '%s: no free slot for %s; it stays on the typed-table probe path.', $post_type, $key ) );
 			}
-			if ( ! $dry && array() !== $res['assigned'] && null !== $res['pivot_id'] ) {
+			if ( ! $dry && ( array() !== $res['assigned'] || isset( $assoc['rebuild'] ) ) && null !== $res['pivot_id'] ) {
 				++$changed;
 				$this->rebuild( $res['pivot_id'] );
 			}
@@ -77,7 +85,7 @@ final class PivotCommand {
 			return;
 		}
 		$status = 'queued';
-		while ( 'queued' === $status ) {
+		for ( $i = 0; 'queued' === $status && $i < 10000; $i++ ) {
 			$status = $runner->run( $id );
 		}
 		if ( 'done' !== $status ) {
