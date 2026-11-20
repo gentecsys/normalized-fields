@@ -29,12 +29,29 @@ final class SlotSync {
 	private array $pending = array();
 
 	/**
+	 * Field group source (injectable for tests).
+	 *
+	 * @var AcfSource
+	 */
+	private AcfSource $source;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param AcfSource|null $source Field group source; defaults to ACF's own API.
+	 */
+	public function __construct( ?AcfSource $source = null ) {
+		$this->source = $source ?? new AcfSource();
+	}
+
+	/**
 	 * Hook the triggers.
 	 *
 	 * @return void
 	 */
 	public function register(): void {
 		add_action( 'nf/upgraded', array( $this, 'onUpgraded' ) );
+		add_action( 'nf/port/finished', array( $this, 'onPortFinished' ) );
 		add_action( 'acf/update_field_group', array( $this, 'onGroupSaved' ) );
 	}
 
@@ -58,10 +75,36 @@ final class SlotSync {
 	 */
 	public function onUpgraded(): void {
 		// `nf/upgraded` fires only from the manual upgrade entry points (activation, admin button, `wp nf upgrade`).
-		$source = new AcfSource();
-		if ( $source->available() ) {
-			$this->syncGroups( $source->groups() );
+		if ( $this->source->available() ) {
+			$this->syncGroups( $this->source->groups() );
 		}
+	}
+
+	/**
+	 * After `wp nf port run`: assign slots for the ported post type (WP-CLI only, so trusted).
+	 *
+	 * @param mixed $post_type Ported post type.
+	 * @return void
+	 */
+	public function onPortFinished( $post_type = '' ): void {
+		if ( ! self::trusted() ) {
+			return;
+		}
+		if ( ! $this->source->available() ) {
+			return;
+		}
+		$post_type = sanitize_key( (string) $post_type );
+		if ( '' === $post_type ) {
+			return;
+		}
+		$groups = array();
+		foreach ( $this->source->groups() as $group ) {
+			$fields = SlotAssigner::fieldsByPostType( array( $group ) );
+			if ( isset( $fields[ $post_type ] ) ) {
+				$groups[] = $group;
+			}
+		}
+		$this->syncGroups( $groups );
 	}
 
 	/**

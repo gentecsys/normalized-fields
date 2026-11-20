@@ -68,6 +68,12 @@ final class PortCommand {
 	public function run( array $args, array $assoc ): void {
 		unset( $args );
 		$state = $this->runJob( 'port_posts', $assoc );
+		/**
+		 * Fires after `wp nf port run` ported a post type (WP-CLI only; trusted context).
+		 *
+		 * @param string $post_type Ported post type.
+		 */
+		do_action( 'nf/port/finished', sanitize_key( $assoc['post-type'] ?? '' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		\WP_CLI::success( sprintf( 'Ported %d value(s) from %d post(s).', absint( $state['values'] ?? 0 ), absint( $state['posts'] ?? 0 ) ) );
 	}
 

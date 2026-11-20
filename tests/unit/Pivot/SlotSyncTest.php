@@ -115,4 +115,102 @@ class SlotSyncTest extends WP_UnitTestCase {
 		update_option( NF\Install\Upgrader::OPTION, '0' );
 		$this->assertSame( array(), ( new SlotSync() )->syncGroups( array( $this->group() ) ) );
 	}
+
+	/**
+	 * The port-finished hook is registered.
+	 */
+	public function test_port_finished_hook_registered(): void {
+		$sync = new SlotSync();
+		$sync->register();
+		$this->assertNotFalse( has_action( 'nf/port/finished', array( $sync, 'onPortFinished' ) ) );
+	}
+
+	/**
+	 * A source that serves one synthetic group.
+	 *
+	 * @param array<string,mixed> $group Group.
+	 * @return NF\Migration\AcfSource
+	 */
+	private function source( array $group ): NF\Migration\AcfSource {
+		return new class( $group ) extends NF\Migration\AcfSource {
+			/**
+			 * Constructor.
+			 *
+			 * @param array<string,mixed> $group Group.
+			 */
+			public function __construct( private array $group ) {}
+
+			/**
+			 * Always available.
+			 *
+			 * @return bool
+			 */
+			public function available(): bool {
+				return true;
+			}
+
+			/**
+			 * The group.
+			 *
+			 * @return array<int,array<string,mixed>>
+			 */
+			public function groups(): array {
+				return array( $this->group );
+			}
+		};
+	}
+
+	/**
+	 * Count skip actions (the schema is behind, so a reached sync fires one).
+	 *
+	 * @return callable Returns the count.
+	 */
+	private function skipCounter(): callable {
+		$fired = 0;
+		add_action(
+			'nf/pivot/slots_skipped',
+			static function () use ( &$fired ): void {
+				++$fired;
+			}
+		);
+		return static function () use ( &$fired ): int {
+			return $fired;
+		};
+	}
+
+	/**
+	 * An untrusted request never reaches the sync.
+	 */
+	public function test_port_finished_untrusted_does_not_sync(): void {
+		update_option( NF\Install\Upgrader::OPTION, '0' );
+		wp_set_current_user( 0 );
+		$count = $this->skipCounter();
+		( new SlotSync( $this->source( $this->group() ) ) )->onPortFinished( 'nf_sync_t30e' );
+		$this->assertSame( 0, $count() );
+	}
+
+	/**
+	 * A trusted request reaches the sync for the ported post type.
+	 */
+	public function test_port_finished_trusted_syncs(): void {
+		update_option( NF\Install\Upgrader::OPTION, '0' );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		set_current_screen( 'dashboard' );
+		$count = $this->skipCounter();
+		( new SlotSync( $this->source( $this->group() ) ) )->onPortFinished( 'nf_sync_t30e' );
+		$this->assertSame( 1, $count() );
+	}
+
+	/**
+	 * An empty post type syncs nothing.
+	 */
+	public function test_port_finished_empty_post_type_returns_early(): void {
+		update_option( NF\Install\Upgrader::OPTION, '0' );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		set_current_screen( 'dashboard' );
+		$count = $this->skipCounter();
+		$sync  = new SlotSync( $this->source( $this->group() ) );
+		$sync->onPortFinished( '' );
+		$this->assertSame( 0, $count() );
+	}
 }
