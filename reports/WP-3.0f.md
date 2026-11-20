@@ -20,3 +20,8 @@ None. Edit outside A3 paths: `src/Migration/PortCommand.php` (one `do_action`); 
 - Fixed: test checks the untrusted path does not reach the sync; empty post type returns early.
 - Not covered: trusted-path assertion (needs WP-CLI context); left to 3.0g parity tests.
 - Follow-up: document `nf/port/finished` in contracts (A0).
+
+## Resume from (review round 2: blocking, no nf:ready label)
+- `test_port_finished_untrusted_does_not_sync` cannot fail: ACF functions are absent in the unit env, so `AcfSource::available()` is false and the method returns before the guard matters. Fix: inject `AcfSource`/groups into `SlotSync` (or stub the ACF functions), then assert untrusted gives 0 skips / no `pivot_rebuild` job and trusted (admin user + `set_current_screen( 'dashboard' )`, schema behind) gives 1 skip. Check it goes red without the guard.
+- Add a test that an empty post type returns early; run phpcbf on `SlotSync.php` (alignment of `$groups`).
+- Then confirm CI green, re-run the reviewer, add `nf:ready`. PR #73.
