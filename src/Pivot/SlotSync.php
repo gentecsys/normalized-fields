@@ -35,6 +35,7 @@ final class SlotSync {
 	 */
 	public function register(): void {
 		add_action( 'nf/upgraded', array( $this, 'onUpgraded' ) );
+		add_action( 'nf/port/finished', array( $this, 'onPortFinished' ) );
 		add_action( 'acf/update_field_group', array( $this, 'onGroupSaved' ) );
 	}
 
@@ -62,6 +63,31 @@ final class SlotSync {
 		if ( $source->available() ) {
 			$this->syncGroups( $source->groups() );
 		}
+	}
+
+	/**
+	 * After `wp nf port run`: assign slots for the ported post type (WP-CLI only, so trusted).
+	 *
+	 * @param mixed $post_type Ported post type.
+	 * @return void
+	 */
+	public function onPortFinished( $post_type = '' ): void {
+		if ( ! self::trusted() ) {
+			return;
+		}
+		$source = new AcfSource();
+		if ( ! $source->available() ) {
+			return;
+		}
+		$post_type = sanitize_key( (string) $post_type );
+		$groups    = array();
+		foreach ( $source->groups() as $group ) {
+			$fields = SlotAssigner::fieldsByPostType( array( $group ) );
+			if ( '' === $post_type || isset( $fields[ $post_type ] ) ) {
+				$groups[] = $group;
+			}
+		}
+		$this->syncGroups( $groups );
 	}
 
 	/**
