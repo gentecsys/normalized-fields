@@ -115,4 +115,16 @@ class SlotSyncTest extends WP_UnitTestCase {
 		update_option( NF\Install\Upgrader::OPTION, '0' );
 		$this->assertSame( array(), ( new SlotSync() )->syncGroups( array( $this->group() ) ) );
 	}
+
+	/**
+	 * The port-finished hook is registered, and an untrusted request does nothing.
+	 */
+	public function test_port_finished_hook_registered_and_untrusted_is_noop(): void {
+		$sync = new SlotSync();
+		$sync->register();
+		$this->assertNotFalse( has_action( 'nf/port/finished', array( $sync, 'onPortFinished' ) ) );
+		wp_set_current_user( 0 );
+		$sync->onPortFinished( 'post' );
+		$this->assertFalse( has_action( 'nf/pivot/slots_skipped' ) );
+	}
 }
