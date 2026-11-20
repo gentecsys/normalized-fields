@@ -80,10 +80,13 @@ final class SlotSync {
 			return;
 		}
 		$post_type = sanitize_key( (string) $post_type );
+		if ( '' === $post_type ) {
+			return;
+		}
 		$groups    = array();
 		foreach ( $source->groups() as $group ) {
 			$fields = SlotAssigner::fieldsByPostType( array( $group ) );
-			if ( '' === $post_type || isset( $fields[ $post_type ] ) ) {
+			if ( isset( $fields[ $post_type ] ) ) {
 				$groups[] = $group;
 			}
 		}

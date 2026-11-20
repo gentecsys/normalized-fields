@@ -15,3 +15,8 @@ Remaining items moved to new row 3.0g: term/user pivot sets (`ObjectType` in `Pi
 
 ## Contract change requested
 None. Edit outside A3 paths: `src/Migration/PortCommand.php` (one `do_action`); owner to confirm.
+
+## Review round 1
+- Fixed: test checks the untrusted path does not reach the sync; empty post type returns early.
+- Not covered: trusted-path assertion (needs WP-CLI context); left to 3.0g parity tests.
+- Follow-up: document `nf/port/finished` in contracts (A0).
