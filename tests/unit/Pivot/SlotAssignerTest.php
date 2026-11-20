@@ -44,7 +44,7 @@ class SlotAssignerTest extends WP_UnitTestCase {
 		$db = nf_db();
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t30d%' ) );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( self::TYPE ) );
-		$fields         = new FieldMap( $db );
+		$fields = new FieldMap( $db );
 		$fields->flush();
 		$this->pivot    = new Pivot( $db, $fields, new Store( $db, $fields ) );
 		$this->assigner = new SlotAssigner( $this->pivot, $fields );
