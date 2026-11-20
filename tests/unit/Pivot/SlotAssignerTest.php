@@ -40,6 +40,7 @@ class SlotAssignerTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
 		$db = nf_db();
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t30d%' ) );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE subtype = ?', array( self::TYPE ) );
@@ -65,9 +66,9 @@ class SlotAssignerTest extends WP_UnitTestCase {
 	/**
 	 * Build an ACF field array.
 	 *
-	 * @param string               $n     Short name.
-	 * @param string               $type  ACF type.
-	 * @param array<string,mixed>  $extra Extra settings.
+	 * @param string              $n     Short name.
+	 * @param string              $type  ACF type.
+	 * @param array<string,mixed> $extra Extra settings.
 	 * @return array<string,mixed>
 	 */
 	private function field( string $n, string $type, array $extra = array() ): array {
@@ -101,11 +102,18 @@ class SlotAssignerTest extends WP_UnitTestCase {
 	 * Post types come from `post_type ==` rules only.
 	 */
 	public function test_post_types_from_location(): void {
+		$rule  = static fn( string $param, string $op, string $value ): array => array(
+			array(
+				'param'    => $param,
+				'operator' => $op,
+				'value'    => $value,
+			),
+		);
 		$group = array(
 			'location' => array(
-				array( array( 'param' => 'post_type', 'operator' => '==', 'value' => 'event' ) ),
-				array( array( 'param' => 'post_type', 'operator' => '!=', 'value' => 'page' ) ),
-				array( array( 'param' => 'taxonomy', 'operator' => '==', 'value' => 'genre' ) ),
+				$rule( 'post_type', '==', 'event' ),
+				$rule( 'post_type', '!=', 'page' ),
+				$rule( 'taxonomy', '==', 'genre' ),
 			),
 		);
 		$this->assertSame( array( 'event' ), SlotAssigner::postTypes( $group ) );
@@ -167,5 +175,15 @@ class SlotAssignerTest extends WP_UnitTestCase {
 		$res = $this->assigner->assign( self::TYPE, $fields );
 		$this->assertCount( 4, $res['assigned'] );
 		$this->assertSame( array( 'field_t30d_n5' ), $res['skipped'] );
+	}
+
+	/**
+	 * While the schema is behind nothing is written and a resync is flagged.
+	 */
+	public function test_schema_behind_skips(): void {
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION - 1 );
+		$res = $this->assigner->assign( self::TYPE, array( $this->field( 'price', 'number' ) ) );
+		$this->assertSame( array(), $res['assigned'] );
+		$this->assertNull( $this->pivot->findSetId( ObjectType::Post, self::TYPE ) );
 	}
 }
