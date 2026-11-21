@@ -111,7 +111,7 @@ final class Compiler {
 				$col      = null;
 			} else {
 				[ $column, $kind ] = $this->resolve( $c->field, $byName );
-				$sql               = $this->predicate( $d->quoteIdentifier( $column ), $c, $kind, $p );
+				$sql               = $this->chunked( $d->quoteIdentifier( $column ), $c, $kind, $p );
 				$col               = $column;
 			}
 			if ( null !== $sql ) {
@@ -482,6 +482,28 @@ final class Compiler {
 			return $positive ? '1 = 0' : "{$col} IS NOT NULL";
 		}
 		return $this->predicate( $col, new Condition( $c->field, $positive ? 'in' : 'not_in', $ids ), 'int', $params );
+	}
+
+	/**
+	 * Like predicate(), but an ID list longer than MAX_LIST is split into chunks: OR of IN lists, AND of NOT IN lists.
+	 *
+	 * Lists of core object IDs come from the core side (search, taxonomy) and can be long.
+	 *
+	 * @param string            $expr   Quoted column.
+	 * @param Condition         $c      Condition.
+	 * @param string            $kind   int|dec|date|str.
+	 * @param array<int,scalar> $params Parameters, appended to.
+	 * @return string|null SQL, or null when the condition restricts nothing.
+	 */
+	private function chunked( string $expr, Condition $c, string $kind, array &$params ): ?string {
+		if ( 'ID' !== $c->field || ! in_array( $c->op, array( 'in', 'not_in' ), true ) || ! is_array( $c->value ) || count( $c->value ) <= self::MAX_LIST ) {
+			return $this->predicate( $expr, $c, $kind, $params );
+		}
+		$parts = array();
+		foreach ( array_chunk( array_values( $c->value ), self::MAX_LIST ) as $chunk ) {
+			$parts[] = $this->predicate( $expr, new Condition( $c->field, $c->op, $chunk ), $kind, $params );
+		}
+		return '(' . implode( 'in' === $c->op ? ' OR ' : ' AND ', $parts ) . ')';
 	}
 
 	/**

@@ -45,6 +45,7 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		$this->store = new Store( $db, $fields );
 		$fields->register( 'field_t24a', 't24_price', DataTable::Int );
 		$fields->register( 'field_t24b', 't24_tags', DataTable::Str, true );
+		$fields->register( 'field_t24n', 't24_note', DataTable::Str );
 		$fields->register( 'field_t24s', 't24_series', DataTable::Rows );
 		( new MetaInterceptor( $this->store, $db, static fn(): bool => true ) )->register();
 		$this->post = self::factory()->post->create();
@@ -68,6 +69,16 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Test asserts nothing reached core meta.
 		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s", 't24_price' ) ) );
+	}
+
+	/**
+	 * A serialized-looking string stays a string, as in core; it never becomes an array or object.
+	 */
+	public function test_serialized_looking_string_stays_a_string(): void {
+		$raw = 'O:8:"stdClass":1:{s:1:"a";i:1;}';
+		update_post_meta( $this->post, 't24_note', wp_slash( $raw ) );
+		$this->assertSame( $raw, $this->store->get( ObjectType::Post, $this->post, 'field_t24n' ) );
+		$this->assertSame( $raw, get_post_meta( $this->post, 't24_note', true ) );
 	}
 
 	/**

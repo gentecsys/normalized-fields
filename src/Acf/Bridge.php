@@ -33,6 +33,13 @@ final class Bridge {
 	private int $seriesDepth = 0;
 
 	/**
+	 * Writes skipped in this request because it was an anonymous read.
+	 *
+	 * @var int
+	 */
+	private int $skippedAnonymous = 0;
+
+	/**
 	 * Group saves in progress (ACF saves each sub-field itself; the group was mirrored at priority 1).
 	 *
 	 * @var bool[]
@@ -164,7 +171,7 @@ final class Bridge {
 		$field  = self::scoped( $field );
 		$nested = $this->seriesDepth > 0;
 		++$this->seriesDepth;
-		if ( ! $nested && $this->schemaBehind( $post_id, $field ) ) {
+		if ( ! $nested && ( $this->skippedAnonymous( $post_id, $field ) || $this->schemaBehind( $post_id, $field ) ) ) {
 			return $value;
 		}
 		$target = self::decode( $post_id );
@@ -204,7 +211,7 @@ final class Bridge {
 	 */
 	public function beforeGroup( mixed $value, mixed $post_id, array $field ): mixed {
 		$field = self::scoped( $field );
-		if ( 0 === $this->seriesDepth && $this->schemaBehind( $post_id, $field ) ) {
+		if ( 0 === $this->seriesDepth && ( $this->skippedAnonymous( $post_id, $field ) || $this->schemaBehind( $post_id, $field ) ) ) {
 			return $value;
 		}
 		if ( $this->seriesDepth > 0 || empty( $field['key'] ) || ( 'clone' === ( $field['type'] ?? '' ) && ! TypeMap::isGroupClone( $field ) ) || $this->isSubField( $field ) ) {
@@ -244,7 +251,7 @@ final class Bridge {
 	 */
 	public function onUpdate( mixed $value, mixed $post_id, array $field ): mixed {
 		$field = self::scoped( $field );
-		if ( 0 === $this->seriesDepth && $this->schemaBehind( $post_id, $field ) ) {
+		if ( 0 === $this->seriesDepth && ( $this->skippedAnonymous( $post_id, $field ) || $this->schemaBehind( $post_id, $field ) ) ) {
 			return $value;
 		}
 		if ( $this->seriesDepth > 0 || in_array( $field['type'] ?? '', array( 'repeater', 'group', 'clone' ), true ) || empty( $field['key'] ) ) {
@@ -286,7 +293,7 @@ final class Bridge {
 			return;
 		}
 		$field = self::scoped( $field );
-		if ( $this->schemaBehind( $post_id, $field ) ) {
+		if ( $this->skippedAnonymous( $post_id, $field ) || $this->schemaBehind( $post_id, $field ) ) {
 			return;
 		}
 		if ( $this->isSubField( $field ) ) {
@@ -626,6 +633,33 @@ final class Bridge {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Count and announce a skipped write when this is a logged-out GET or HEAD (D-18).
+	 *
+	 * Nothing is queued or stored: NF catches up on the next trusted save or `wp nf resync`.
+	 *
+	 * @param mixed               $post_id ACF post ID.
+	 * @param array<string,mixed> $field   Field.
+	 * @return bool True when the write must be skipped.
+	 */
+	private function skippedAnonymous( mixed $post_id, array $field ): bool {
+		if ( ! $this->isAnonymousRead() ) {
+			return false;
+		}
+		++$this->skippedAnonymous;
+		do_action( 'nf/bridge/skipped_anonymous', $post_id, $field ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		return true;
+	}
+
+	/**
+	 * Number of writes skipped in this request because it was an anonymous read.
+	 *
+	 * @return int
+	 */
+	public function skippedAnonymousCount(): int {
+		return $this->skippedAnonymous;
 	}
 
 	/**

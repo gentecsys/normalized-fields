@@ -463,6 +463,52 @@ class BridgeTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * On a logged-out GET a theme-style update and delete write nothing, queue nothing, and are counted.
+	 */
+	public function test_anonymous_get_update_and_delete_write_nothing(): void {
+		$field = array(
+			'key'  => 'field_t12_anon',
+			'name' => 't12_anon',
+			'type' => 'text',
+		);
+		$group = array(
+			'key'  => 'field_t12_anongrp',
+			'name' => 't12_anongrp',
+			'type' => 'group',
+		);
+		wp_set_current_user( 0 );
+		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$seen                      = 0;
+		add_action(
+			'nf/bridge/skipped_anonymous',
+			static function () use ( &$seen ): void {
+				++$seen;
+			}
+		);
+		$options = md5( serialize( wp_load_alloptions( true ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
+		$this->bridge->onUpdate( 'x', 7, $field );
+		$this->bridge->onDelete( 7, 't12_anon', $field );
+		$this->bridge->beforeGroup( array( 'a' => 1 ), 7, $group );
+		$this->bridge->flush();
+		$this->assertSame( 3, $seen );
+		$this->assertSame( 3, $this->bridge->skippedAnonymousCount() );
+		$rows = nf_db()->select( 'SELECT COUNT(*) AS c FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t12_anon%' ) );
+		$this->assertSame( 0, (int) $rows[0]['c'] );
+		$this->assertSame( $options, md5( serialize( wp_load_alloptions( true ) ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
+
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$this->bridge->onUpdate( 'x', 7, $field );
+		$this->assertSame( 'x', $this->store->get( ObjectType::Post, 7, 'field_t12_anon' ) );
+		if ( null === $old ) {
+			unset( $_SERVER['REQUEST_METHOD'] );
+		} else {
+			$_SERVER['REQUEST_METHOD'] = $old;
+		}
+	}
+
+	/**
 	 * WP-Cron runs as a logged-out GET (system cron calling wp-cron.php) and still re-syncs.
 	 * WP-CLI is the same case; it is checked against real ACF PRO on nf-dev, since WP_CLI is a constant.
 	 */

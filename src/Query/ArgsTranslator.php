@@ -213,6 +213,9 @@ final class ArgsTranslator {
 			if ( 'number' === $kind ? ! in_array( $type, self::NUMERIC_TYPES, true ) : ( '' !== $type && 'CHAR' !== $type ) ) {
 				return null;
 			}
+			if ( 'text' === $kind && in_array( $op, array( '<', '<=', '>', '>=', 'between' ), true ) ) {
+				return null; // Core compares text by the column collation; leave ranges on text to core.
+			}
 			if ( in_array( $op, array( 'null', 'not_null' ), true ) ) {
 				$out[] = new Condition( $key, $op );
 				continue;
@@ -289,7 +292,7 @@ final class ArgsTranslator {
 					$key  = $args['meta_key'] ?? null;
 					$kind = is_string( $key ) ? $this->kind( $key, $type ) : null;
 					// meta_value sorts as text in core, meta_value_num as a number.
-					if ( null === $kind || ( 'meta_value_num' === $part ) !== ( 'number' === $kind ) ) {
+					if ( null === $kind || 'text' === $kind || ( 'meta_value_num' === $part ) !== ( 'number' === $kind ) ) {
 						return null;
 					}
 					$out[] = array( $key, $dir );
@@ -327,7 +330,7 @@ final class ArgsTranslator {
 		if ( $per < 1 ) {
 			return null;
 		}
-		if ( isset( $args['offset'] ) && (int) $args['offset'] > 0 ) {
+		if ( isset( $args['offset'] ) && is_numeric( $args['offset'] ) ) {
 			return array( $per, (int) $args['offset'] );
 		}
 		$paged = max( 1, (int) ( $args['paged'] ?? 0 ) );
