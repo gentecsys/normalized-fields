@@ -9,3 +9,12 @@ build/
 /bench/data/
 .claude/settings.local.json
 .claude/worktrees/
+
+# Planning, design and build-agent files are kept in a private repository.
+/PLAN.md
+/DECISIONS.md
+/CLAUDE.md
+/reports/
+/contracts/
+/docs/design.md
+/.claude/agents/
