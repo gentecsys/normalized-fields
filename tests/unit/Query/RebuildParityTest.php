@@ -1,6 +1,6 @@
 <?php
 /**
- * nf_query parity after a rebuild and anonymous reads write nothing (WP 3.0i).
+ * Query parity after a rebuild, and anonymous reads write nothing (WP 3.0i).
  *
  * @package NF
  */
@@ -154,7 +154,7 @@ class RebuildParityTest extends WP_UnitTestCase {
 		$this->make( 10, 'Rome' );
 		$this->make( 20, 'Oslo' );
 		$this->make( 40, 'Bern' );
-		$run = fn(): array => array(
+		$run    = fn(): array => array(
 			$this->q()->orderBy( 'parprice' )->ids(),
 			$this->q()->where( 'parcity', 'Oslo' )->orderBy( 'parprice', 'DESC' )->ids(),
 			$this->q()->whereBetween( 'parprice', array( 15, 35 ) )->orderBy( 'parprice' )->ids(),
