@@ -172,14 +172,13 @@ final class Pivot {
 
 	/**
 	 * Slots assigned but not yet rebuilt for existing objects. Queries ignore them (probe fallback) until the rebuild finishes;
-	 * write-through still fills them. The list lives in nf_meta under `pivot_pending_<id>`.
+	 * write-through still fills them. The list lives in the per-site option `nf_pivot_pending_<id>` (not autoloaded).
 	 *
 	 * @param int $pivotId Pivot set id.
 	 * @return string[]
 	 */
 	public function pendingSlots( int $pivotId ): array {
-		$rows = $this->db->select( 'SELECT meta_value FROM ' . $this->db->table( 'nf_meta' ) . ' WHERE meta_key = ?', array( 'pivot_pending_' . $pivotId ) );
-		$list = isset( $rows[0]['meta_value'] ) ? json_decode( (string) $rows[0]['meta_value'], true ) : array();
+		$list = get_option( 'nf_pivot_pending_' . $pivotId, array() );
 		return is_array( $list ) ? array_values( array_filter( array_map( 'strval', $list ) ) ) : array();
 	}
 
@@ -192,10 +191,7 @@ final class Pivot {
 	 */
 	public function markPending( int $pivotId, array $slots ): void {
 		$all = array_values( array_unique( array_merge( $this->pendingSlots( $pivotId ), $slots ) ) );
-		$this->db->execute(
-			$this->db->dialect()->upsert( $this->db->table( 'nf_meta' ), array( 'meta_key' ), array( 'meta_value' ) ),
-			array( 'pivot_pending_' . $pivotId, (string) wp_json_encode( $all ) )
-		);
+		update_option( 'nf_pivot_pending_' . $pivotId, $all, false );
 	}
 
 	/**
@@ -208,13 +204,10 @@ final class Pivot {
 	public function clearPending( int $pivotId, ?array $slots = null ): void {
 		$left = null === $slots ? array() : array_values( array_diff( $this->pendingSlots( $pivotId ), $slots ) );
 		if ( array() === $left ) {
-			$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_meta' ) . ' WHERE meta_key = ?', array( 'pivot_pending_' . $pivotId ) );
+			delete_option( 'nf_pivot_pending_' . $pivotId );
 			return;
 		}
-		$this->db->execute(
-			$this->db->dialect()->upsert( $this->db->table( 'nf_meta' ), array( 'meta_key' ), array( 'meta_value' ) ),
-			array( 'pivot_pending_' . $pivotId, (string) wp_json_encode( $left ) )
-		);
+		update_option( 'nf_pivot_pending_' . $pivotId, $left, false );
 	}
 
 	/**
