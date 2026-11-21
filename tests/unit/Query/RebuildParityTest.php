@@ -25,7 +25,7 @@ class RebuildParityTest extends WP_UnitTestCase {
 	 *
 	 * @var string[]
 	 */
-	private const TABLES = array( 'nf_meta', 'nf_fields', 'nf_rows', 'nf_int', 'nf_str', 'nf_json', 'nf_pivot_sets', 'nf_pivot_slots', 'nf_pivot', 'nf_row_pivot', 'nf_dict', 'nf_count', 'nf_count_cache', 'nf_archive' );
+	private const TABLES = array( 'nf_fields', 'nf_rows', 'nf_int', 'nf_str', 'nf_json', 'nf_pivot_sets', 'nf_pivot_slots', 'nf_pivot', 'nf_row_pivot', 'nf_dict', 'nf_count', 'nf_count_cache', 'nf_archive' );
 
 	/**
 	 * Store.
