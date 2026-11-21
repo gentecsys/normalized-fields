@@ -14,3 +14,8 @@ nf_query parity test on the bench type and the anonymous-GET-writes-nothing test
 
 ## Contract change requested
 None. Note: a user set's subtype is only a label (all users are included); on multisite this should later be limited to the site's members.
+
+## Follow-ups
+- Slice is rebuild-only: nothing creates term/user sets or calls `sync()` on term/user save yet; pivots can go stale until a rebuild (3.0i parity test must rebuild first).
+- Multisite: limit a user set to the site's members (ADR-0011); later WP.
+- Reviewer non-blocking: `sync()` adds one `nf_pivot_sets` SELECT per object (cache the type or pass it in); stronger tests (same-id post value, row-pivot/bitmask on term sets, orphan term pruning).
