@@ -424,4 +424,16 @@ class QueryContextTest extends WP_UnitTestCase {
 		}
 		$this->assertSame( array( $a, $b ), array_values( array_intersect( $this->q()->orderBy( 'ctxprice' )->ids(), array( $a, $b ) ) ) );
 	}
+
+	/**
+	 * A pending slot is ignored by the resolver until it is cleared.
+	 */
+	public function test_pending_slot_hidden_from_queries(): void {
+		$this->pivot->markPending( $this->pivot_id, array( 'i1' ) );
+		$sql = $this->q()->where( 'ctxprice', '>', 1 )->toSql();
+		$this->assertStringNotContainsString( 'i1', $sql );
+		$this->pivot->clearPending( $this->pivot_id );
+		$sql = $this->q()->where( 'ctxprice', '>', 1 )->toSql();
+		$this->assertStringContainsString( 'i1', $sql );
+	}
 }

@@ -69,6 +69,7 @@ final class PivotRebuildJob implements JobInterface {
 		$state['total'] = absint( $state['total'] ) + $res['count'];
 		if ( $res['done'] ) {
 			$this->pivot->pruneRowPivot( $pivot_id );
+			$this->pivot->clearPending( $pivot_id );
 			$state['done'] = true;
 		}
 		return $state;

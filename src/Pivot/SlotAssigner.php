@@ -193,6 +193,8 @@ final class SlotAssigner {
 			$this->fields->register( (string) $field['key'], (string) $field['name'], $table, $multi );
 			$this->pivot->assignSlot( $set_id, (string) $field['key'], $slot );
 		}
+		// Existing objects have no value in the new slots until pivot_rebuild finishes; queries skip them until then.
+		$this->pivot->markPending( $set_id, array_values( $assigned ) );
 		return array(
 			'pivot_id' => $set_id,
 			'assigned' => $assigned,

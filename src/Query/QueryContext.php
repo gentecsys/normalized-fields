@@ -288,7 +288,7 @@ final class QueryContext {
 
 		return array(
 			'pivot'    => $pivotId,
-			'slots'    => $this->pivot->slots( $pivotId ),
+			'slots'    => array_diff_key( $this->pivot->slots( $pivotId ), array_flip( $this->pivot->pendingSlots( $pivotId ) ) ),
 			'fields'   => $fields,
 			'rowSlots' => $rowSlots,
 			'stats'    => $stats,
