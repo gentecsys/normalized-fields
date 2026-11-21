@@ -32,7 +32,11 @@ final class Bridge {
 	 */
 	private int $seriesDepth = 0;
 
-	/** Writes skipped in this request because it was an anonymous read. */
+	/**
+	 * Writes skipped in this request because it was an anonymous read.
+	 *
+	 * @var int
+	 */
 	private int $skippedAnonymous = 0;
 
 	/**

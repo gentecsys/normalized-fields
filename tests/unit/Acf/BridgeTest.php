@@ -474,7 +474,8 @@ class BridgeTest extends WP_UnitTestCase {
 		wp_set_current_user( 0 );
 		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 		$_SERVER['REQUEST_METHOD'] = 'GET';
-		$seen                      = 0;
+
+		$seen = 0;
 		add_action(
 			'nf/bridge/skipped_anonymous',
 			static function () use ( &$seen ): void {
@@ -484,7 +485,11 @@ class BridgeTest extends WP_UnitTestCase {
 		$options = md5( serialize( wp_load_alloptions( true ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
 		$this->bridge->onUpdate( 'x', 7, $field );
 		$this->bridge->onDelete( 7, 't12_anon', $field );
-		$this->bridge->beforeGroup( array( 'a' => 1 ), 7, array( 'key' => 'field_t12_anongrp', 'name' => 't12_anongrp', 'type' => 'group' ) );
+		$this->bridge->beforeGroup( array( 'a' => 1 ), 7, array(
+				'key'  => 'field_t12_anongrp',
+				'name' => 't12_anongrp',
+				'type' => 'group',
+			) );
 		$this->bridge->flush();
 		$this->assertSame( 3, $seen );
 		$this->assertSame( 3, $this->bridge->skippedAnonymousCount() );
