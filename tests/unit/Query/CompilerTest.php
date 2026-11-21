@@ -155,6 +155,21 @@ final class CompilerTest extends TestCase {
 	}
 
 	/**
+	 * A long ID list is split into chunks of IN lists (OR) or NOT IN lists (AND) instead of throwing.
+	 */
+	public function test_long_id_list_is_chunked(): void {
+		$ids = range( 1, 2500 );
+		$in  = $this->compiler()->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( new Condition( 'ID', 'in', $ids ) ) ), 7, self::SLOTS );
+		$this->assertSame( 3, substr_count( $in->sql, ' IN (' ) - 1 ); // The status list is the first IN.
+		$this->assertStringContainsString( ' OR ', $in->sql );
+		$this->assertCount( substr_count( $in->sql, '?' ), $in->params );
+		$out = $this->compiler()->compile( new QuerySpec( ObjectType::Post, 'event', array(), array( new Condition( 'ID', 'not_in', $ids ) ) ), 7, self::SLOTS );
+		$this->assertSame( 3, substr_count( $out->sql, ' NOT IN (' ) );
+		$this->assertStringContainsString( ' AND ', $out->sql );
+		$this->assertCount( substr_count( $out->sql, '?' ), $out->params );
+	}
+
+	/**
 	 * Fields outside the pivot are refused, not guessed.
 	 */
 	public function test_unsupported_field_and_value(): void {

@@ -44,8 +44,10 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 		$this->assertSame( 0, $this->t( array( 'post_type' => 'event', 'nopaging' => true, 'paged' => 4 ) )->offset );
 	}
 
-	public function test_offset_zero_falls_back_to_paged_and_login_gate(): void {
+	public function test_offset_zero_takes_precedence_over_paged_and_login_gate(): void {
 		$s = $this->t( array( 'post_type' => 'event', 'posts_per_page' => 10, 'paged' => 3, 'offset' => 0 ) );
+		$this->assertSame( 0, $s->offset );
+		$s = $this->t( array( 'post_type' => 'event', 'posts_per_page' => 10, 'paged' => 3, 'offset' => '' ) );
 		$this->assertSame( 20, $s->offset );
 		$translator = new ArgsTranslator( static fn(): ?string => null, true );
 		$this->assertNull( $translator->translate( array( 'post_type' => 'event' ) ) );
@@ -112,6 +114,9 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'untyped number'   => array( array( 'meta_query' => array( array( 'key' => 'price', 'value' => 5, 'compare' => '<' ) ) ) ),
 			'typed text'       => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => 1, 'type' => 'NUMERIC' ) ) ) ),
 			'compare_key'      => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => 1, 'compare_key' => 'LIKE' ) ) ) ),
+			'text less than'   => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => 'b', 'compare' => '<' ) ) ) ),
+			'text between'     => array( array( 'meta_query' => array( array( 'key' => 'is_featured', 'value' => array( 'a', 'c' ), 'compare' => 'BETWEEN' ) ) ) ),
+			'text meta_value'  => array( array( 'meta_key' => 'is_featured', 'orderby' => 'meta_value' ) ),
 			'num sort on text' => array( array( 'meta_key' => 'is_featured', 'orderby' => 'meta_value_num' ) ),
 			'archive page'     => array( array( 'posts_per_archive_page' => 5 ) ),
 			'negative paged'   => array( array( 'paged' => -3 ) ),

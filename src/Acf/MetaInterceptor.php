@@ -292,7 +292,6 @@ final class MetaInterceptor {
 		if ( $isAdd && ( $unique || ! $def['multi'] ) && null !== $this->store->get( $type, $id, $def['key'] ) ) {
 			return false; // A scalar field holds one value; $unique refuses a second one.
 		}
-		$value = maybe_unserialize( $value );
 		if ( $def['multi'] && ! is_array( $value ) ) {
 			$value = '' === $value || null === $value ? array() : array( $value );
 		}
