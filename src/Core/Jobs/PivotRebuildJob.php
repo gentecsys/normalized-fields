@@ -42,8 +42,10 @@ final class PivotRebuildJob implements JobInterface {
 	 * @return array<string,mixed>
 	 */
 	public function init( array $args ): array {
+		$pivot_id = absint( $args['pivot_id'] ?? 0 );
 		return array(
-			'pivot_id' => absint( $args['pivot_id'] ?? 0 ),
+			'pivot_id' => $pivot_id,
+			'pending'  => $pivot_id > 0 ? $this->pivot->pendingSlots( $pivot_id ) : array(),
 			'chunk'    => max( 1, absint( $args['chunk'] ?? Pivot::REBUILD_CHUNK ) ),
 			'after'    => 0,
 			'total'    => 0,
@@ -69,6 +71,7 @@ final class PivotRebuildJob implements JobInterface {
 		$state['total'] = absint( $state['total'] ) + $res['count'];
 		if ( $res['done'] ) {
 			$this->pivot->pruneRowPivot( $pivot_id );
+			$this->pivot->clearPending( $pivot_id, array_map( 'strval', (array) ( $state['pending'] ?? array() ) ) );
 			$state['done'] = true;
 		}
 		return $state;

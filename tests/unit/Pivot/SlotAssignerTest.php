@@ -156,6 +156,24 @@ class SlotAssignerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * New slots are pending (hidden from queries) until a rebuild finishes.
+	 */
+	public function test_new_slots_pending_until_rebuild(): void {
+		$res = $this->assigner->assign( self::TYPE, array( $this->field( 'price', 'number' ) ) );
+		$id  = (int) $res['pivot_id'];
+		$this->assertSame( array( 'n1' ), $this->pivot->pendingSlots( $id ) );
+		$this->assigner->assign( self::TYPE, array( $this->field( 'price', 'number' ), $this->field( 'cost', 'number' ) ) );
+		$this->assertSame( array( 'n1', 'n2' ), $this->pivot->pendingSlots( $id ) );
+		$this->pivot->rebuildFromCore( $id );
+		$this->assertSame( array(), $this->pivot->pendingSlots( $id ) );
+		$this->pivot->markPending( $id, array( 'n1', 'n2' ) );
+		$this->pivot->clearPending( $id, array( 'n1' ) );
+		$this->assertSame( array( 'n2' ), $this->pivot->pendingSlots( $id ) );
+		$this->pivot->clearPending( $id );
+		$this->assertSame( array(), $this->pivot->pendingSlots( $id ) );
+	}
+
+	/**
 	 * A dry run reports and writes nothing, not even the set.
 	 */
 	public function test_dry_run_writes_nothing(): void {

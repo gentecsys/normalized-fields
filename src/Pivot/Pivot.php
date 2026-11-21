@@ -171,6 +171,46 @@ final class Pivot {
 	}
 
 	/**
+	 * Slots assigned but not yet rebuilt for existing objects. Queries ignore them (probe fallback) until the rebuild finishes;
+	 * write-through still fills them. The list lives in the per-site option `nf_pivot_pending_<id>` (not autoloaded).
+	 *
+	 * @param int $pivotId Pivot set id.
+	 * @return string[]
+	 */
+	public function pendingSlots( int $pivotId ): array {
+		$list = get_option( 'nf_pivot_pending_' . $pivotId, array() );
+		return is_array( $list ) ? array_values( array_filter( array_map( 'strval', $list ) ) ) : array();
+	}
+
+	/**
+	 * Add slots to the pending list (they stay hidden from queries until clearPending()).
+	 *
+	 * @param int      $pivotId Pivot set id.
+	 * @param string[] $slots   Slot names.
+	 * @return void
+	 */
+	public function markPending( int $pivotId, array $slots ): void {
+		$all = array_values( array_unique( array_merge( $this->pendingSlots( $pivotId ), $slots ) ) );
+		update_option( 'nf_pivot_pending_' . $pivotId, $all, false );
+	}
+
+	/**
+	 * Clear pending slots: they were rebuilt. Pass the snapshot taken when the rebuild started, so slots assigned while it ran stay pending.
+	 *
+	 * @param int           $pivotId Pivot set id.
+	 * @param string[]|null $slots   Slots to clear; null clears all.
+	 * @return void
+	 */
+	public function clearPending( int $pivotId, ?array $slots = null ): void {
+		$left = null === $slots ? array() : array_values( array_diff( $this->pendingSlots( $pivotId ), $slots ) );
+		if ( array() === $left ) {
+			delete_option( 'nf_pivot_pending_' . $pivotId );
+			return;
+		}
+		update_option( 'nf_pivot_pending_' . $pivotId, $left, false );
+	}
+
+	/**
 	 * Write-through: rewrite one object's pivot row from the typed tables and bump the set's write_version, in one transaction.
 	 *
 	 * @param int                 $pivotId  Pivot set id.
@@ -339,8 +379,9 @@ final class Pivot {
 	 * @return int Objects rebuilt.
 	 */
 	public function rebuildFromCore( int $pivotId, int $chunk = self::REBUILD_CHUNK, ?callable $progress = null ): int {
-		$total = 0;
-		$after = 0;
+		$total    = 0;
+		$after    = 0;
+		$snapshot = $this->pendingSlots( $pivotId );
 		do {
 			$res    = $this->rebuildFromCoreChunk( $pivotId, $after, $chunk );
 			$after  = $res['last'];
@@ -350,6 +391,7 @@ final class Pivot {
 			}
 		} while ( ! $res['done'] );
 		$this->pruneRowPivot( $pivotId );
+		$this->clearPending( $pivotId, $snapshot );
 		return $total;
 	}
 
