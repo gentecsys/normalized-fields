@@ -3,7 +3,7 @@
 Agent: A3 (daily build agent). Branch `wp/3.0g-slot-visibility`.
 
 ## What changed
-- `Pivot::pendingSlots()`, `markPending()`, `clearPending()`: pending slot list in `nf_meta` key `pivot_pending_<id>` (no schema change).
+- `Pivot::pendingSlots()`, `markPending()`, `clearPending()`: pending slot list in per-site option `nf_pivot_pending_<id>` (no schema change; nf_meta is in the contract but not created by Schema.php yet, which broke CI in the first push).
 - `SlotAssigner` marks newly assigned slots pending; `PivotRebuildJob` (on done) and `Pivot::rebuildFromCore()` clear it.
 - `QueryContext` drops pending slots, so queries use the probe fallback until the rebuild finishes (reviewer B1 of 3.0d). Write-through still fills pending slots.
 
@@ -14,5 +14,5 @@ Review fix: rebuilds clear only the slots pending when they started (snapshot), 
 Term/user pivot sets, nf_query parity test and anonymous-GET-writes-nothing test moved to new row 3.0h.
 
 ## Contract change requested
-None. Note for A0: `nf_meta` key `pivot_pending_<id>` is new; document in contracts.
+None. Note for A0: option `nf_pivot_pending_<id>` is new; document in contracts.
 - Reviewer non-blocking, left for follow-up: N2 (mark before assign), N3 (extra nf_meta SELECT per resolve), N5/N6 (docs, contracts, DECISIONS entry for pivot_pending_<id>).
