@@ -140,11 +140,12 @@ final class RowPivot {
 	/**
 	 * Rewrite one object's row-pivot rows for every Series that has row slots in this set.
 	 *
-	 * @param int $pivotId  Pivot set id.
-	 * @param int $objectId Object id.
+	 * @param int        $pivotId  Pivot set id.
+	 * @param int        $objectId Object id.
+	 * @param ObjectType $type     Object type of the set.
 	 * @return void
 	 */
-	public function syncRows( int $pivotId, int $objectId ): void {
+	public function syncRows( int $pivotId, int $objectId, ObjectType $type = ObjectType::Post ): void {
 		$d     = $this->db->dialect();
 		$t     = $this->db->table( 'nf_row_pivot' );
 		$byRep = array();
@@ -160,8 +161,8 @@ final class RowPivot {
 		}
 		foreach ( $byRep as $seriesId => $series ) {
 			$this->db->execute( "DELETE FROM {$t} WHERE pivot_id = ? AND object_id = ? AND field_id = ?", array( $pivotId, $objectId, $seriesId ) );
-			$ids  = $this->rowIds( $objectId, $seriesId );
-			$rows = $ids ? $this->store->getRows( ObjectType::Post, $objectId, $series['key'] ) : array();
+			$ids  = $this->rowIds( $objectId, $seriesId, $type );
+			$rows = $ids ? $this->store->getRows( $type, $objectId, $series['key'] ) : array();
 			foreach ( $ids as $i => $rowId ) {
 				$cols   = array( 'row_id', 'pivot_id', 'object_id', 'field_id' );
 				$values = array( $rowId, $pivotId, $objectId, $seriesId );
@@ -186,16 +187,17 @@ final class RowPivot {
 	/**
 	 * Rollup value of one object-pivot slot, from the live rows (null when no row has a value; count is 0 then).
 	 *
-	 * @param int    $objectId  Object id.
-	 * @param string $seriesKey Series field key.
-	 * @param string $subName   Sub-field name.
-	 * @param string $mode      min, max or count.
+	 * @param int        $objectId  Object id.
+	 * @param string     $seriesKey Series field key.
+	 * @param string     $subName   Sub-field name.
+	 * @param string     $mode      min, max or count.
+	 * @param ObjectType $type      Object type of the set.
 	 * @return int|string|null
 	 */
-	public function rollup( int $objectId, string $seriesKey, string $subName, string $mode ): int|string|null {
+	public function rollup( int $objectId, string $seriesKey, string $subName, string $mode, ObjectType $type = ObjectType::Post ): int|string|null {
 		$best = null;
 		$n    = 0;
-		foreach ( $this->store->getRows( ObjectType::Post, $objectId, $seriesKey ) as $row ) {
+		foreach ( $this->store->getRows( $type, $objectId, $seriesKey ) as $row ) {
 			$v = $row[ $subName ] ?? null;
 			if ( null === $v ) {
 				continue;
@@ -292,14 +294,15 @@ final class RowPivot {
 	/**
 	 * Top-level row ids of a Series in row order (the order Store::getRows returns).
 	 *
-	 * @param int $objectId Object id.
-	 * @param int $seriesId Series field id.
+	 * @param int        $objectId Object id.
+	 * @param int        $seriesId Series field id.
+	 * @param ObjectType $type     Object type.
 	 * @return int[]
 	 */
-	private function rowIds( int $objectId, int $seriesId ): array {
+	private function rowIds( int $objectId, int $seriesId, ObjectType $type ): array {
 		$rows = $this->db->select(
 			'SELECT row_id FROM ' . $this->db->table( 'nf_rows' ) . ' WHERE object_type = ? AND object_id = ? AND field_id = ? AND parent_row_id = 0 ORDER BY row_order',
-			array( ObjectType::Post->value, $objectId, $seriesId )
+			array( $type->value, $objectId, $seriesId )
 		);
 		return array_map( 'intval', array_column( $rows, 'row_id' ) );
 	}

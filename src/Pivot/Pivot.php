@@ -113,6 +113,17 @@ final class Pivot {
 	}
 
 	/**
+	 * Object type of a set (posts when the set is unknown).
+	 *
+	 * @param int $pivotId Pivot set id.
+	 * @return ObjectType
+	 */
+	public function setType( int $pivotId ): ObjectType {
+		$set = $this->db->select( 'SELECT object_type FROM ' . $this->db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
+		return $set ? ( ObjectType::tryFrom( (int) $set[0]['object_type'] ) ?? ObjectType::Post ) : ObjectType::Post;
+	}
+
+	/**
 	 * Put a single-valued field into a slot ("i1", "n2", "t1"...). The slot letter must match the field's data table.
 	 *
 	 * @param int    $pivotId  Pivot set id.
@@ -219,8 +230,9 @@ final class Pivot {
 	 * @return void
 	 */
 	public function sync( int $pivotId, int $objectId, array $core ): void {
+		$type = $this->setType( $pivotId );
 		$this->db->transaction(
-			function () use ( $pivotId, $objectId, $core ): void {
+			function () use ( $pivotId, $objectId, $core, $type ): void {
 				$d      = $this->db->dialect();
 				$t      = $this->db->table( 'nf_pivot' );
 				$cols   = array();
@@ -237,7 +249,7 @@ final class Pivot {
 				}
 				foreach ( $this->slots( $pivotId ) as $slot => $field ) {
 					if ( 'none' !== $field['rollup'] ) {
-						$v = $this->rows->rollup( $objectId, $field['parent'], $field['name'], $field['rollup'] );
+						$v = $this->rows->rollup( $objectId, $field['parent'], $field['name'], $field['rollup'], $type );
 						if ( null === $v ) {
 							$nulls[] = $slot;
 							continue;
@@ -246,7 +258,7 @@ final class Pivot {
 						$values[] = is_int( $v ) ? $v : (string) $v;
 						continue;
 					}
-					$v = $this->store->get( ObjectType::Post, $objectId, $field['key'] );
+					$v = $this->store->get( $type, $objectId, $field['key'] );
 					if ( self::MASK_LETTER === $slot[0] ) {
 						// Bitmask: OR of the value bits, NOT NULL (0 when empty); sent unsigned so bit 63 survives.
 						$cols[]   = $slot;
@@ -274,7 +286,7 @@ final class Pivot {
 					$set = implode( ', ', array_map( fn( string $c ): string => $d->quoteIdentifier( $c ) . ' = NULL', $nulls ) );
 					$this->db->execute( "UPDATE {$t} SET {$set} WHERE pivot_id = ? AND object_id = ?", array( $pivotId, $objectId ) );
 				}
-				$this->rows->syncRows( $pivotId, $objectId );
+				$this->rows->syncRows( $pivotId, $objectId, $type );
 				$this->bump( $pivotId );
 			}
 		);
@@ -408,7 +420,7 @@ final class Pivot {
 	public function rebuildFromCoreChunk( int $pivotId, int $afterObjectId, int $limit = self::REBUILD_CHUNK ): array {
 		$limit = max( 1, $limit );
 		$set   = $this->db->select( 'SELECT object_type, subtype FROM ' . $this->db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $pivotId ) );
-		if ( ! $set || ObjectType::Post->value !== (int) $set[0]['object_type'] ) {
+		if ( ! $set || ! in_array( (int) $set[0]['object_type'], array( ObjectType::Post->value, ObjectType::Term->value, ObjectType::User->value ), true ) ) {
 			return array(
 				'count'  => 0,
 				'last'   => $afterObjectId,
@@ -472,7 +484,27 @@ final class Pivot {
 				);
 			}
 		}
-		// Term and user sets are not rebuilt yet: sync() and RowPivot read typed values as posts only (follow-up).
+		if ( ObjectType::Term === $type ) {
+			// Terms: published in the pivot status; parent from term_taxonomy; no author, dates or menu order.
+			$sql  = $wpdb->prepare( "SELECT term_id, parent FROM {$wpdb->term_taxonomy} WHERE taxonomy = %s AND term_id > %d ORDER BY term_id LIMIT %d", $subtype, $after, $limit );
+			$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+			foreach ( (array) $rows as $r ) {
+				$out[ (int) $r['term_id'] ] = array(
+					'status'    => Status::Publish->value,
+					'parent_id' => (int) $r['parent'],
+				);
+			}
+		} elseif ( ObjectType::User === $type ) {
+			// Users: one set for all users (the subtype is only a label); registration date goes to published.
+			$sql  = $wpdb->prepare( "SELECT ID, user_registered FROM {$wpdb->users} WHERE ID > %d ORDER BY ID LIMIT %d", $after, $limit );
+			$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+			foreach ( (array) $rows as $r ) {
+				$out[ (int) $r['ID'] ] = array(
+					'status'    => Status::Publish->value,
+					'published' => $this->date( (string) $r['user_registered'] ),
+				);
+			}
+		}
 		return $out;
 	}
 
