@@ -133,16 +133,15 @@ class RebuildParityTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Row counts of the NF tables.
+	 * Content checksums of the NF tables (catches in-place updates).
 	 *
-	 * @return array<string,int>
+	 * @return array<string,string>
 	 */
 	private function counts(): array {
 		$db  = nf_db();
 		$out = array();
 		foreach ( self::TABLES as $t ) {
-			$rows      = $db->select( 'SELECT COUNT(*) AS c FROM ' . $db->table( $t ) );
-			$out[ $t ] = (int) $rows[0]['c'];
+			$out[ $t ] = md5( (string) wp_json_encode( $db->select( 'SELECT * FROM ' . $db->table( $t ) ) ) );
 		}
 		return $out;
 	}
@@ -165,7 +164,7 @@ class RebuildParityTest extends WP_UnitTestCase {
 		$this->assertCount( 4, $before[0] );
 		$this->clean_pivot_rows();
 		$this->assertSame( array(), $this->q()->ids(), 'wiped pivot has no rows' );
-		$this->pivot->rebuild( $this->pivot_id );
+		$this->pivot->rebuildFromCore( $this->pivot_id );
 		$this->assertSame( $before, $run() );
 	}
 
