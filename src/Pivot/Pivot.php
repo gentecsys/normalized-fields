@@ -199,13 +199,22 @@ final class Pivot {
 	}
 
 	/**
-	 * Clear the pending list: the set was rebuilt, so every slot is complete.
+	 * Clear pending slots: they were rebuilt. Pass the snapshot taken when the rebuild started, so slots assigned while it ran stay pending.
 	 *
-	 * @param int $pivotId Pivot set id.
+	 * @param int           $pivotId Pivot set id.
+	 * @param string[]|null $slots   Slots to clear; null clears all.
 	 * @return void
 	 */
-	public function clearPending( int $pivotId ): void {
-		$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_meta' ) . ' WHERE meta_key = ?', array( 'pivot_pending_' . $pivotId ) );
+	public function clearPending( int $pivotId, ?array $slots = null ): void {
+		$left = null === $slots ? array() : array_values( array_diff( $this->pendingSlots( $pivotId ), $slots ) );
+		if ( array() === $left ) {
+			$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_meta' ) . ' WHERE meta_key = ?', array( 'pivot_pending_' . $pivotId ) );
+			return;
+		}
+		$this->db->execute(
+			$this->db->dialect()->upsert( $this->db->table( 'nf_meta' ), array( 'meta_key' ), array( 'meta_value' ) ),
+			array( 'pivot_pending_' . $pivotId, (string) wp_json_encode( $left ) )
+		);
 	}
 
 	/**
@@ -377,8 +386,9 @@ final class Pivot {
 	 * @return int Objects rebuilt.
 	 */
 	public function rebuildFromCore( int $pivotId, int $chunk = self::REBUILD_CHUNK, ?callable $progress = null ): int {
-		$total = 0;
-		$after = 0;
+		$total    = 0;
+		$after    = 0;
+		$snapshot = $this->pendingSlots( $pivotId );
 		do {
 			$res    = $this->rebuildFromCoreChunk( $pivotId, $after, $chunk );
 			$after  = $res['last'];
@@ -388,7 +398,7 @@ final class Pivot {
 			}
 		} while ( ! $res['done'] );
 		$this->pruneRowPivot( $pivotId );
-		$this->clearPending( $pivotId );
+		$this->clearPending( $pivotId, $snapshot );
 		return $total;
 	}
 

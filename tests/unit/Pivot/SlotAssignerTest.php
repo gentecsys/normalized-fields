@@ -166,7 +166,9 @@ class SlotAssignerTest extends WP_UnitTestCase {
 		$this->assertSame( array( 'n1', 'n2' ), $this->pivot->pendingSlots( $id ) );
 		$this->pivot->rebuildFromCore( $id );
 		$this->assertSame( array(), $this->pivot->pendingSlots( $id ) );
-		$this->pivot->markPending( $id, array( 'n1' ) );
+		$this->pivot->markPending( $id, array( 'n1', 'n2' ) );
+		$this->pivot->clearPending( $id, array( 'n1' ) );
+		$this->assertSame( array( 'n2' ), $this->pivot->pendingSlots( $id ) );
 		$this->pivot->clearPending( $id );
 		$this->assertSame( array(), $this->pivot->pendingSlots( $id ) );
 	}
