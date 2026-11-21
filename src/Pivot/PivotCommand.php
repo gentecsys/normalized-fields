@@ -28,7 +28,7 @@ final class PivotCommand {
 	 * ## OPTIONS
 	 *
 	 * [--rebuild]
-	 * : Also rebuild sets that got no new slots (use after an interrupted sync; new slots are queried before their rebuild finishes).
+	 * : Also rebuild sets that got no new slots (use after an interrupted sync; new slots stay hidden from queries until their rebuild finishes).
 	 *
 	 * [--dry-run]
 	 * : Print the sets and slots that would be assigned; write nothing.
