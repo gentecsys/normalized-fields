@@ -63,3 +63,4 @@
 2026-11-20 | WP 3.0f | in-review (no label; reviewer round 2 blocks on a test that cannot fail) | nf/port/finished trigger for slot sync; 3.0e marked merged on the branch, remainder split to 3.0g | PR #73 (wp/3.0f-port-trigger-term-user)
 2026-11-20 | WP 3.0f | labelled nf:ready (CI running, reviewer clean round 3) | Injected AcfSource into SlotSync so port-finished trust tests can fail; 3.0e confirmed merged | PR #73 (wp/3.0f-port-trigger-term-user)
 2026-11-21 | WP 3.0g | labelled nf:ready (CI running, reviewer clean round 2) | Pending-slot marker hides new pivot slots from queries until rebuild finishes; term/user sets split to 3.0h; 3.0f marked merged | PR #74 (wp/3.0g-slot-visibility)
+2026-11-21 | WP 3.0g | labelled nf:ready (CI green on 216e943) | First CI run failed: nf_meta table is not created by Schema.php; pending slots now live in a per-site option; label re-added | PR #74
