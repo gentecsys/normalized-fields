@@ -140,7 +140,7 @@ final class RowPivot {
 	/**
 	 * Rewrite one object's row-pivot rows for every Series that has row slots in this set.
 	 *
-	 * @param int $pivotId  Pivot set id.
+	 * @param int        $pivotId  Pivot set id.
 	 * @param int        $objectId Object id.
 	 * @param ObjectType $type     Object type of the set.
 	 * @return void
@@ -187,9 +187,9 @@ final class RowPivot {
 	/**
 	 * Rollup value of one object-pivot slot, from the live rows (null when no row has a value; count is 0 then).
 	 *
-	 * @param int    $objectId  Object id.
-	 * @param string $seriesKey Series field key.
-	 * @param string $subName   Sub-field name.
+	 * @param int        $objectId  Object id.
+	 * @param string     $seriesKey Series field key.
+	 * @param string     $subName   Sub-field name.
 	 * @param string     $mode      min, max or count.
 	 * @param ObjectType $type      Object type of the set.
 	 * @return int|string|null
@@ -294,7 +294,7 @@ final class RowPivot {
 	/**
 	 * Top-level row ids of a Series in row order (the order Store::getRows returns).
 	 *
-	 * @param int $objectId Object id.
+	 * @param int        $objectId Object id.
 	 * @param int        $seriesId Series field id.
 	 * @param ObjectType $type     Object type.
 	 * @return int[]
