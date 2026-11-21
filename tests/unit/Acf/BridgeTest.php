@@ -478,9 +478,9 @@ class BridgeTest extends WP_UnitTestCase {
 		);
 		wp_set_current_user( 0 );
 		$old = $_SERVER['REQUEST_METHOD'] ?? null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		$_SERVER['REQUEST_METHOD'] = 'GET';
 
-		$seen = 0;
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$seen                      = 0;
 		add_action(
 			'nf/bridge/skipped_anonymous',
 			static function () use ( &$seen ): void {
