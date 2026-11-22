@@ -93,7 +93,7 @@ final class MetaInterceptor {
 	/**
 	 * Raw meta value of a stored field.
 	 *
-	 * @param mixed                                          $stored Store value.
+	 * @param mixed                                        $stored Store value.
 	 * @param array{key:string,table:DataTable,multi:bool} $def    Field.
 	 * @return mixed
 	 */

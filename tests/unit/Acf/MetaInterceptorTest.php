@@ -199,7 +199,7 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * add_post_meta with $unique succeeds on an empty multi-valued field.
+	 * A unique add_post_meta succeeds on an empty multi-valued field.
 	 */
 	public function test_add_unique_on_empty_multi_field(): void {
 		$this->assertNotFalse( add_post_meta( $this->post, 't24_tags', 'a', true ) );

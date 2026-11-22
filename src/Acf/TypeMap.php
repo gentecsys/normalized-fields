@@ -275,7 +275,7 @@ final class TypeMap {
 			return null;
 		}
 		if ( $multi ) {
-			$list = is_array( $value ) ? $value : array( $value );
+			$list  = is_array( $value ) ? $value : array( $value );
 			$items = array_map( fn( $v ) => self::normalize( $v, $table, false ), array_values( $list ) );
 			return array_values( array_filter( $items, static fn( $v ) => null !== $v ) );
 		}
