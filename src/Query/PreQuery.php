@@ -81,7 +81,7 @@ final class PreQuery {
 			if ( ! $no && $spec->limit > 0 ) {
 				$total = $this->total( $spec, $args, $query, count( $ids ) );
 				if ( count( $ids ) > 0 ) {
-					$this->totals ??= new \WeakMap();
+					$this->totals         ??= new \WeakMap();
 					$this->totals[ $query ] = $total;
 					// Core does not count after a posts_pre_query answer, so set the total here, through the usual filter.
 					$query->found_posts   = (int) apply_filters( 'found_posts', $total, $query );

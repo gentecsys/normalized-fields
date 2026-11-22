@@ -5,6 +5,8 @@
  * @package NF
  */
 
+// phpcs:disable WordPress.DB.SlowDBQuery -- the test runs WP_Query with meta_key / meta_query against NF.
+
 use NF\Pivot\Pivot;
 use NF\Query\PreQuery;
 use NF\Query\QueryContext;
@@ -56,6 +58,7 @@ class PreQueryTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		NF\Install\Schema::install();
+		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
 		register_post_type( self::TYPE );
 		$db = nf_db();
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_fields' ) . ' WHERE field_key LIKE ?', array( 'field_t33b%' ) );
@@ -177,7 +180,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	public function test_other_found_posts_filters_run(): void {
 		$sub = static fn( $n ) => $n - 1;
 		add_filter( 'found_posts', $sub, 10 );
-		$q = $this->nf_run();
+		$q   = $this->nf_run();
 		remove_filter( 'found_posts', $sub, 10 );
 		$this->assertSame( 6, $q->found_posts );
 	}
@@ -188,7 +191,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	public function test_capped_count(): void {
 		$cap = static fn() => 5;
 		add_filter( 'nf/count/cap', $cap );
-		$q = $this->nf_run( array( 'nf_count' => 'capped' ) );
+		$q   = $this->nf_run( array( 'nf_count' => 'capped' ) );
 		$this->assertSame( 6, $q->found_posts );
 		$this->assertTrue( (bool) $q->get( 'nf_count_capped' ) );
 		$deep = $this->nf_run(
@@ -212,7 +215,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * A clause filter from another plugin sends the query to core; suppress_filters overrides.
 	 */
 	public function test_clause_filter_passes_through(): void {
-		$f = static fn( $w ) => $w;
+		$f      = static fn( $w ) => $w;
 		add_filter( 'posts_where', $f );
 		$passed = $this->nf_run();
 		$forced = $this->nf_run( array( 'suppress_filters' => true ) );
