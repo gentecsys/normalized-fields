@@ -138,21 +138,21 @@ class PivotFixesTest extends WP_UnitTestCase {
 	 * A value with no bit (65th value) is found through the typed table.
 	 */
 	public function test_mask_overflow_value_falls_back_to_probe(): void {
-		$cat = $this->fields->register( 'field_t30k_cat', 'cat', DataTable::Str, true );
+		$cat = $this->fields->register( 'field_t30k_fixcat', 'fixcat', DataTable::Str, true );
 		$set = $this->pivot->setId( ObjectType::Post, self::TYPE );
-		$this->pivot->assignSlot( $set, 'field_t30k_cat', 'm1' );
+		$this->pivot->assignSlot( $set, 'field_t30k_fixcat', 'm1' );
 		$all = array();
 		for ( $i = 0; $i < 65; $i++ ) {
 			$all[] = 'v' . $i;
 		}
 		$id = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
-		$this->store->set( ObjectType::Post, $id, 'field_t30k_cat', $all );
+		$this->store->set( ObjectType::Post, $id, 'field_t30k_fixcat', $all );
 		$this->pivot->sync( $set, $id, array( 'status' => 1 ) );
 		$ctx = new QueryContext( nf_db(), $this->pivot, $this->pivot->dictionary() );
 		$this->assertNull( $this->pivot->dictionary()->findBit( $cat->id, 'v64' ) );
-		$spec = new QuerySpec( ObjectType::Post, self::TYPE, array(), array(), array(), 0, 0, array( new MaskCondition( 'cat', 'any', array( 'v64' ) ) ) );
+		$spec = new QuerySpec( ObjectType::Post, self::TYPE, array(), array(), array(), 0, 0, array( new MaskCondition( 'fixcat', 'any', array( 'v64' ) ) ) );
 		$this->assertSame( array( $id ), $ctx->ids( $spec ) );
-		$spec = new QuerySpec( ObjectType::Post, self::TYPE, array(), array(), array(), 0, 0, array( new MaskCondition( 'cat', 'any', array( 'missing' ) ) ) );
+		$spec = new QuerySpec( ObjectType::Post, self::TYPE, array(), array(), array(), 0, 0, array( new MaskCondition( 'fixcat', 'any', array( 'missing' ) ) ) );
 		$this->assertSame( array(), $ctx->ids( $spec ) );
 	}
 
