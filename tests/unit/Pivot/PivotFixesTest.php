@@ -89,6 +89,53 @@ class PivotFixesTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Group source with one `number` field per post type.
+	 *
+	 * @param array<string,string|string[]> $map  Post type => field key(s).
+	 * @param string                        $name Field name.
+	 * @return NF\Migration\AcfSource
+	 */
+	private function source( array $map, string $name = 'price' ): NF\Migration\AcfSource {
+		$groups = array();
+		foreach ( $map as $post_type => $keys ) {
+			foreach ( (array) $keys as $key ) {
+				$location = array(
+					'param'    => 'post_type',
+					'operator' => '==',
+					'value'    => $post_type,
+				);
+				$field    = array(
+					'key'  => $key,
+					'name' => $name,
+					'type' => 'number',
+				);
+				$groups[] = array(
+					'active'   => true,
+					'location' => array( array( $location ) ),
+					'fields'   => array( $field ),
+				);
+			}
+		}
+		return new class( $groups ) extends NF\Migration\AcfSource {
+			/**
+			 * Constructor.
+			 *
+			 * @param array<int,array<string,mixed>> $groups Groups.
+			 */
+			public function __construct( private array $groups ) {}
+
+			/**
+			 * Groups.
+			 *
+			 * @return array<int,array<string,mixed>>
+			 */
+			public function groups(): array {
+				return $this->groups;
+			}
+		};
+	}
+
+	/**
 	 * A field whose type changed makes the whole assignment fail before any slot is written.
 	 */
 	public function test_failed_assignment_writes_no_slot(): void {
@@ -162,43 +209,12 @@ class PivotFixesTest extends WP_UnitTestCase {
 	public function test_field_name_scope(): void {
 		$this->fields->register( 'field_t30k_price_a', 'price', DataTable::Int );
 		$this->fields->register( 'field_t30k_price_b', 'price', DataTable::Int );
-		$source = new class() extends NF\Migration\AcfSource {
-			/**
-			 * Groups.
-			 *
-			 * @return array<int,array<string,mixed>>
-			 */
-			public function groups(): array {
-				return array(
-					array(
-						'active'   => true,
-						'location' => array( array( array(
-							'param'    => 'post_type',
-							'operator' => '==',
-							'value'    => 'nf_fix2_a',
-						) ) ),
-						'fields'   => array( array(
-							'key'  => 'field_t30k_price_a',
-							'name' => 'price',
-							'type' => 'number',
-						) ),
-					),
-					array(
-						'active'   => true,
-						'location' => array( array( array(
-							'param'    => 'post_type',
-							'operator' => '==',
-							'value'    => 'nf_fix2_b',
-						) ) ),
-						'fields'   => array( array(
-							'key'  => 'field_t30k_price_b',
-							'name' => 'price',
-							'type' => 'number',
-						) ),
-					),
-				);
-			}
-		};
+		$source = $this->source(
+			array(
+				'nf_fix2_a' => 'field_t30k_price_a',
+				'nf_fix2_b' => 'field_t30k_price_b',
+			)
+		);
 		$scope  = new NF\Pivot\FieldScope( $source );
 		$rows   = nf_db()->select( 'SELECT field_key FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_name = ? ORDER BY field_id', array( 'price' ) );
 		$this->assertCount( 2, $rows );
@@ -215,43 +231,11 @@ class PivotFixesTest extends WP_UnitTestCase {
 		$this->fields->register( 'field_t30k_dup_a', 'dup', DataTable::Int );
 		$this->fields->register( 'field_t30k_dup_b', 'dup', DataTable::Int );
 		$this->pivot->setId( ObjectType::Post, self::TYPE );
-		$group = static fn( string $key ): array => array(
-			'active'   => true,
-			'location' => array(
-				array(
-					array(
-						'param'    => 'post_type',
-						'operator' => '==',
-						'value'    => 'nf_fix2_a',
-					),
-				),
-			),
-			'fields'   => array(
-				array(
-					'key'  => $key,
-					'name' => 'dup',
-					'type' => 'number',
-				),
-			),
-		);
 		NF\Pivot\FieldScope::useSource(
-			new class( array( $group( 'field_t30k_dup_a' ), $group( 'field_t30k_dup_b' ) ) ) extends NF\Migration\AcfSource {
-				/**
-				 * Constructor.
-				 *
-				 * @param array<int,array<string,mixed>> $groups Groups.
-				 */
-				public function __construct( private array $groups ) {}
-
-				/**
-				 * Groups.
-				 *
-				 * @return array<int,array<string,mixed>>
-				 */
-				public function groups(): array {
-					return $this->groups;
-				}
-			}
+			$this->source(
+				array( 'nf_fix2_a' => array( 'field_t30k_dup_a', 'field_t30k_dup_b' ) ),
+				'dup'
+			)
 		);
 		$ctx = new QueryContext( nf_db(), $this->pivot, $this->pivot->dictionary() );
 		$this->assertSame( array(), $ctx->ids( new QuerySpec( ObjectType::Post, self::TYPE ) ) );
