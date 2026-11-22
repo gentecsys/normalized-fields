@@ -202,9 +202,9 @@ final class ArgsTranslator {
 	/**
 	 * Flat AND meta clauses; nesting, OR, named clauses and unmanaged keys return null.
 	 *
-	 * @param array<mixed> $meta_query The meta_query argument.
-	 * @param string       $post_type  Post type.
-	 * @param MaskCondition[] $masks   Receives membership conditions from `LIKE '"id"'` on relationship keys.
+	 * @param array<mixed>    $meta_query The meta_query argument.
+	 * @param string          $post_type  Post type.
+	 * @param MaskCondition[] $masks      Receives membership conditions from `LIKE '"id"'` on relationship keys.
 	 * @return Condition[]|null
 	 */
 	private function metaClauses( array $meta_query, string $post_type, array &$masks ): ?array {
@@ -222,7 +222,7 @@ final class ArgsTranslator {
 			$key = $clause['key'] ?? null;
 			if ( is_string( $key ) && '' !== $key && 'LIKE' === strtoupper( (string) ( $clause['compare'] ?? '' ) ) && $this->isRelated( $key, $post_type ) ) {
 				// ACF's serialized-array lookup `LIKE '"123"'` on a relationship key becomes a membership test.
-				$like = $clause['value'] ?? null;
+				$like  = $clause['value'] ?? null;
 				$ctype = strtoupper( (string) ( $clause['type'] ?? '' ) );
 				if ( ! is_string( $like ) || 1 !== preg_match( '/^"([1-9]\d*)"$/', $like, $m ) || ( '' !== $ctype && 'CHAR' !== $ctype ) || array() !== array_diff( array_keys( $clause ), self::CLAUSE_KEYS ) ) {
 					return null;
@@ -292,10 +292,10 @@ final class ArgsTranslator {
 	/**
 	 * The NF argument: `row`, `related`, `orderby` and `count` (count is read by PreQuery).
 	 *
-	 * @param array<mixed>    $nf    Argument.
-	 * @param string          $type  Post type.
-	 * @param MaskCondition[] $masks Receives related conditions.
-	 * @param RowCondition[]  $rows  Receives same-row conditions.
+	 * @param array<mixed>                        $nf     Argument.
+	 * @param string                              $type   Post type.
+	 * @param MaskCondition[]                     $masks  Receives related conditions.
+	 * @param RowCondition[]                      $rows   Receives same-row conditions.
 	 * @param array<int,array{0:string,1:string}> $orders Replaced when `orderby` is given.
 	 * @return bool False when any part is not understood.
 	 */
