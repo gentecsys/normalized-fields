@@ -239,6 +239,7 @@ final class QueryContext {
 	 *
 	 * @param QuerySpec $spec Query.
 	 * @return array{pivot:int,slots:array<string,array{id:int,name:string,table:DataTable}>,fields:array<string,FieldDef>,rowSlots:array<string,array{id:int,slots:array<string,array{name:string,table:DataTable,id:int}>}>,stats:array<string,array{rows:int,distinct:int}>}|null
+	 * @throws UnsupportedQueryException When a field name used by the query is ambiguous.
 	 */
 	private function resolve( QuerySpec $spec ): ?array {
 		$pivotId = $this->pivot->findSetId( $spec->type, $spec->subtype );

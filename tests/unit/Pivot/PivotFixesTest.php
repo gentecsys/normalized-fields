@@ -172,13 +172,29 @@ class PivotFixesTest extends WP_UnitTestCase {
 				return array(
 					array(
 						'active'   => true,
-						'location' => array( array( array( 'param' => 'post_type', 'operator' => '==', 'value' => 'nf_fix2_a' ) ) ),
-						'fields'   => array( array( 'key' => 'field_t30k_price_a', 'name' => 'price', 'type' => 'number' ) ),
+						'location' => array( array( array(
+							'param'    => 'post_type',
+							'operator' => '==',
+							'value'    => 'nf_fix2_a',
+						) ) ),
+						'fields'   => array( array(
+							'key'  => 'field_t30k_price_a',
+							'name' => 'price',
+							'type' => 'number',
+						) ),
 					),
 					array(
 						'active'   => true,
-						'location' => array( array( array( 'param' => 'post_type', 'operator' => '==', 'value' => 'nf_fix2_b' ) ) ),
-						'fields'   => array( array( 'key' => 'field_t30k_price_b', 'name' => 'price', 'type' => 'number' ) ),
+						'location' => array( array( array(
+							'param'    => 'post_type',
+							'operator' => '==',
+							'value'    => 'nf_fix2_b',
+						) ) ),
+						'fields'   => array( array(
+							'key'  => 'field_t30k_price_b',
+							'name' => 'price',
+							'type' => 'number',
+						) ),
 					),
 				);
 			}
