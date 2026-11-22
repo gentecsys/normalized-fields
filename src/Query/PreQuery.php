@@ -157,7 +157,7 @@ final class PreQuery {
 	 * @return bool
 	 */
 	private function hasClauseFilters(): bool {
-		foreach ( array( 'posts_where', 'posts_join', 'posts_clauses', 'posts_orderby', 'posts_groupby', 'posts_distinct', 'posts_fields', 'post_limits', 'posts_where_paged', 'posts_join_paged', 'posts_clauses_request', 'posts_request' ) as $tag ) {
+		foreach ( array( 'posts_where', 'posts_join', 'posts_clauses', 'posts_orderby', 'posts_groupby', 'posts_distinct', 'posts_fields', 'post_limits', 'posts_where_paged', 'posts_join_paged', 'posts_clauses_request', 'posts_request', 'posts_where_request', 'posts_join_request', 'posts_groupby_request', 'posts_orderby_request', 'posts_distinct_request', 'posts_fields_request', 'post_limits_request' ) as $tag ) {
 			if ( has_filter( $tag ) ) {
 				return true;
 			}
