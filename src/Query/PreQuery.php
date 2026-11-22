@@ -62,6 +62,22 @@ final class PreQuery {
 		if ( null !== $posts || ! $query instanceof \WP_Query ) {
 			return $posts;
 		}
+		$result = $this->resolve( $query );
+		if ( null === $result && ! empty( $query->query_vars['nf'] ) && null !== $this->args( $query ) ) {
+			// Core ignores the `nf` argument and would return every post of the type: fail closed with an empty result.
+			$query->set( 'nf_mode', 'unanswerable' );
+			return array();
+		}
+		return $result;
+	}
+
+	/**
+	 * Answer a query, or null when core must.
+	 *
+	 * @param \WP_Query $query Query.
+	 * @return array<mixed>|null
+	 */
+	private function resolve( \WP_Query $query ): ?array {
 		$args = $this->args( $query );
 		if ( null === $args || ! Upgrader::isCurrent() ) {
 			return null;

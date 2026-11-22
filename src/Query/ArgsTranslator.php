@@ -71,7 +71,7 @@ final class ArgsTranslator {
 	/**
 	 * Constructor.
 	 *
-	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` (integer-valued only: core casts to SIGNED) or `date` for a managed single-valued
+	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` (integer-valued only: core casts to SIGNED), `date` or `related` (multi-valued ids, LIKE probes only) for a managed single-valued
 	 *                                                              scalar field; null for an unmanaged, multi-valued or serialized one.
 	 * @param bool                                  $loggedIn       Whether a user is logged in; core then adds their own `private` posts to a
 	 *                                                              query without `post_status`, which the translator does not answer.
@@ -315,7 +315,7 @@ final class ArgsTranslator {
 				return false;
 			}
 			foreach ( $list as $id ) {
-				if ( ! is_scalar( $id ) || 1 !== preg_match( '/^[1-9]\d*$/', (string) $id ) ) {
+				if ( ! ( is_int( $id ) || is_string( $id ) ) || 1 !== preg_match( '/^[1-9]\d*$/', (string) $id ) ) {
 					return false;
 				}
 			}
@@ -345,7 +345,7 @@ final class ArgsTranslator {
 			}
 			$orders = array();
 			foreach ( $nf['orderby'] as $field => $dir ) {
-				$dir = strtoupper( (string) $dir );
+				$dir = is_string( $dir ) ? strtoupper( $dir ) : '';
 				if ( ! is_string( $field ) || ! in_array( $dir, array( 'ASC', 'DESC' ), true ) ) {
 					return false;
 				}
