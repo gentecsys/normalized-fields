@@ -85,14 +85,14 @@ final class PreQuery {
 					$this->totals[ $query ] = $total;
 				}
 			}
-		} catch ( UnsupportedQueryException $e ) {
-			return null;
+		} catch ( \Throwable $e ) {
+			return null; // Unsupported or a backend error: core answers.
 		}
 		$query->set( 'nf_mode', 'short-circuit' );
 		if ( 'ids' === ( $args['fields'] ?? '' ) ) {
 			return $ids;
 		}
-		if ( array() !== $ids ) {
+		if ( array() !== $ids && ! empty( $args['cache_results'] ) ) {
 			_prime_post_caches( $ids, ! empty( $args['update_post_term_cache'] ), ! empty( $args['update_post_meta_cache'] ) );
 		}
 		return array_values( array_filter( array_map( 'get_post', $ids ) ) );
@@ -144,11 +144,25 @@ final class PreQuery {
 		if ( 'capped' === ( $args['nf_count'] ?? '' ) ) {
 			$cap = max( 1, (int) apply_filters( 'nf/count/cap', self::CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			if ( $total > $cap && $spec->offset < $cap ) {
-				$query->nf_count_capped = true;
+				$query->set( 'nf_count_capped', true );
 				return $cap + 1;
 			}
 		}
 		return $total;
+	}
+
+	/**
+	 * Whether anything is attached to the SQL clause filters of WP_Query.
+	 *
+	 * @return bool
+	 */
+	private function hasClauseFilters(): bool {
+		foreach ( array( 'posts_where', 'posts_join', 'posts_clauses', 'posts_orderby', 'posts_groupby', 'posts_distinct', 'posts_fields', 'post_limits', 'posts_where_paged', 'posts_join_paged', 'posts_clauses_request', 'posts_request' ) as $tag ) {
+			if ( has_filter( $tag ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -162,6 +176,9 @@ final class PreQuery {
 			return null;
 		}
 		$vars = $query->query_vars;
+		if ( empty( $vars['suppress_filters'] ) && $this->hasClauseFilters() ) {
+			return null; // Third-party clause filters (language, restriction) only apply to core's SQL.
+		}
 		if ( $query->is_home() && empty( $vars['ignore_sticky_posts'] ) && array() !== (array) get_option( 'sticky_posts', array() ) ) {
 			return null; // Sticky posts are core's: it adds them to page 1 after the IDs come back.
 		}

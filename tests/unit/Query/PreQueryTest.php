@@ -132,6 +132,8 @@ class PreQueryTest extends WP_UnitTestCase {
 		$q = $this->run( array( 'paged' => 4 ) );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 0, $q->post_count );
+		$this->assertSame( 0, $q->found_posts );
+		$this->assertSame( 0, $q->max_num_pages );
 	}
 
 	/**
@@ -188,7 +190,7 @@ class PreQueryTest extends WP_UnitTestCase {
 		add_filter( 'nf/count/cap', $cap );
 		$q = $this->run( array( 'nf_count' => 'capped' ) );
 		$this->assertSame( 6, $q->found_posts );
-		$this->assertTrue( $q->nf_count_capped );
+		$this->assertTrue( (bool) $q->get( 'nf_count_capped' ) );
 		$deep = $this->run(
 			array(
 				'nf_count' => 'capped',
@@ -200,15 +202,44 @@ class PreQueryTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Untranslatable queries stay with core.
+	 * Short-circuit mode is flagged on answered queries.
 	 */
-	public function test_search_passes_through(): void {
-		$q = new WP_Query(
+	public function test_mode_flag(): void {
+		$this->assertSame( 'short-circuit', $this->run()->get( 'nf_mode' ) );
+	}
+
+	/**
+	 * A clause filter from another plugin sends the query to core; suppress_filters overrides.
+	 */
+	public function test_clause_filter_passes_through(): void {
+		$f = static fn( $w ) => $w;
+		add_filter( 'posts_where', $f );
+		$passed = $this->run();
+		$forced = $this->run( array( 'suppress_filters' => true ) );
+		remove_filter( 'posts_where', $f );
+		$this->assertNotSame( 'short-circuit', $passed->get( 'nf_mode' ) );
+		$this->assertSame( 'short-circuit', $forced->get( 'nf_mode' ) );
+	}
+
+	/**
+	 * Unmanaged keys, OR meta queries and search stay with core.
+	 */
+	public function test_untranslatable_passes_through(): void {
+		foreach ( array(
+			array( 's' => 'zzz' ),
+			array( 'meta_key' => 'unmanaged_key' ),
 			array(
-				'post_type' => self::TYPE,
-				's'         => 'zzz-no-match',
-			)
-		);
-		$this->assertNotSame( 'short-circuit', $q->get( 'nf_mode' ) );
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'preprice',
+						'value' => 10,
+					),
+				),
+			),
+		) as $extra ) {
+			$q = new WP_Query( array_merge( array( 'post_type' => self::TYPE ), $extra ) );
+			$this->assertNotSame( 'short-circuit', $q->get( 'nf_mode' ) );
+		}
 	}
 }
