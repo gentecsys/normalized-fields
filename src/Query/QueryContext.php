@@ -15,6 +15,7 @@ use NF\Pivot\FieldScope;
 use NF\Pivot\Pivot;
 use NF\Storage\DataTable;
 use NF\Storage\FieldDef;
+use NF\Storage\ObjectType;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -232,6 +233,34 @@ final class QueryContext {
 			}
 		}
 		return $rows;
+	}
+
+	/**
+	 * Kind of a managed single-valued scalar post field, for the WP_Query translator.
+	 *
+	 * @param string $key  Meta key (the field name).
+	 * @param string $type Post type.
+	 * @return string|null `text`, `number` (integer fields only) or `date`; null for unmanaged, multi-valued, decimal or serialized fields.
+	 */
+	public function fieldKind( string $key, string $type ): ?string {
+		$rows = $this->db->select(
+			'SELECT field_id, field_key, data_table, multi FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE field_name = ? AND parent_id = 0 ORDER BY field_id',
+			array( $key )
+		);
+		try {
+			$r = ( new FieldScope() )->choose( $rows, ObjectType::Post, $type, $key );
+		} catch ( \InvalidArgumentException $e ) {
+			return null;
+		}
+		if ( null === $r || 1 === (int) $r['multi'] ) {
+			return null;
+		}
+		return match ( (string) $r['data_table'] ) {
+			'str', 'text' => 'text',
+			'int'         => 'number',
+			'date'        => 'date',
+			default       => null,
+		};
 	}
 
 	/**

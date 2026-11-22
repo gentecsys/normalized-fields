@@ -174,6 +174,14 @@ final class Plugin {
 		if ( apply_filters( 'nf/meta/intercept', false ) ) { // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$services[] = new Acf\MetaInterceptor( self::store(), self::db() );
 		}
+		/**
+		 * Whether NF answers translatable WP_Query objects from the pivot (full short-circuit). Off until read-NF mode lands.
+		 *
+		 * @param bool $on Default false.
+		 */
+		if ( apply_filters( 'nf/query/short_circuit', false ) ) { // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			$services[] = new Query\PreQuery( self::queryContext() );
+		}
 		return $services;
 	}
 
