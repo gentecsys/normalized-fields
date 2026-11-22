@@ -41,7 +41,7 @@ final class Lifecycle {
 	 */
 	public function register(): void {
 		add_action( 'after_delete_post', array( $this, 'onPostDeleted' ), 10, 2 );
-		add_action( 'delete_term', array( $this, 'onTermDeleted' ), 10, 1 );
+		add_action( 'delete_term', array( $this, 'onTermDeleted' ), 10, 3 );
 		add_action( 'deleted_comment', array( $this, 'onCommentDeleted' ), 10, 1 );
 		// User values are network-wide on multisite (ADR-0011): only a network deletion removes them.
 		add_action( is_multisite() ? 'wpmu_delete_user' : 'deleted_user', array( $this, 'onUserDeleted' ), 10, 1 );
@@ -76,11 +76,14 @@ final class Lifecycle {
 	/**
 	 * A term was deleted.
 	 *
-	 * @param int $id Term ID.
+	 * @param int    $id       Term ID.
+	 * @param int    $ttId     Term taxonomy ID.
+	 * @param string $taxonomy Taxonomy.
 	 * @return void
 	 */
-	public function onTermDeleted( int $id ): void {
-		$this->purge( ObjectType::Term, $id );
+	public function onTermDeleted( int $id, int $ttId = 0, string $taxonomy = '' ): void {
+		unset( $ttId );
+		$this->purge( ObjectType::Term, $id, $this->pivotRemoval( ObjectType::Term, (string) $taxonomy, $id ) );
 	}
 
 	/**
@@ -100,7 +103,25 @@ final class Lifecycle {
 	 * @return void
 	 */
 	public function onUserDeleted( int $id ): void {
-		$this->purge( ObjectType::User, $id );
+		$this->purge( ObjectType::User, $id, $this->pivotRemoval( ObjectType::User, '', $id ) );
+	}
+
+	/**
+	 * Callback that removes an object's nf_pivot and nf_row_pivot rows from its set, if it has one.
+	 *
+	 * @param ObjectType $type    Object type.
+	 * @param string     $subtype Taxonomy or ''.
+	 * @param int        $id      Object ID.
+	 * @return callable
+	 */
+	private function pivotRemoval( ObjectType $type, string $subtype, int $id ): callable {
+		return function () use ( $type, $subtype, $id ): void {
+			$pivot = new Pivot( $this->db, $this->fields, $this->store );
+			$set   = $pivot->findSetId( $type, $subtype );
+			if ( null !== $set ) {
+				$pivot->remove( $set, $id );
+			}
+		};
 	}
 
 	/**

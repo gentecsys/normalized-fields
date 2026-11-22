@@ -11,6 +11,7 @@ namespace NF\Acf;
 
 use NF\Backend\BackendInterface;
 use NF\Install\Upgrader;
+use NF\Pivot\FieldScope;
 use NF\Storage\DataTable;
 use NF\Storage\ObjectType;
 use NF\Storage\Store;
@@ -97,16 +98,18 @@ final class MetaInterceptor {
 	/**
 	 * Resolve a meta key: a managed field name, or an ACF reference row (`_name`).
 	 *
-	 * @param string $key Meta key.
+	 * @param string          $key  Meta key.
+	 * @param ObjectType|null $type Object type of the call.
+	 * @param int             $id   Object id of the call.
 	 * @return array{0:array{key:string,table:DataTable,multi:bool},1:bool}|null Field and "is reference".
 	 */
-	private function resolve( string $key ): ?array {
+	private function resolve( string $key, ?ObjectType $type = null, int $id = 0 ): ?array {
 		if ( '' === $key ) {
 			return null;
 		}
 		$ref  = '_' === $key[0];
 		$name = $ref ? substr( $key, 1 ) : $key;
-		$def  = $this->field( $name );
+		$def  = $this->field( $name, $type, $id );
 		if ( null === $def || ( ! $ref && DataTable::Rows === $def['table'] ) || DataTable::None === $def['table'] ) {
 			return null;
 		}
@@ -114,26 +117,31 @@ final class MetaInterceptor {
 	}
 
 	/**
-	 * Look up a top-level field by name.
+	 * Look up a top-level field by name, within the collections attached to the object's post type when several define it.
 	 *
-	 * @param string $name Field name.
+	 * @param string          $name Field name.
+	 * @param ObjectType|null $type Object type of the call.
+	 * @param int             $id   Object id of the call.
 	 * @return array{key:string,table:DataTable,multi:bool}|null
+	 * @throws \InvalidArgumentException When the name is ambiguous and the post type does not settle it.
 	 */
-	private function field( string $name ): ?array {
-		$memo = $this->db->table( 'nf_fields' ) . '|' . $name;
+	private function field( string $name, ?ObjectType $type = null, int $id = 0 ): ?array {
+		$subtype = ObjectType::Post === $type && $id > 0 ? (string) get_post_type( $id ) : '';
+		$memo    = $this->db->table( 'nf_fields' ) . '|' . $name . '|' . $subtype;
 		if ( array_key_exists( $memo, $this->names ) ) {
 			return $this->names[ $memo ];
 		}
 		$rows = $this->db->select(
-			'SELECT field_key, data_table, multi FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE field_name = ? AND parent_id = 0 ORDER BY field_id LIMIT 1',
+			'SELECT field_key, data_table, multi FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE field_name = ? AND parent_id = 0 ORDER BY field_id',
 			array( $name )
 		);
+		$row  = ( new FieldScope() )->choose( $rows, $type ?? ObjectType::Post, $subtype, $name );
 		$def  = null;
-		if ( array() !== $rows ) {
+		if ( null !== $row ) {
 			$def = array(
-				'key'   => (string) $rows[0]['field_key'],
-				'table' => DataTable::from( (string) $rows[0]['data_table'] ),
-				'multi' => 1 === (int) $rows[0]['multi'],
+				'key'   => (string) $row['field_key'],
+				'table' => DataTable::from( (string) $row['data_table'] ),
+				'multi' => 1 === (int) $row['multi'],
 			);
 		}
 		$this->names[ $memo ] = $def;
@@ -175,7 +183,7 @@ final class MetaInterceptor {
 		if ( '' === (string) $meta_key ) {
 			return $this->all( $type, $id, $meta_type );
 		}
-		$hit = $this->resolve( (string) $meta_key );
+		$hit = $this->resolve( (string) $meta_key, $type, $id );
 		if ( null === $hit ) {
 			return $check;
 		}
@@ -281,7 +289,7 @@ final class MetaInterceptor {
 		if ( ! Upgrader::isCurrent() ) {
 			return $this->refuseWhileBehind( $check, $key );
 		}
-		$hit = $this->resolve( $key );
+		$hit = $this->resolve( $key, $type, $id );
 		if ( null === $hit ) {
 			return $check;
 		}
@@ -323,7 +331,7 @@ final class MetaInterceptor {
 		if ( ! Upgrader::isCurrent() ) {
 			return $this->refuseWhileBehind( $check, (string) $meta_key );
 		}
-		$hit = $this->resolve( (string) $meta_key );
+		$hit = $this->resolve( (string) $meta_key, $type, (int) $object_id );
 		if ( null === $hit ) {
 			return $check;
 		}

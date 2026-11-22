@@ -100,6 +100,22 @@ final class Dictionary {
 	public const MAX_BIT = 63;
 
 	/**
+	 * Whether a value without a bit may still be on objects: it is too long for the dictionary, or all 64 bits of the
+	 * field are taken (so the value lives only in the typed table). Otherwise a missing bit means no object has it.
+	 *
+	 * @param int    $fieldId Field id.
+	 * @param string $value   Value.
+	 * @return bool
+	 */
+	public function overflowPossible( int $fieldId, string $value ): bool {
+		if ( ! self::fits( $value ) ) {
+			return true;
+		}
+		$rows = $this->db->select( 'SELECT COUNT(*) AS c FROM ' . $this->db->table( 'nf_dict' ) . ' WHERE field_id = ? AND bit IS NOT NULL', array( $fieldId ) );
+		return (int) ( $rows[0]['c'] ?? 0 ) > self::MAX_BIT;
+	}
+
+	/**
 	 * Bit position of a value in its field's bitmask, assigned when missing (write paths only).
 	 * Bits are never reused. Returns null when the value is too long or all 64 bits of the field are taken.
 	 *

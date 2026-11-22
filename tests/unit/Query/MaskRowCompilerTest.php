@@ -71,6 +71,9 @@ final class MaskRowCompilerTest extends TestCase {
 				return 'wp_' . $logical;
 			}
 			public function select( string $sql, array $params = array() ): array {
+				if ( str_starts_with( $sql, 'SELECT COUNT(*)' ) ) {
+					return array( array( 'c' => 2 ) ); // Bits in use for the field: far below 64.
+				}
 				$e = MaskRowCompilerTest::DICT[ $params[0] . '|' . $params[1] ] ?? null;
 				if ( null === $e ) {
 					return array();
