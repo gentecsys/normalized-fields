@@ -240,7 +240,7 @@ final class QueryContext {
 	 *
 	 * @param string $key  Meta key (the field name).
 	 * @param string $type Post type.
-	 * @return string|null `text`, `number` (integer fields only) or `date`; null for unmanaged, multi-valued, decimal or serialized fields.
+	 * @return string|null `text`, `number` (integer fields only), `date` or `related` (multi-valued integer ids); null for unmanaged, multi-valued, decimal or serialized fields.
 	 */
 	public function fieldKind( string $key, string $type ): ?string {
 		$rows = $this->db->select(
@@ -252,8 +252,11 @@ final class QueryContext {
 		} catch ( \InvalidArgumentException $e ) {
 			return null;
 		}
-		if ( null === $r || 1 === (int) $r['multi'] ) {
+		if ( null === $r ) {
 			return null;
+		}
+		if ( 1 === (int) $r['multi'] ) {
+			return 'int' === (string) $r['data_table'] ? 'related' : null; // Relationship-like: a set of ids.
 		}
 		return match ( (string) $r['data_table'] ) {
 			'str', 'text' => 'text',

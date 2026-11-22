@@ -186,6 +186,9 @@ final class PreQuery {
 			return null; // Sticky posts are core's: it adds them to page 1 after the IDs come back.
 		}
 		unset( $vars['comments_per_page'] );
+		if ( empty( $vars['nf_count'] ) && is_array( $vars['nf'] ?? null ) && isset( $vars['nf']['count'] ) ) {
+			$vars['nf_count'] = $vars['nf']['count']; // The NF argument's count mode is the same as nf_count.
+		}
 		// Core fills these integer arguments with 0 when unset; the translator treats 0 as a real filter.
 		foreach ( array( 'p', 'page', 'page_id', 'attachment_id', 'm', 'year', 'monthnum', 'day', 'w', 'hour', 'minute', 'second', 'tag_id', 'posts_per_archive_page' ) as $zero ) {
 			if ( isset( $vars[ $zero ] ) && is_numeric( $vars[ $zero ] ) && 0 === (int) $vars[ $zero ] ) {

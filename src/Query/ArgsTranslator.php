@@ -49,6 +49,7 @@ final class ArgsTranslator {
 		'ignore_sticky_posts',
 		'nf_with',
 		'nf_count',
+		'nf',
 		'order',
 		'orderby',
 		'meta_key',
@@ -87,6 +88,17 @@ final class ArgsTranslator {
 	private function kind( string $key, string $type ): ?string {
 		$kind = ( $this->fieldKind )( $key, $type );
 		return in_array( $kind, array( 'text', 'number', 'date' ), true ) ? $kind : null;
+	}
+
+	/**
+	 * Whether a key is a managed multi-valued integer field (relationship, post object, user, taxonomy).
+	 *
+	 * @param string $key  Meta key.
+	 * @param string $type Post type.
+	 * @return bool
+	 */
+	private function isRelated( string $key, string $type ): bool {
+		return 'related' === ( $this->fieldKind )( $key, $type );
 	}
 
 	/**
@@ -140,7 +152,8 @@ final class ArgsTranslator {
 		if ( ! is_array( $meta_query ) ) {
 			return null;
 		}
-		$clauses = $this->metaClauses( $meta_query, $type );
+		$masks   = array();
+		$clauses = $this->metaClauses( $meta_query, $type, $masks );
 		if ( null === $clauses ) {
 			return null;
 		}
@@ -158,12 +171,19 @@ final class ArgsTranslator {
 			return null;
 		}
 
+		$rows = array();
+		if ( array_key_exists( 'nf', $args ) && null !== $args['nf'] && array() !== $args['nf'] ) {
+			if ( ! is_array( $args['nf'] ) || ! $this->nfArgument( $args['nf'], $type, $masks, $rows, $orders ) ) {
+				return null;
+			}
+		}
+
 		$paging = $this->paging( $args );
 		if ( null === $paging ) {
 			return null;
 		}
 
-		return new QuerySpec( ObjectType::Post, $type, $statuses, $conditions, $orders, $paging[0], $paging[1] );
+		return new QuerySpec( ObjectType::Post, $type, $statuses, $conditions, $orders, $paging[0], $paging[1], $masks, $rows );
 	}
 
 	/**
@@ -184,9 +204,10 @@ final class ArgsTranslator {
 	 *
 	 * @param array<mixed> $meta_query The meta_query argument.
 	 * @param string       $post_type  Post type.
+	 * @param MaskCondition[] $masks   Receives membership conditions from `LIKE '"id"'` on relationship keys.
 	 * @return Condition[]|null
 	 */
-	private function metaClauses( array $meta_query, string $post_type ): ?array {
+	private function metaClauses( array $meta_query, string $post_type, array &$masks ): ?array {
 		$out = array();
 		foreach ( $meta_query as $k => $clause ) {
 			if ( 'relation' === $k ) {
@@ -198,7 +219,17 @@ final class ArgsTranslator {
 			if ( ! is_int( $k ) || ! is_array( $clause ) || isset( $clause[0] ) ) {
 				return null; // Nested group or named clause.
 			}
-			$key  = $clause['key'] ?? null;
+			$key = $clause['key'] ?? null;
+			if ( is_string( $key ) && '' !== $key && 'LIKE' === strtoupper( (string) ( $clause['compare'] ?? '' ) ) && $this->isRelated( $key, $post_type ) ) {
+				// ACF's serialized-array lookup `LIKE '"123"'` on a relationship key becomes a membership test.
+				$like = $clause['value'] ?? null;
+				$ctype = strtoupper( (string) ( $clause['type'] ?? '' ) );
+				if ( ! is_string( $like ) || 1 !== preg_match( '/^"([1-9]\d*)"$/', $like, $m ) || ( '' !== $ctype && 'CHAR' !== $ctype ) || array() !== array_diff( array_keys( $clause ), self::CLAUSE_KEYS ) ) {
+					return null;
+				}
+				$masks[] = new MaskCondition( $key, 'any', array( $m[1] ) );
+				continue;
+			}
 			$kind = is_string( $key ) && '' !== $key ? $this->kind( $key, $post_type ) : null;
 			if ( null === $kind || array() !== array_diff( array_keys( $clause ), self::CLAUSE_KEYS ) ) {
 				return null;
@@ -256,6 +287,75 @@ final class ArgsTranslator {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * The NF argument: `row`, `related`, `orderby` and `count` (count is read by PreQuery).
+	 *
+	 * @param array<mixed>    $nf    Argument.
+	 * @param string          $type  Post type.
+	 * @param MaskCondition[] $masks Receives related conditions.
+	 * @param RowCondition[]  $rows  Receives same-row conditions.
+	 * @param array<int,array{0:string,1:string}> $orders Replaced when `orderby` is given.
+	 * @return bool False when any part is not understood.
+	 */
+	private function nfArgument( array $nf, string $type, array &$masks, array &$rows, array &$orders ): bool {
+		if ( array() !== array_diff( array_keys( $nf ), array( 'row', 'related', 'orderby', 'count' ) ) ) {
+			return false;
+		}
+		if ( isset( $nf['count'] ) && ! in_array( $nf['count'], array( 'exact', 'capped' ), true ) ) {
+			return false;
+		}
+		foreach ( (array) ( $nf['related'] ?? array() ) as $field => $ids ) {
+			if ( ! is_string( $field ) || ! $this->isRelated( $field, $type ) ) {
+				return false;
+			}
+			$list = array_values( (array) $ids );
+			if ( array() === $list ) {
+				return false;
+			}
+			foreach ( $list as $id ) {
+				if ( ! is_scalar( $id ) || 1 !== preg_match( '/^[1-9]\d*$/', (string) $id ) ) {
+					return false;
+				}
+			}
+			$masks[] = new MaskCondition( $field, 'any', array_map( 'strval', $list ) );
+		}
+		$ops = array_values( self::META_OPS );
+		foreach ( (array) ( $nf['row'] ?? array() ) as $series => $conds ) {
+			if ( ! is_string( $series ) || ! is_array( $conds ) || array() === $conds ) {
+				return false;
+			}
+			$built = array();
+			foreach ( $conds as $c ) {
+				if ( ! is_array( $c ) || count( $c ) < 2 || count( $c ) > 3 || ! isset( $c[0], $c[1] ) || ! is_string( $c[0] ) || ! in_array( $c[1], $ops, true ) ) {
+					return false;
+				}
+				try {
+					$built[] = Builder::condition( $c[0], $c[1], $c[2] ?? null );
+				} catch ( \InvalidArgumentException ) {
+					return false;
+				}
+			}
+			$rows[] = new RowCondition( $series, $built );
+		}
+		if ( isset( $nf['orderby'] ) ) {
+			if ( ! is_array( $nf['orderby'] ) || array() === $nf['orderby'] ) {
+				return false;
+			}
+			$orders = array();
+			foreach ( $nf['orderby'] as $field => $dir ) {
+				$dir = strtoupper( (string) $dir );
+				if ( ! is_string( $field ) || ! in_array( $dir, array( 'ASC', 'DESC' ), true ) ) {
+					return false;
+				}
+				if ( ! in_array( $field, array( 'date', 'modified', 'menu_order', 'parent', 'ID' ), true ) && null === $this->kind( $field, $type ) ) {
+					return false;
+				}
+				$orders[] = array( $field, $dir );
+			}
+		}
+		return true;
 	}
 
 	/**
