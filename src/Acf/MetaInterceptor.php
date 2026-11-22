@@ -69,8 +69,43 @@ final class MetaInterceptor {
 	 * @param Store            $store  Store.
 	 * @param BackendInterface $db     Backend.
 	 * @param \Closure|null    $active Whether interception is on: fn(): bool. Defaults to "ACF is not loaded".
+	 * @param \Closure|null    $typeOf ACF type of a field key: fn( string ): string. Defaults to acf_get_field() when present.
 	 */
-	public function __construct( private Store $store, private BackendInterface $db, private ?\Closure $active = null ) {}
+	public function __construct( private Store $store, private BackendInterface $db, private ?\Closure $active = null, private ?\Closure $typeOf = null ) {}
+
+	/**
+	 * ACF type of a field key, empty when unknown.
+	 *
+	 * @param string $key Field key.
+	 * @return string
+	 */
+	private function acfType( string $key ): string {
+		if ( null !== $this->typeOf ) {
+			return (string) ( $this->typeOf )( $key );
+		}
+		if ( function_exists( 'acf_get_field' ) ) {
+			$f = acf_get_field( $key );
+			return is_array( $f ) ? (string) ( $f['type'] ?? '' ) : '';
+		}
+		return '';
+	}
+
+	/**
+	 * Raw meta value of a stored field.
+	 *
+	 * @param mixed                                          $stored Store value.
+	 * @param array{key:string,table:DataTable,multi:bool} $def    Field.
+	 * @return mixed
+	 */
+	private function toMeta( mixed $stored, array $def ): mixed {
+		$type = $this->acfType( $def['key'] );
+		if ( is_array( $stored ) ) {
+			$stored = array_map( static fn( $v ) => TypeMap::toMeta( $v, $type, $def['table'] ), $stored );
+		} else {
+			$stored = TypeMap::toMeta( $stored, $type, $def['table'] );
+		}
+		return self::raw( $stored );
+	}
 
 	/**
 	 * Add the four filters for every supported meta type.
@@ -195,7 +230,7 @@ final class MetaInterceptor {
 			$stored = $this->store->get( $type, $id, $def['key'] );
 			$value  = ( null === $stored || array() === $stored ) ? '' : $def['key'];
 		} else {
-			$value = self::raw( $this->store->get( $type, $id, $def['key'] ) );
+			$value = $this->toMeta( $this->store->get( $type, $id, $def['key'] ), $def );
 			if ( $def['multi'] ) {
 				$value = is_array( $value ) ? $value : array();
 				if ( array() === $value ) {
@@ -231,7 +266,14 @@ final class MetaInterceptor {
 			if ( DataTable::Rows === $table || DataTable::None === $table ) {
 				continue;
 			}
-			$value = self::raw( $this->store->get( $type, $id, (string) $row['field_key'] ) );
+			$value = $this->toMeta(
+				$this->store->get( $type, $id, (string) $row['field_key'] ),
+				array(
+					'key'   => (string) $row['field_key'],
+					'table' => $table,
+					'multi' => 1 === (int) $row['multi'],
+				)
+			);
 			if ( '' === $value || array() === $value ) {
 				continue;
 			}
@@ -297,14 +339,15 @@ final class MetaInterceptor {
 		if ( $ref ) {
 			return true; // Field keys live in nf_fields; copied reference rows are discarded.
 		}
-		if ( $isAdd && ( $unique || ! $def['multi'] ) && null !== $this->store->get( $type, $id, $def['key'] ) ) {
+		$current = $this->store->get( $type, $id, $def['key'] );
+		if ( $isAdd && ( $unique || ! $def['multi'] ) && null !== $current && array() !== $current ) {
 			return false; // A scalar field holds one value; $unique refuses a second one.
 		}
 		if ( $def['multi'] && ! is_array( $value ) ) {
 			$value = '' === $value || null === $value ? array() : array( $value );
 		}
 		try {
-			$this->store->set( $type, $id, $def['key'], '' === $value ? null : $value );
+			$this->store->set( $type, $id, $def['key'], TypeMap::normalize( $value, $def['table'], $def['multi'] ) );
 		} catch ( \Throwable $e ) {
 			do_action( 'nf/meta/error', $e, $key, $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			return false;

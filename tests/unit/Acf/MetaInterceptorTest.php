@@ -172,4 +172,38 @@ class MetaInterceptorTest extends WP_UnitTestCase {
 		update_option( NF\Install\Upgrader::OPTION, NF\Install\Upgrader::SCHEMA_VERSION );
 		delete_metadata( 'post', $this->post, 't24_price' );
 	}
+
+	/**
+	 * Date, date-time and time values round-trip through the meta API in ACF's raw formats.
+	 */
+	public function test_meta_formats_round_trip(): void {
+		$db     = nf_db();
+		$fields = new FieldMap( $db );
+		$fields->register( 'field_t24d', 't24_date', DataTable::Date );
+		$fields->register( 'field_t24dt', 't24_dt', DataTable::Date );
+		$fields->register( 'field_t24t', 't24_time', DataTable::Int );
+		$types = array(
+			'field_t24d'  => 'date_picker',
+			'field_t24dt' => 'date_time_picker',
+			'field_t24t'  => 'time_picker',
+		);
+		( new MetaInterceptor( $this->store, $db, static fn(): bool => true, static fn( string $k ): string => $types[ $k ] ?? '' ) )->register();
+		update_post_meta( $this->post, 't24_date', '20260315' );
+		update_post_meta( $this->post, 't24_dt', '2026-03-15 10:30:00' );
+		update_post_meta( $this->post, 't24_time', '10:30:00' );
+		$this->assertSame( '2026-03-15 00:00:00', $this->store->get( ObjectType::Post, $this->post, 'field_t24d' ) );
+		$this->assertSame( 37800, $this->store->get( ObjectType::Post, $this->post, 'field_t24t' ) );
+		$this->assertSame( '20260315', get_post_meta( $this->post, 't24_date', true ) );
+		$this->assertSame( '2026-03-15 10:30:00', get_post_meta( $this->post, 't24_dt', true ) );
+		$this->assertSame( '10:30:00', get_post_meta( $this->post, 't24_time', true ) );
+	}
+
+	/**
+	 * add_post_meta with $unique succeeds on an empty multi-valued field.
+	 */
+	public function test_add_unique_on_empty_multi_field(): void {
+		$this->assertNotFalse( add_post_meta( $this->post, 't24_tags', 'a', true ) );
+		$this->assertSame( array( 'a' ), $this->store->get( ObjectType::Post, $this->post, 'field_t24b' ) );
+		$this->assertFalse( add_post_meta( $this->post, 't24_tags', 'b', true ) );
+	}
 }

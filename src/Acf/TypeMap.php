@@ -276,7 +276,8 @@ final class TypeMap {
 		}
 		if ( $multi ) {
 			$list = is_array( $value ) ? $value : array( $value );
-			return array_map( fn( $v ) => self::normalize( $v, $table, false ), array_values( $list ) );
+			$items = array_map( fn( $v ) => self::normalize( $v, $table, false ), array_values( $list ) );
+			return array_values( array_filter( $items, static fn( $v ) => null !== $v ) );
 		}
 		if ( is_array( $value ) && DataTable::Int !== $table ) {
 			// An array in a scalar field (an importer writing arrays into a text field): the Store keeps it as is.
@@ -301,6 +302,30 @@ final class TypeMap {
 		if ( DataTable::Int === $table && is_string( $value ) && preg_match( '/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $value, $m ) ) {
 			// Time picker: seconds since midnight.
 			return (int) $m[1] * 3600 + (int) $m[2] * 60 + (int) ( $m[3] ?? 0 );
+		}
+		return $value;
+	}
+
+	/**
+	 * Raw ACF meta format of a stored scalar: date `Ymd`, date-time `Y-m-d H:i:s`, time `H:i:s`.
+	 *
+	 * Without a known ACF type, a date column is read as a date picker when its time part is midnight.
+	 *
+	 * @param mixed     $value    Stored value.
+	 * @param string    $acf_type ACF field type, empty when unknown.
+	 * @param DataTable $table    Data table of the field.
+	 * @return mixed
+	 */
+	public static function toMeta( mixed $value, string $acf_type, DataTable $table ): mixed {
+		if ( DataTable::Date === $table && is_string( $value ) && 1 === preg_match( '/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}:\d{2}))?$/', $value, $m ) ) {
+			$time = $m[4] ?? '00:00:00';
+			if ( 'date_picker' === $acf_type || ( 'date_time_picker' !== $acf_type && '00:00:00' === $time ) ) {
+				return $m[1] . $m[2] . $m[3];
+			}
+			return $m[1] . '-' . $m[2] . '-' . $m[3] . ' ' . $time;
+		}
+		if ( 'time_picker' === $acf_type && DataTable::Int === $table && is_numeric( $value ) ) {
+			return gmdate( 'H:i:s', (int) $value % 86400 );
 		}
 		return $value;
 	}

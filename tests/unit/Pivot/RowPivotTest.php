@@ -287,4 +287,22 @@ class RowPivotTest extends WP_UnitTestCase {
 			}
 		}
 	}
+
+	/**
+	 * A read-time sort rule must not misalign row ids and row values in the row pivot.
+	 */
+	public function test_sync_rows_pairs_ids_with_stored_order_under_read_sort(): void {
+		$db     = nf_db();
+		$fields = new FieldMap( $db );
+		$sorter = new NF\Storage\RowSorter();
+		$sorter->setRule( 'field_t22c_sessions', new NF\Storage\RowSortRule( NF\Storage\RowSortRule::ON_READ, 'sub_field:seats', 'desc' ) );
+		$store = new Store( $db, $fields, $sorter );
+		$pivot = new Pivot( $db, $fields, $store );
+		$id    = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+		$this->ids[] = $id;
+		$store->setRows( ObjectType::Post, $id, 'field_t22c_sessions', array( array( 'seats' => 1 ), array( 'seats' => 3 ), array( 'seats' => 2 ) ) );
+		$pivot->rows()->syncRows( $this->pivot_id, $id );
+		$got = array_map( static fn( array $r ): int => (int) $r['i1'], $this->rowRows( $id ) );
+		$this->assertSame( array( 1, 3, 2 ), $got, 'Row pivot follows stored row order.' );
+	}
 }
