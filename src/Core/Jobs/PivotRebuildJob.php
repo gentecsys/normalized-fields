@@ -71,7 +71,15 @@ final class PivotRebuildJob implements JobInterface {
 		$state['total'] = absint( $state['total'] ) + $res['count'];
 		if ( $res['done'] ) {
 			$this->pivot->pruneRowPivot( $pivot_id );
-			$this->pivot->clearPending( $pivot_id, array_map( 'strval', (array) ( $state['pending'] ?? array() ) ) );
+			$snapshot = array_map( 'strval', (array) ( $state['pending'] ?? array() ) );
+			$this->pivot->clearPending( $pivot_id, $snapshot );
+			$left = $this->pivot->pendingSlots( $pivot_id );
+			if ( array() !== $left ) {
+				// Slots were assigned while this run was going: start over so they are filled too.
+				$state['pending'] = $left;
+				$state['after']   = 0;
+				return $state;
+			}
 			$state['done'] = true;
 		}
 		return $state;

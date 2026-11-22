@@ -187,14 +187,17 @@ final class SlotAssigner {
 			$set_id  = $this->pivot->setId( ObjectType::Post, $post_type );
 			$created = true;
 		}
-		foreach ( $plan as [ $slot, $field ] ) {
-			// Register in the field map first (idempotent); a Series' sub-fields are not slotted.
+		// Register every planned field first (idempotent; a failure here leaves no slot written), then hide the new
+		// slots as pending, and only then write them: a failure partway never leaves a live slot no rebuild fills.
+		foreach ( $plan as [ , $field ] ) {
+			// A Series' sub-fields are not slotted.
 			[ $table, $multi ] = TypeMap::storage( $field );
 			$this->fields->register( (string) $field['key'], (string) $field['name'], $table, $multi );
+		}
+		$this->pivot->markPending( $set_id, array_values( $assigned ) );
+		foreach ( $plan as [ $slot, $field ] ) {
 			$this->pivot->assignSlot( $set_id, (string) $field['key'], $slot );
 		}
-		// Existing objects have no value in the new slots until pivot_rebuild finishes; queries skip them until then.
-		$this->pivot->markPending( $set_id, array_values( $assigned ) );
 		return array(
 			'pivot_id' => $set_id,
 			'assigned' => $assigned,

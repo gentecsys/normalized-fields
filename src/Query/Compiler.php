@@ -359,10 +359,16 @@ final class Compiler {
 			if ( null === $this->dictionary || $fieldId <= 0 ) {
 				throw new UnsupportedQueryException( 'Bitmask conditions need the dictionary and the field id.' );
 			}
-			$bits = array();
+			$bits     = array();
+			$fallback = false;
 			foreach ( $values as $v ) {
 				$bit = $this->dictionary->findBit( $fieldId, $v );
 				if ( null === $bit ) {
+					if ( $this->dictionary->overflowPossible( $fieldId, $v ) ) {
+						// The value may live only in the typed table (over 64 values, or over 191 chars): probe it.
+						$fallback = true;
+						break;
+					}
 					if ( 'all' === $m->mode ) {
 						return '1 = 0'; // A value that has no bit is on no object.
 					}
@@ -370,17 +376,19 @@ final class Compiler {
 				}
 				$bits[ $bit ] = true;
 			}
-			if ( array() === $bits ) {
+			if ( ! $fallback && array() === $bits ) {
 				return 'any' === $m->mode ? '1 = 0' : null;
 			}
-			$mask = 0;
-			foreach ( array_keys( $bits ) as $bit ) {
-				$mask |= 1 << $bit;
-			}
-			if ( isset( $bits[ Dictionary::MAX_BIT ] ) && 'all' === $m->mode ) {
+			if ( isset( $bits[ Dictionary::MAX_BIT ] ) && 'all' === $m->mode && ! $fallback ) {
 				throw new UnsupportedQueryException( 'An all-of test on bit 63 is not supported.' );
 			}
-			return $this->db->dialect()->mask( $slot, $mask, $m->mode );
+			if ( ! $fallback ) {
+				$mask = 0;
+				foreach ( array_keys( $bits ) as $bit ) {
+					$mask |= 1 << $bit;
+				}
+				return $this->db->dialect()->mask( $slot, $mask, $m->mode );
+			}
 		}
 		if ( ! isset( $fields[ $m->field ] ) || ! $fields[ $m->field ]->multi ) {
 			throw new UnsupportedQueryException( 'Field ' . esc_html( $m->field ) . ' is not a multi-valued field.' );

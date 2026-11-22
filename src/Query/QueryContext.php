@@ -11,6 +11,7 @@ namespace NF\Query;
 
 use NF\Backend\BackendInterface;
 use NF\Pivot\Dictionary;
+use NF\Pivot\FieldScope;
 use NF\Pivot\Pivot;
 use NF\Storage\DataTable;
 use NF\Storage\FieldDef;
@@ -247,12 +248,35 @@ final class QueryContext {
 
 		$fields = array();
 		$stats  = array();
+		$by     = array();
 		$rows   = $this->db->select( 'SELECT field_id, field_key, field_name, parent_id, data_table, multi, row_count, distinct_count FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE parent_id = 0 ORDER BY field_id' );
 		foreach ( $rows as $r ) {
-			$name = (string) $r['field_name'];
-			if ( isset( $fields[ $name ] ) ) {
+			$by[ (string) $r['field_name'] ][] = $r;
+		}
+		$used = array();
+		foreach ( $spec->conditions as $c ) {
+			$used[ $c->field ] = true;
+		}
+		foreach ( $spec->masks as $m ) {
+			$used[ $m->field ] = true;
+		}
+		foreach ( $spec->orders as $o ) {
+			$used[ $o[0] ] = true;
+		}
+		$scope = new FieldScope();
+		foreach ( $by as $name => $cands ) {
+			try {
+				$r = $scope->choose( $cands, $spec->type, $spec->subtype, (string) $name );
+			} catch ( \InvalidArgumentException $e ) {
+				if ( isset( $used[ (string) $name ] ) ) {
+					throw new UnsupportedQueryException( $e->getMessage() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				}
 				continue;
 			}
+			if ( null === $r ) {
+				continue;
+			}
+			$name            = (string) $name;
 			$fields[ $name ] = new FieldDef( (int) $r['field_id'], (string) $r['field_key'], $name, 0, DataTable::from( (string) $r['data_table'] ), 1 === (int) $r['multi'] );
 			$stats[ $name ]  = array(
 				'rows'     => (int) $r['row_count'],
