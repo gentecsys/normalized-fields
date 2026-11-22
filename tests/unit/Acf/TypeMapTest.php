@@ -76,6 +76,18 @@ class TypeMapTest extends WP_UnitTestCase {
 		$this->assertSame( array( 5, 7 ), TypeMap::normalize( array( (object) array( 'ID' => 5 ), array( 'ID' => '7' ) ), DataTable::Int, true ) );
 		$this->assertSame( 9, TypeMap::normalize( (object) array( 'term_id' => 9 ), DataTable::Int, false ) );
 		$this->assertNull( TypeMap::normalize( array(), DataTable::Str, true ) );
+		$this->assertSame( array( 'a', 'b' ), TypeMap::normalize( array( 'a', null, '', 'b' ), DataTable::Str, true ) );
+	}
+
+	/**
+	 * Stored values come back in ACF's raw meta formats.
+	 */
+	public function test_to_meta_formats() {
+		$this->assertSame( '20260315', TypeMap::toMeta( '2026-03-15 00:00:00', 'date_picker', DataTable::Date ) );
+		$this->assertSame( '2026-03-15 10:30:00', TypeMap::toMeta( '2026-03-15 10:30:00', 'date_time_picker', DataTable::Date ) );
+		$this->assertSame( '2026-03-15 00:00:00', TypeMap::toMeta( '2026-03-15 00:00:00', 'date_time_picker', DataTable::Date ) );
+		$this->assertSame( '10:30:00', TypeMap::toMeta( 37800, 'time_picker', DataTable::Int ) );
+		$this->assertSame( 7, TypeMap::toMeta( 7, 'number', DataTable::Int ) );
 	}
 
 	/**

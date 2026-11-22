@@ -162,7 +162,7 @@ final class RowPivot {
 		foreach ( $byRep as $seriesId => $series ) {
 			$this->db->execute( "DELETE FROM {$t} WHERE pivot_id = ? AND object_id = ? AND field_id = ?", array( $pivotId, $objectId, $seriesId ) );
 			$ids  = $this->rowIds( $objectId, $seriesId, $type );
-			$rows = $ids ? $this->store->getRows( $type, $objectId, $series['key'] ) : array();
+			$rows = $ids ? $this->store->getStoredRows( $type, $objectId, $series['key'] ) : array();
 			foreach ( $ids as $i => $rowId ) {
 				$cols   = array( 'row_id', 'pivot_id', 'object_id', 'field_id' );
 				$values = array( $rowId, $pivotId, $objectId, $seriesId );

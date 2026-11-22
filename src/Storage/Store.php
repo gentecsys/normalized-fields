@@ -128,6 +128,18 @@ final class Store {
 	}
 
 	/**
+	 * Series rows in stored (`row_order`) order, bypassing any read-time sort rule: row i is the i-th row id.
+	 *
+	 * @param ObjectType $type Object type.
+	 * @param int        $id   Object ID.
+	 * @param string     $key  Series field key.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function getStoredRows( ObjectType $type, int $id, string $key ): array {
+		return $this->readRows( $type, $id, $key );
+	}
+
+	/**
 	 * Read Series rows in stored order.
 	 *
 	 * @param ObjectType $type Object type.
