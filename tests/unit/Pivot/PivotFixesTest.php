@@ -204,7 +204,7 @@ class PivotFixesTest extends WP_UnitTestCase {
 		$this->assertCount( 2, $rows );
 		$this->assertSame( 'field_t30k_price_b', $scope->choose( $rows, ObjectType::Post, self::TYPE_B, 'price' )['field_key'] );
 		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Post, self::TYPE, 'price' )['field_key'] );
-		$this->assertNull( $scope->choose( $rows, ObjectType::Post, 'page', 'price' ) );
+		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Post, 'page', 'price' )['field_key'] ); // No collection attached to the type: first definition.
 		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Term, 'category', 'price' )['field_key'] );
 	}
 
