@@ -24,6 +24,7 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'price'       => 'number',
 			'start_date'  => 'date',
 			'is_featured' => 'text',
+			'artists'     => 'related',
 		);
 		return ( new ArgsTranslator( static fn( string $k ): ?string => $kinds[ $k ] ?? null ) )->translate( $args );
 	}
@@ -126,5 +127,58 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'has_password'     => array( array( 'has_password' => false ) ),
 			'multi post type'  => array( array( 'post_type' => array( 'a', 'b' ) ) ),
 		);
+	}
+
+	public function test_relationship_like_becomes_membership(): void {
+		$s = $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => '"123"', 'compare' => 'LIKE' ) ) ) );
+		$this->assertCount( 1, $s->masks );
+		$this->assertSame( 'artists', $s->masks[0]->field );
+		$this->assertSame( 'any', $s->masks[0]->mode );
+		$this->assertSame( array( '123' ), $s->masks[0]->values );
+		$this->assertSame( array(), $s->conditions );
+	}
+
+	public function test_like_that_is_not_an_id_probe_passes_through(): void {
+		foreach ( array( '123', '"12a"', '"0"', '%"123"%', array( '"1"' ) ) as $v ) {
+			$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => $v, 'compare' => 'LIKE' ) ) ) ) );
+		}
+		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => '"1"', 'compare' => 'NOT LIKE' ) ) ) ) );
+		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'is_featured', 'value' => '"1"', 'compare' => 'LIKE' ) ) ) ) );
+		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => '"1"', 'compare' => 'LIKE', 'type' => 'NUMERIC' ) ) ) ) );
+	}
+
+	public function test_nf_argument(): void {
+		$s = $this->t(
+			array(
+				'post_type' => 'event',
+				'nf'        => array(
+					'row'     => array( 'sessions' => array( array( 'session_date', 'between', array( '20261103', '20261104' ) ) ) ),
+					'related' => array( 'artists' => array( 5, 6 ) ),
+					'orderby' => array( 'start_date' => 'asc' ),
+					'count'   => 'capped',
+				),
+			)
+		);
+		$this->assertSame( 'sessions', $s->rows[0]->series );
+		$this->assertSame( 'between', $s->rows[0]->conditions[0]->op );
+		$this->assertSame( array( '5', '6' ), $s->masks[0]->values );
+		$this->assertSame( array( array( 'start_date', 'ASC' ) ), $s->orders );
+	}
+
+	public function test_nf_argument_rejects_what_it_does_not_understand(): void {
+		$bad = array(
+			array( 'bogus' => 1 ),
+			array( 'related' => array( 'price' => 5 ) ),
+			array( 'related' => array( 'artists' => 0 ) ),
+			array( 'row' => array( 'sessions' => array() ) ),
+			array( 'row' => array( 'sessions' => array( array( 'd', 'LIKE', 'x' ) ) ) ),
+			array( 'orderby' => array( 'unknown' => 'ASC' ) ),
+			array( 'orderby' => array( 'price' => 'SIDEWAYS' ) ),
+			array( 'count' => 'estimated' ),
+		);
+		foreach ( $bad as $nf ) {
+			$this->assertNull( $this->t( array( 'post_type' => 'event', 'nf' => $nf ) ) );
+		}
+		$this->assertNull( $this->t( array( 'post_type' => 'event', 'nf' => 'x' ) ) );
 	}
 }

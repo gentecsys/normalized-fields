@@ -62,6 +62,22 @@ final class PreQuery {
 		if ( null !== $posts || ! $query instanceof \WP_Query ) {
 			return $posts;
 		}
+		$result = $this->resolve( $query );
+		if ( null === $result && ! empty( $query->query_vars['nf'] ) && null !== $this->args( $query ) ) {
+			// Core ignores the `nf` argument and would return every post of the type: fail closed with an empty result.
+			$query->set( 'nf_mode', 'unanswerable' );
+			return array();
+		}
+		return $result;
+	}
+
+	/**
+	 * Answer a query, or null when core must.
+	 *
+	 * @param \WP_Query $query Query.
+	 * @return array<mixed>|null
+	 */
+	private function resolve( \WP_Query $query ): ?array {
 		$args = $this->args( $query );
 		if ( null === $args || ! Upgrader::isCurrent() ) {
 			return null;
@@ -186,6 +202,9 @@ final class PreQuery {
 			return null; // Sticky posts are core's: it adds them to page 1 after the IDs come back.
 		}
 		unset( $vars['comments_per_page'] );
+		if ( empty( $vars['nf_count'] ) && is_array( $vars['nf'] ?? null ) && isset( $vars['nf']['count'] ) ) {
+			$vars['nf_count'] = $vars['nf']['count']; // The NF argument's count mode is the same as nf_count.
+		}
 		// Core fills these integer arguments with 0 when unset; the translator treats 0 as a real filter.
 		foreach ( array( 'p', 'page', 'page_id', 'attachment_id', 'm', 'year', 'monthnum', 'day', 'w', 'hour', 'minute', 'second', 'tag_id', 'posts_per_archive_page' ) as $zero ) {
 			if ( isset( $vars[ $zero ] ) && is_numeric( $vars[ $zero ] ) && 0 === (int) $vars[ $zero ] ) {
