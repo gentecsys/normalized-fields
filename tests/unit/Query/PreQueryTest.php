@@ -97,7 +97,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * @param array<string,mixed> $extra Extra arguments.
 	 * @return WP_Query
 	 */
-	private function run( array $extra = array() ): WP_Query {
+	private function nf_run( array $extra = array() ): WP_Query {
 		return new WP_Query(
 			array_merge(
 				array(
@@ -116,11 +116,11 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * Pages one, two and the last.
 	 */
 	public function test_paged(): void {
-		$q = $this->run();
+		$q = $this->nf_run();
 		$this->assertSame( array_slice( $this->ids, 0, 3 ), wp_list_pluck( $q->posts, 'ID' ) );
 		$this->assertSame( 7, $q->found_posts );
 		$this->assertSame( 3, $q->max_num_pages );
-		$last = $this->run( array( 'paged' => 3 ) );
+		$last = $this->nf_run( array( 'paged' => 3 ) );
 		$this->assertSame( array( $this->ids[6] ), wp_list_pluck( $last->posts, 'ID' ) );
 		$this->assertSame( 7, $last->found_posts );
 	}
@@ -129,7 +129,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * Past the last page is empty, as in core.
 	 */
 	public function test_past_last_page(): void {
-		$q = $this->run( array( 'paged' => 4 ) );
+		$q = $this->nf_run( array( 'paged' => 4 ) );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 0, $q->post_count );
 		$this->assertSame( 0, $q->found_posts );
@@ -140,7 +140,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * Offset overrides paged.
 	 */
 	public function test_offset_overrides_paged(): void {
-		$q = $this->run(
+		$q = $this->nf_run(
 			array(
 				'offset' => 2,
 				'paged'  => 3,
@@ -153,15 +153,15 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * No limit: no count, all rows.
 	 */
 	public function test_nopaging_and_minus_one(): void {
-		$this->assertSame( $this->ids, wp_list_pluck( $this->run( array( 'posts_per_page' => -1 ) )->posts, 'ID' ) );
-		$this->assertSame( $this->ids, wp_list_pluck( $this->run( array( 'nopaging' => true ) )->posts, 'ID' ) );
+		$this->assertSame( $this->ids, wp_list_pluck( $this->nf_run( array( 'posts_per_page' => -1 ) )->posts, 'ID' ) );
+		$this->assertSame( $this->ids, wp_list_pluck( $this->nf_run( array( 'nopaging' => true ) )->posts, 'ID' ) );
 	}
 
 	/**
 	 * `fields => ids` returns integers; `no_found_rows` skips the count.
 	 */
 	public function test_ids_and_no_found_rows(): void {
-		$q = $this->run(
+		$q = $this->nf_run(
 			array(
 				'fields'        => 'ids',
 				'no_found_rows' => true,
@@ -177,7 +177,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	public function test_other_found_posts_filters_run(): void {
 		$sub = static fn( $n ) => $n - 1;
 		add_filter( 'found_posts', $sub, 10 );
-		$q = $this->run();
+		$q = $this->nf_run();
 		remove_filter( 'found_posts', $sub, 10 );
 		$this->assertSame( 6, $q->found_posts );
 	}
@@ -188,10 +188,10 @@ class PreQueryTest extends WP_UnitTestCase {
 	public function test_capped_count(): void {
 		$cap = static fn() => 5;
 		add_filter( 'nf/count/cap', $cap );
-		$q = $this->run( array( 'nf_count' => 'capped' ) );
+		$q = $this->nf_run( array( 'nf_count' => 'capped' ) );
 		$this->assertSame( 6, $q->found_posts );
 		$this->assertTrue( (bool) $q->get( 'nf_count_capped' ) );
-		$deep = $this->run(
+		$deep = $this->nf_run(
 			array(
 				'nf_count' => 'capped',
 				'paged'    => 3,
@@ -205,7 +205,7 @@ class PreQueryTest extends WP_UnitTestCase {
 	 * Short-circuit mode is flagged on answered queries.
 	 */
 	public function test_mode_flag(): void {
-		$this->assertSame( 'short-circuit', $this->run()->get( 'nf_mode' ) );
+		$this->assertSame( 'short-circuit', $this->nf_run()->get( 'nf_mode' ) );
 	}
 
 	/**
@@ -214,8 +214,8 @@ class PreQueryTest extends WP_UnitTestCase {
 	public function test_clause_filter_passes_through(): void {
 		$f = static fn( $w ) => $w;
 		add_filter( 'posts_where', $f );
-		$passed = $this->run();
-		$forced = $this->run( array( 'suppress_filters' => true ) );
+		$passed = $this->nf_run();
+		$forced = $this->nf_run( array( 'suppress_filters' => true ) );
 		remove_filter( 'posts_where', $f );
 		$this->assertNotSame( 'short-circuit', $passed->get( 'nf_mode' ) );
 		$this->assertSame( 'short-circuit', $forced->get( 'nf_mode' ) );
