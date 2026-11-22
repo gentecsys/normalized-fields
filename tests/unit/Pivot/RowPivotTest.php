@@ -299,6 +299,7 @@ class RowPivotTest extends WP_UnitTestCase {
 		$store = new Store( $db, $fields, $sorter );
 		$pivot = new Pivot( $db, $fields, $store );
 		$id    = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+
 		$this->ids[] = $id;
 		$store->setRows( ObjectType::Post, $id, 'field_t22c_sessions', array( array( 'seats' => 1 ), array( 'seats' => 3 ), array( 'seats' => 2 ) ) );
 		$pivot->rows()->syncRows( $this->pivot_id, $id );
