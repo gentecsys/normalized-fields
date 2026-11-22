@@ -1,0 +1,171 @@
+<?php
+/**
+ * Answers translatable WP_Query objects from the pivot through posts_pre_query (WP 3.3b).
+ *
+ * @package NF
+ */
+
+declare(strict_types=1);
+
+namespace NF\Query;
+
+use NF\Install\Upgrader;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Full short-circuit mode. The page of IDs comes from the compiler; the total goes through core's own path: the
+ * `found_posts_query` statement is neutralised and the count is supplied by an early `found_posts` filter, so core
+ * computes `max_num_pages` and other `found_posts` filters run as usual. Anything the translator cannot answer exactly
+ * returns the filter value untouched and core runs its own SQL.
+ */
+final class PreQuery {
+
+	/**
+	 * Default cap for `nf_count => capped`: found_posts is the cap plus one.
+	 */
+	public const CAP = 1000;
+
+	/**
+	 * Totals for queries this class answered.
+	 *
+	 * @var \WeakMap<\WP_Query,int>|null
+	 */
+	private ?\WeakMap $totals = null;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param QueryContext $context Query context.
+	 */
+	public function __construct( private QueryContext $context ) {}
+
+	/**
+	 * Add hooks.
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		add_filter( 'posts_pre_query', array( $this, 'answer' ), 10, 2 );
+		add_filter( 'found_posts_query', array( $this, 'foundPostsQuery' ), 10, 2 );
+		add_filter( 'found_posts', array( $this, 'foundPosts' ), 1, 2 );
+	}
+
+	/**
+	 * `posts_pre_query` callback.
+	 *
+	 * @param array<mixed>|null $posts Posts so far; non-null means someone else answered.
+	 * @param \WP_Query         $query Query.
+	 * @return array<mixed>|null
+	 */
+	public function answer( $posts, $query ) {
+		if ( null !== $posts || ! $query instanceof \WP_Query ) {
+			return $posts;
+		}
+		$args = $this->args( $query );
+		if ( null === $args || ! Upgrader::isCurrent() ) {
+			return null;
+		}
+		$logged = is_user_logged_in();
+		$spec   = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), $logged ) )->translate( $args );
+		if ( null === $spec ) {
+			return null;
+		}
+		try {
+			$compiled = $this->context->compile( $spec );
+			if ( null === $compiled ) {
+				return null; // No pivot set for the type yet: core answers.
+			}
+			$ids = $this->context->ids( $spec );
+			$no  = ! empty( $args['no_found_rows'] );
+			if ( ! $no && $spec->limit > 0 ) {
+				$total = $this->total( $spec, $args, $query, count( $ids ) );
+				if ( count( $ids ) > 0 ) {
+					$this->totals ??= new \WeakMap();
+					$this->totals[ $query ] = $total;
+				}
+			}
+		} catch ( UnsupportedQueryException $e ) {
+			return null;
+		}
+		$query->set( 'nf_mode', 'short-circuit' );
+		if ( 'ids' === ( $args['fields'] ?? '' ) ) {
+			return $ids;
+		}
+		if ( array() !== $ids ) {
+			_prime_post_caches( $ids, ! empty( $args['update_post_term_cache'] ), ! empty( $args['update_post_meta_cache'] ) );
+		}
+		return array_values( array_filter( array_map( 'get_post', $ids ) ) );
+	}
+
+	/**
+	 * Replace core's `SELECT FOUND_ROWS()` for answered queries so it never runs against the wrong statement.
+	 *
+	 * @param string    $sql   Statement.
+	 * @param \WP_Query $query Query.
+	 * @return string
+	 */
+	public function foundPostsQuery( $sql, $query ) {
+		if ( $query instanceof \WP_Query && null !== $this->totals && isset( $this->totals[ $query ] ) ) {
+			return 'SELECT ' . (int) $this->totals[ $query ];
+		}
+		return $sql;
+	}
+
+	/**
+	 * Early `found_posts`: supply the count; core derives `max_num_pages` from it afterwards.
+	 *
+	 * @param int       $found Count so far.
+	 * @param \WP_Query $query Query.
+	 * @return int
+	 */
+	public function foundPosts( $found, $query ) {
+		if ( $query instanceof \WP_Query && null !== $this->totals && isset( $this->totals[ $query ] ) ) {
+			return $this->totals[ $query ];
+		}
+		return $found;
+	}
+
+	/**
+	 * Total matches. A capped query reports the cap plus one and flags the query; a request that pages beyond the cap
+	 * gets the exact count so a deep link never 404s falsely.
+	 *
+	 * @param QuerySpec           $spec  Spec.
+	 * @param array<string,mixed> $args  Arguments.
+	 * @param \WP_Query           $query Query.
+	 * @param int                 $page  Rows on this page.
+	 * @return int
+	 */
+	private function total( QuerySpec $spec, array $args, \WP_Query $query, int $page ): int {
+		if ( $page > 0 && $page < $spec->limit && 0 === $spec->offset ) {
+			return $page; // First page not full: that is the whole set.
+		}
+		$total = $this->context->count( $spec );
+		if ( 'capped' === ( $args['nf_count'] ?? '' ) ) {
+			$cap = max( 1, (int) apply_filters( 'nf/count/cap', self::CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			if ( $total > $cap && $spec->offset < $cap ) {
+				$query->nf_count_capped = true;
+				return $cap + 1;
+			}
+		}
+		return $total;
+	}
+
+	/**
+	 * Arguments to translate, or null for queries NF must not answer (admin, sticky home, singular and so on).
+	 *
+	 * @param \WP_Query $query Query.
+	 * @return array<string,mixed>|null
+	 */
+	private function args( \WP_Query $query ): ?array {
+		if ( is_admin() || $query->is_singular() || $query->is_search() || $query->is_feed() ) {
+			return null;
+		}
+		$vars = $query->query_vars;
+		if ( $query->is_home() && empty( $vars['ignore_sticky_posts'] ) && array() !== (array) get_option( 'sticky_posts', array() ) ) {
+			return null; // Sticky posts are core's: it adds them to page 1 after the IDs come back.
+		}
+		unset( $vars['comments_per_page'] );
+		return $vars;
+	}
+}
