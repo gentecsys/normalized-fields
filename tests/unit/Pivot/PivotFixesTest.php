@@ -204,8 +204,8 @@ class PivotFixesTest extends WP_UnitTestCase {
 		$this->assertCount( 2, $rows );
 		$this->assertSame( 'field_t30k_price_b', $scope->choose( $rows, ObjectType::Post, self::TYPE_B, 'price' )['field_key'] );
 		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Post, self::TYPE, 'price' )['field_key'] );
-		$this->expectException( InvalidArgumentException::class );
-		$scope->choose( $rows, ObjectType::Post, 'page', 'price' );
+		$this->assertNull( $scope->choose( $rows, ObjectType::Post, 'page', 'price' ) );
+		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Term, 'category', 'price' )['field_key'] );
 	}
 
 	/**
@@ -215,6 +215,44 @@ class PivotFixesTest extends WP_UnitTestCase {
 		$this->fields->register( 'field_t30k_dup_a', 'dup', DataTable::Int );
 		$this->fields->register( 'field_t30k_dup_b', 'dup', DataTable::Int );
 		$this->pivot->setId( ObjectType::Post, self::TYPE );
+		$group = static fn( string $key ): array => array(
+			'active'   => true,
+			'location' => array(
+				array(
+					array(
+						'param'    => 'post_type',
+						'operator' => '==',
+						'value'    => 'nf_fix2_a',
+					),
+				),
+			),
+			'fields'   => array(
+				array(
+					'key'  => $key,
+					'name' => 'dup',
+					'type' => 'number',
+				),
+			),
+		);
+		NF\Pivot\FieldScope::useSource(
+			new class( array( $group( 'field_t30k_dup_a' ), $group( 'field_t30k_dup_b' ) ) ) extends NF\Migration\AcfSource {
+				/**
+				 * Constructor.
+				 *
+				 * @param array<int,array<string,mixed>> $groups Groups.
+				 */
+				public function __construct( private array $groups ) {}
+
+				/**
+				 * Groups.
+				 *
+				 * @return array<int,array<string,mixed>>
+				 */
+				public function groups(): array {
+					return $this->groups;
+				}
+			}
+		);
 		$ctx = new QueryContext( nf_db(), $this->pivot, $this->pivot->dictionary() );
 		$this->assertSame( array(), $ctx->ids( new QuerySpec( ObjectType::Post, self::TYPE ) ) );
 		$this->expectException( UnsupportedQueryException::class );

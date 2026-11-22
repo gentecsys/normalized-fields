@@ -81,7 +81,7 @@ final class Lifecycle {
 	 * @param string $taxonomy Taxonomy.
 	 * @return void
 	 */
-	public function onTermDeleted( int $id, $ttId = 0, $taxonomy = '' ): void {
+	public function onTermDeleted( int $id, int $ttId = 0, string $taxonomy = '' ): void {
 		unset( $ttId );
 		$this->purge( ObjectType::Term, $id, $this->pivotRemoval( ObjectType::Term, (string) $taxonomy, $id ) );
 	}

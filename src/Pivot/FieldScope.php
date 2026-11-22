@@ -16,8 +16,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Two collections may name a field the same on different post types (`price` on products and on rooms). A name
- * with one candidate resolves to it; with several, the candidates attached to the queried post type decide, and a name
- * that stays ambiguous throws.
+ * with one candidate resolves to it; with several, the candidates attached to the queried post type decide, and several attached to the same post type throw.
  */
 final class FieldScope {
 
@@ -29,6 +28,13 @@ final class FieldScope {
 	private static array $attached = array();
 
 	/**
+	 * Source shared by instances created without one.
+	 *
+	 * @var AcfSource|null
+	 */
+	private static ?AcfSource $shared = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param AcfSource|null $source Field group source; defaults to ACF's own API.
@@ -36,12 +42,24 @@ final class FieldScope {
 	public function __construct( private ?AcfSource $source = null ) {}
 
 	/**
-	 * Forget memoised attachments (tests, group saves).
+	 * Forget memoised attachments (tests).
 	 *
 	 * @return void
 	 */
 	public static function flush(): void {
 		self::$attached = array();
+		self::$shared   = null;
+	}
+
+	/**
+	 * Group source used by instances created without one (tests).
+	 *
+	 * @param AcfSource|null $source Source.
+	 * @return void
+	 */
+	public static function useSource( ?AcfSource $source ): void {
+		self::$attached = array();
+		self::$shared   = $source;
 	}
 
 	/**
@@ -52,7 +70,7 @@ final class FieldScope {
 	 * @param string                         $subtype Post type or ''.
 	 * @param string                         $name    Field name (for the error).
 	 * @return array<string,mixed>|null Null when there are no candidates.
-	 * @throws \InvalidArgumentException When the name stays ambiguous.
+	 * @throws \InvalidArgumentException When several collections attached to the post type define the name.
 	 */
 	public function choose( array $rows, ObjectType $type, string $subtype, string $name ): ?array {
 		if ( array() === $rows ) {
@@ -62,11 +80,16 @@ final class FieldScope {
 			return $rows[0];
 		}
 		$keys = ObjectType::Post === $type && '' !== $subtype ? $this->attachedKeys( $subtype ) : array();
-		$hits = array_values( array_filter( $rows, static fn( array $r ): bool => isset( $keys[ (string) $r['field_key'] ] ) ) );
-		if ( 1 === count( $hits ) ) {
-			return $hits[0];
+		if ( array() === $keys ) {
+			// Nothing known about the type's collections (terms, users, comments, or no group source): first definition.
+			return $rows[0];
 		}
-		throw new \InvalidArgumentException( sprintf( 'Field name "%s" is ambiguous: several collections define it. Use the field key.', esc_html( $name ) ) );
+		$hits = array_values( array_filter( $rows, static fn( array $r ): bool => isset( $keys[ (string) $r['field_key'] ] ) ) );
+		if ( count( $hits ) > 1 ) {
+			throw new \InvalidArgumentException( 'Field name "' . esc_html( $name ) . '" is ambiguous: several collections on this post type define it. Use the field key.' );
+		}
+		// One hit is the field; none means the name is not an NF field on this post type.
+		return $hits[0] ?? null;
 	}
 
 	/**
@@ -79,7 +102,7 @@ final class FieldScope {
 		if ( isset( self::$attached[ $postType ] ) ) {
 			return self::$attached[ $postType ];
 		}
-		$source = $this->source ?? new AcfSource();
+		$source = $this->source ?? self::$shared ?? new AcfSource();
 		$out    = array();
 		foreach ( SlotAssigner::fieldsByPostType( $source->groups() )[ $postType ] ?? array() as $field ) {
 			if ( ! empty( $field['key'] ) ) {
