@@ -16,6 +16,7 @@ use NF\Pivot\Pivot;
 use NF\Storage\DataTable;
 use NF\Storage\FieldDef;
 use NF\Storage\ObjectType;
+use NF\Storage\Status;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -112,8 +113,24 @@ final class QueryContext {
 		if ( null === $c ) {
 			return 0;
 		}
-		$rows = $this->db->select( $c->count_sql, $c->count_params );
-		return (int) ( $rows[0]['c'] ?? 0 );
+		$pivotId = $this->pivot->findSetId( $spec->type, $spec->subtype );
+		if ( null === $pivotId ) {
+			return 0;
+		}
+		$statuses = array() === $spec->statuses ? array( Status::Publish ) : $spec->statuses;
+		// Unfiltered means no conditions, masks or rows: add a check here whenever QuerySpec gains a filter.
+		if ( array() === $spec->conditions && array() === $spec->masks && array() === $spec->rows && $this->pivot->countsReady( $pivotId ) ) {
+			return $this->pivot->counts()->count( $pivotId, array_map( static fn ( Status $s ): int => $s->value, $statuses ) );
+		}
+		$key    = CountCache::key( $pivotId, $this->pivot->writeVersion( $pivotId ), $c->count_sql, $c->count_params );
+		$cached = CountCache::get( $key );
+		if ( null !== $cached ) {
+			return $cached;
+		}
+		$rows  = $this->db->select( $c->count_sql, $c->count_params );
+		$total = (int) ( $rows[0]['c'] ?? 0 );
+		CountCache::set( $key, $total );
+		return $total;
 	}
 
 	/**

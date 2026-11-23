@@ -41,6 +41,11 @@ final class Pivot {
 	private const MASK_LETTER = 'm';
 
 	/**
+	 * Option prefix of the per-set flag saying the count rollup was built.
+	 */
+	private const COUNTS_READY = 'nf_counts_ready_';
+
+	/**
 	 * Core columns copied from the object.
 	 */
 	public const CORE = array( 'status', 'author_id', 'parent_id', 'published', 'modified', 'menu_order' );
@@ -89,6 +94,18 @@ final class Pivot {
 	 */
 	public function rebuildCounts( int $pivotId ): void {
 		$this->counts()->rebuild( $pivotId, $this->counts()->dimensions( array_keys( $this->slots( $pivotId ) ) ) );
+		update_option( self::COUNTS_READY . $pivotId, 1, false );
+	}
+
+	/**
+	 * Whether the rollup of a set was built, so exact totals may be read from it.
+	 * Reads nothing from NF tables when the installed schema is behind.
+	 *
+	 * @param int $pivotId Pivot set id.
+	 * @return bool
+	 */
+	public function countsReady( int $pivotId ): bool {
+		return \NF\Install\Upgrader::isCurrent() && (bool) get_option( self::COUNTS_READY . $pivotId, false );
 	}
 
 	/**
