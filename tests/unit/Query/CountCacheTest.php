@@ -135,6 +135,8 @@ class CountCacheTest extends WP_UnitTestCase {
 		$c  = $this->context->compile( $cc );
 		$k  = CountCache::key( $this->pivot_id, $this->pivot->writeVersion( $this->pivot_id ), $c->count_sql, $c->count_params );
 		$this->assertSame( 1, CountCache::get( $k ) );
+		CountCache::set( $k, 99 );
+		$this->assertSame( 99, $this->q()->where( 'ccprice', '>', 10 )->count(), 'a hit is served from the cache' );
 
 		$this->make( 60 );
 		$this->assertSame( 2, $this->q()->where( 'ccprice', '>', 10 )->count(), 'write bumped the version' );
@@ -149,6 +151,10 @@ class CountCacheTest extends WP_UnitTestCase {
 		$this->pivot->rebuildCounts( $this->pivot_id );
 		$this->assertTrue( $this->pivot->countsReady( $this->pivot_id ) );
 		$this->assertSame( 2, $this->q()->count() );
+		$db = nf_db();
+		$db->execute( 'UPDATE ' . $db->table( 'nf_count' ) . " SET n = n + 10 WHERE pivot_id = ? AND dim = '*'", array( $this->pivot_id ) );
+		$this->assertGreaterThan( 2, $this->q()->count(), 'the rollup answers, not the live statement' );
+		$this->pivot->rebuildCounts( $this->pivot_id );
 		$this->make( 3 );
 		$this->assertSame( 3, $this->q()->count() );
 		$this->pivot->sync( $this->pivot_id, $a, array( 'status' => 2 ) );
@@ -172,10 +178,15 @@ class CountCacheTest extends WP_UnitTestCase {
 		$this->pivot->rebuildCounts( $this->pivot_id );
 		wp_set_current_user( 0 );
 		$db     = nf_db();
-		$before = $db->select( 'SELECT COALESCE(SUM(n),0) AS c FROM ' . $db->table( 'nf_count' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$snap   = fn() => array(
+			$db->select( 'SELECT COALESCE(SUM(n),0) AS c FROM ' . $db->table( 'nf_count' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) ),
+			$db->select( 'SELECT write_version FROM ' . $db->table( 'nf_pivot_sets' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) ),
+			$db->select( 'SELECT COUNT(*) AS c FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) ),
+		);
+		$before = $snap();
 		$this->q()->count();
 		$this->q()->where( 'ccprice', '>', 0 )->count();
-		$after = $db->select( 'SELECT COALESCE(SUM(n),0) AS c FROM ' . $db->table( 'nf_count' ) . ' WHERE pivot_id = ?', array( $this->pivot_id ) );
+		$after = $snap();
 		$this->assertSame( $before, $after );
 	}
 }

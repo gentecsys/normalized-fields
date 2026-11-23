@@ -58,7 +58,8 @@ final class CountCache {
 	 * @return void
 	 */
 	public static function set( string $key, int $count ): void {
-		$ttl = (int) apply_filters( 'nf/count/cache_ttl', self::TTL );
+		// The version in the key is read before the count runs, so a racing write only leaves an unreachable entry.
+		$ttl = (int) apply_filters( 'nf/count/cache_ttl', self::TTL ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		wp_cache_set( $key, $count, self::GROUP, max( 1, $ttl ) );
 	}
 }

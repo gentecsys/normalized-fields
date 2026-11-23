@@ -41,10 +41,13 @@ final class Pivot {
 	private const MASK_LETTER = 'm';
 
 	/**
-	 * Core columns copied from the object.
+	 * Option prefix of the per-set flag saying the count rollup was built.
 	 */
 	private const COUNTS_READY = 'nf_counts_ready_';
 
+	/**
+	 * Core columns copied from the object.
+	 */
 	public const CORE = array( 'status', 'author_id', 'parent_id', 'published', 'modified', 'menu_order' );
 
 	/**

@@ -118,6 +118,7 @@ final class QueryContext {
 			return 0;
 		}
 		$statuses = array() === $spec->statuses ? array( Status::Publish ) : $spec->statuses;
+		// Unfiltered means no conditions, masks or rows: add a check here whenever QuerySpec gains a filter.
 		if ( array() === $spec->conditions && array() === $spec->masks && array() === $spec->rows && $this->pivot->countsReady( $pivotId ) ) {
 			return $this->pivot->counts()->count( $pivotId, array_map( static fn ( Status $s ): int => $s->value, $statuses ) );
 		}
