@@ -55,11 +55,11 @@ final class CountCacheCleanupJob implements JobInterface {
 	 * @return array<string,mixed>
 	 */
 	public function step( array $state ): array {
-		$t = $this->db->table( 'nf_count_cache' );
-		$s = $this->db->table( 'nf_pivot_sets' );
-		$n = $this->db->execute( "DELETE FROM {$t} WHERE expires <= ?", array( gmdate( 'Y-m-d H:i:s' ) ) );
-		$n += $this->db->execute( "DELETE FROM {$t} WHERE version < COALESCE((SELECT write_version FROM {$s} WHERE {$s}.pivot_id = {$t}.pivot_id), 0)" );
-		$state['deleted'] = absint( $state['deleted'] ) + $n;
+		$t                = $this->db->table( 'nf_count_cache' );
+		$s                = $this->db->table( 'nf_pivot_sets' );
+		$expired          = $this->db->execute( "DELETE FROM {$t} WHERE expires <= ?", array( gmdate( 'Y-m-d H:i:s' ) ) );
+		$old              = $this->db->execute( "DELETE FROM {$t} WHERE version < COALESCE((SELECT write_version FROM {$s} WHERE {$s}.pivot_id = {$t}.pivot_id), 0)" );
+		$state['deleted'] = absint( $state['deleted'] ) + $expired + $old;
 		$state['done']    = true;
 		return $state;
 	}
