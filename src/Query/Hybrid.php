@@ -142,7 +142,7 @@ final class Hybrid {
 			$this->failClosed( $query, 'schema not current' );
 			return;
 		}
-		$cap = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$cap  = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$full = null;
 		try {
 			$spec = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), false ) )->translate( $split['args'] );
@@ -347,10 +347,10 @@ final class Hybrid {
 	 * @return bool
 	 */
 	private function isPure( array $vars ): bool {
-		$ok = array( 'post_type', 'post_status', 'posts_per_page', 'paged', 'offset', 'nopaging', 'order', 'orderby', 'nf_mode', 'nf_count', 'no_found_rows', 'cache_results', 'update_post_term_cache', 'update_post_meta_cache', 'lazy_load_term_meta', 'update_menu_item_cache', 'ignore_sticky_posts', 'suppress_filters', 'fields', 'perm', 'comments_per_page' );
+		$ok   = array( 'post_type', 'post_status', 'posts_per_page', 'paged', 'offset', 'nopaging', 'order', 'orderby', 'nf_mode', 'nf_count', 'no_found_rows', 'cache_results', 'update_post_term_cache', 'update_post_meta_cache', 'lazy_load_term_meta', 'update_menu_item_cache', 'ignore_sticky_posts', 'suppress_filters', 'fields', 'perm', 'comments_per_page' );
 		$zero = array( 'p', 'page', 'page_id', 'attachment_id', 'm', 'year', 'monthnum', 'day', 'w', 'hour', 'minute', 'second', 'tag_id', 'posts_per_archive_page' );
 		foreach ( $vars as $name => $value ) {
-			if ( in_array( $name, $ok, true ) || in_array( $name, $zero, true ) && ( 0 === $value || '0' === $value ) ) {
+			if ( in_array( $name, $ok, true ) || ( in_array( $name, $zero, true ) && ( 0 === $value || '0' === $value ) ) ) {
 				continue;
 			}
 			if ( null !== $value && false !== $value && '' !== $value && array() !== $value ) {
