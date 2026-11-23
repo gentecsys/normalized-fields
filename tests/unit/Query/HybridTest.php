@@ -98,7 +98,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * @param array<string,mixed> $extra Extra arguments.
 	 * @return WP_Query
 	 */
-	private function run( array $extra = array() ): WP_Query {
+	private function hy_run( array $extra = array() ): WP_Query {
 		return new WP_Query(
 			array_merge(
 				array(
@@ -118,7 +118,7 @@ class HybridTest extends WP_UnitTestCase {
 	public function test_meta_query_clause_resolves_to_ids(): void {
 		global $wpdb;
 		$this->assertSame( 0, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'hyprice'" ) );
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
 					array(
@@ -141,7 +141,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * Ordering by the NF field follows NF's order.
 	 */
 	public function test_orders_by_nf_field(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_key' => 'hyprice',
 				'orderby'  => 'meta_value_num',
@@ -158,7 +158,7 @@ class HybridTest extends WP_UnitTestCase {
 	public function test_core_meta_clause_is_kept(): void {
 		update_post_meta( $this->ids[5], 'color', 'red' );
 		update_post_meta( $this->ids[1], 'color', 'red' );
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
 					array(
@@ -181,7 +181,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * An existing post__in is intersected.
 	 */
 	public function test_intersects_existing_post_in(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'post__in'   => array( $this->ids[0], $this->ids[5], $this->ids[6] ),
 				'meta_query' => array(
@@ -201,7 +201,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * No match gives no rows, not every post.
 	 */
 	public function test_no_match_returns_nothing(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
 					array(
@@ -226,7 +226,7 @@ class HybridTest extends WP_UnitTestCase {
 			++$fired;
 		};
 		add_action( 'nf/hybrid/failed', $count );
-		$q = $this->run( array( 'meta_key' => 'hyprice' ) );
+		$q = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
 		remove_action( 'nf/hybrid/failed', $count );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
@@ -239,7 +239,7 @@ class HybridTest extends WP_UnitTestCase {
 	public function test_over_cap_fails_closed(): void {
 		$cap = static fn() => 2;
 		add_filter( 'nf/hybrid/id_cap', $cap );
-		$q = $this->run( array( 'meta_key' => 'hyprice' ) );
+		$q = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
 		remove_filter( 'nf/hybrid/id_cap', $cap );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
@@ -249,7 +249,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * OR between an NF clause and a core clause cannot be split: fail closed.
 	 */
 	public function test_or_with_core_clause_fails_closed(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
 					'relation' => 'OR',
@@ -274,7 +274,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * OR across NF clauses only is not read as AND.
 	 */
 	public function test_or_across_nf_clauses_fails_closed(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
 					'relation' => 'OR',
@@ -315,7 +315,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * A meta_value_num filter on an NF key is not silently dropped.
 	 */
 	public function test_meta_value_num_fails_closed(): void {
-		$q = $this->run(
+		$q = $this->hy_run(
 			array(
 				'meta_key'       => 'hyprice',
 				'meta_value_num' => 30,
@@ -329,7 +329,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * Queries without an NF field are untouched.
 	 */
 	public function test_without_nf_field_is_untouched(): void {
-		$q = $this->run( array( 'meta_key' => 'color' ) );
+		$q = $this->hy_run( array( 'meta_key' => 'color' ) );
 		$this->assertSame( '', (string) $q->get( 'nf_mode' ) );
 		$this->assertSame( 'color', $q->get( 'meta_key' ) );
 	}

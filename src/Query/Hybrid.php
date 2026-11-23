@@ -14,6 +14,8 @@ use NF\Storage\Status;
 
 defined( 'ABSPATH' ) || exit;
 
+// phpcs:disable WordPress.DB.SlowDBQuery -- this class removes meta_key / meta_query from queries; it adds none.
+
 /**
  * Runs on `pre_get_posts` for queries the full short-circuit does not answer. NF conditions (flat `meta_query`
  * clauses, `meta_key`, the `nf` argument and NF-field ordering) are removed from the query and replaced by the IDs the
@@ -57,7 +59,7 @@ final class Hybrid {
 	 * @return void
 	 */
 	public function apply( $query ): void {
-		if ( ! $query instanceof \WP_Query || null !== $query->get( 'nf_mode' ) && '' !== $query->get( 'nf_mode' ) ) {
+		if ( ! $query instanceof \WP_Query || ( null !== $query->get( 'nf_mode' ) && '' !== $query->get( 'nf_mode' ) ) ) {
 			return;
 		}
 		$vars = $query->query_vars;
@@ -185,11 +187,11 @@ final class Hybrid {
 		$nf_key  = $owns( $key );
 		$nf_arg  = isset( $vars['nf'] ) && is_array( $vars['nf'] ) && array() !== $vars['nf'];
 		$orderby = $vars['orderby'] ?? '';
-		$ordered = $nf_arg && isset( $vars['nf']['orderby'] ) || ( $nf_key && is_string( $orderby ) && 1 === preg_match( '/\bmeta_value(_num)?\b/', $orderby ) );
+		$ordered = ( $nf_arg && isset( $vars['nf']['orderby'] ) ) || ( $nf_key && is_string( $orderby ) && 1 === preg_match( '/\bmeta_value(_num)?\b/', $orderby ) );
 		if ( array() === $nf && ! $nf_key && ! $nf_arg && ! $bad ) {
 			return null;
 		}
-		$args = null;
+		$args       = null;
 		$value_used = false;
 		foreach ( array( 'meta_value', 'meta_value_num', 'meta_compare', 'meta_type' ) as $name ) {
 			if ( isset( $vars[ $name ] ) && '' !== $vars[ $name ] ) {
