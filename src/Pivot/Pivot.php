@@ -53,6 +53,13 @@ final class Pivot {
 	private RowPivot $rows;
 
 	/**
+	 * Count rollup, created on first use.
+	 *
+	 * @var Counts|null
+	 */
+	private ?Counts $counts = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackendInterface $db     Backend.
@@ -63,6 +70,40 @@ final class Pivot {
 	public function __construct( private BackendInterface $db, private FieldMap $fields, private Store $store, private ?Dictionary $dictionary = null ) {
 		$this->dictionary ??= new Dictionary( $db );
 		$this->rows         = new RowPivot( $db, $fields, $store, $this->dictionary );
+	}
+
+	/**
+	 * Count rollup (nf_count) service.
+	 *
+	 * @return Counts
+	 */
+	public function counts(): Counts {
+		return $this->counts ??= new Counts( $this->db );
+	}
+
+	/**
+	 * Recompute the set's count rollup from its pivot rows.
+	 *
+	 * @param int $pivotId Pivot set id.
+	 * @return void
+	 */
+	public function rebuildCounts( int $pivotId ): void {
+		$this->counts()->rebuild( $pivotId, $this->counts()->dimensions( array_keys( $this->slots( $pivotId ) ) ) );
+	}
+
+	/**
+	 * Pivot row of one object (status, published and the dimension slots), or null.
+	 *
+	 * @param int      $pivotId  Pivot set id.
+	 * @param int      $objectId Object id.
+	 * @param string[] $dims     Dimension slots.
+	 * @return array<string,mixed>|null
+	 */
+	private function countRow( int $pivotId, int $objectId, array $dims ): ?array {
+		$d    = $this->db->dialect();
+		$cols = implode( ', ', array_map( array( $d, 'quoteIdentifier' ), array_merge( array( 'status', 'published' ), $dims ) ) );
+		$rows = $this->db->select( "SELECT {$cols} FROM " . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $pivotId, $objectId ) );
+		return $rows[0] ?? null;
 	}
 
 	/**
@@ -235,6 +276,9 @@ final class Pivot {
 			function () use ( $pivotId, $objectId, $core, $type ): void {
 				$d      = $this->db->dialect();
 				$t      = $this->db->table( 'nf_pivot' );
+				$slots  = $this->slots( $pivotId );
+				$dims   = $this->counts()->dimensions( array_keys( $slots ) );
+				$old    = $this->countRow( $pivotId, $objectId, $dims );
 				$cols   = array();
 				$values = array( $pivotId, $objectId );
 				$nulls  = array();
@@ -247,7 +291,7 @@ final class Pivot {
 					$cols[]   = $c;
 					$values[] = $val;
 				}
-				foreach ( $this->slots( $pivotId ) as $slot => $field ) {
+				foreach ( $slots as $slot => $field ) {
 					if ( 'none' !== $field['rollup'] ) {
 						$v = $this->rows->rollup( $objectId, $field['parent'], $field['name'], $field['rollup'], $type );
 						if ( null === $v ) {
@@ -286,6 +330,7 @@ final class Pivot {
 					$set = implode( ', ', array_map( fn( string $c ): string => $d->quoteIdentifier( $c ) . ' = NULL', $nulls ) );
 					$this->db->execute( "UPDATE {$t} SET {$set} WHERE pivot_id = ? AND object_id = ?", array( $pivotId, $objectId ) );
 				}
+				$this->counts()->apply( $pivotId, $old, $this->countRow( $pivotId, $objectId, $dims ), $dims );
 				$this->rows->syncRows( $pivotId, $objectId, $type );
 				$this->bump( $pivotId );
 			}
@@ -320,6 +365,8 @@ final class Pivot {
 	public function remove( int $pivotId, int $objectId ): void {
 		$this->db->transaction(
 			function () use ( $pivotId, $objectId ): void {
+				$dims = $this->counts()->dimensions( array_keys( $this->slots( $pivotId ) ) );
+				$this->counts()->apply( $pivotId, $this->countRow( $pivotId, $objectId, $dims ), null, $dims );
 				$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $pivotId, $objectId ) );
 				$this->rows->removeRows( $pivotId, $objectId );
 				$this->bump( $pivotId );
@@ -354,6 +401,7 @@ final class Pivot {
 			}
 		} while ( $res['count'] >= max( 1, $chunk ) );
 		$this->pruneRowPivot( $pivotId );
+		$this->rebuildCounts( $pivotId );
 		return $total;
 	}
 
@@ -403,6 +451,7 @@ final class Pivot {
 			}
 		} while ( ! $res['done'] );
 		$this->pruneRowPivot( $pivotId );
+		$this->rebuildCounts( $pivotId );
 		$this->clearPending( $pivotId, $snapshot );
 		return $total;
 	}
