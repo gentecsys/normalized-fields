@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.svg">
+    <img src=".github/logo.svg" alt="Normalized Fields logo" width="96" height="96">
+  </picture>
+</p>
+
 # Normalized Fields
 
 A standalone, ACF-compatible WordPress plugin that stores field data in typed, pivot and lookup tables instead of `wp_postmeta`.
