@@ -370,7 +370,7 @@ class HybridTest extends WP_UnitTestCase {
 		);
 		$q = $this->hy_run(
 			array(
-				'post__not_in' => array_slice( $this->ids, 0, 4 ),
+				'post__not_in' => array_values( array_diff( get_posts( array( 'post_type' => self::TYPE, 'post_status' => 'any', 'fields' => 'ids', 'nopaging' => true ) ), array_slice( $this->ids, 4 ) ) ),
 				'meta_query'   => array(
 					array(
 						'key'     => 'hyprice',
