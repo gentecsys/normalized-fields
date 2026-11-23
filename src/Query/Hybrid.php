@@ -53,6 +53,13 @@ final class Hybrid {
 	private ?\WeakMap $totals = null;
 
 	/**
+	 * Original `paged` and `offset` of queries NF paged itself, put back once the posts are fetched.
+	 *
+	 * @var \WeakMap<\WP_Query,array{0:mixed,1:mixed}>|null
+	 */
+	private ?\WeakMap $restore = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param QueryContext $context Query context.
@@ -68,6 +75,24 @@ final class Hybrid {
 	public function register(): void {
 		add_action( 'pre_get_posts', array( $this, 'apply' ), 9999 );
 		add_filter( 'found_posts', array( $this, 'foundPosts' ), 1, 2 );
+		add_filter( 'the_posts', array( $this, 'restorePaging' ), 1, 2 );
+	}
+
+	/**
+	 * Put back the page a query asked for, so `get_query_var( 'paged' )` and pagination links stay right.
+	 *
+	 * @param mixed     $posts Posts.
+	 * @param \WP_Query $query Query.
+	 * @return mixed
+	 */
+	public function restorePaging( $posts, $query ) {
+		if ( $query instanceof \WP_Query && null !== $this->restore && isset( $this->restore[ $query ] ) ) {
+			list( $paged, $offset ) = $this->restore[ $query ];
+			$query->set( 'paged', $paged );
+			$query->set( 'offset', $offset );
+			unset( $this->restore[ $query ] );
+		}
+		return $posts;
 	}
 
 	/**
@@ -191,7 +216,7 @@ final class Hybrid {
 					$this->finish( $query, $ids, (bool) $split['ordered'] );
 					return;
 				}
-				if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) ) {
+				if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) || ! is_user_logged_in() ) {
 					$this->failClosed( $query, 'both sides over ' . $cap . ' ids' . ( $split['ordered'] ? ' and no totals' : '' ) );
 					return;
 				}
@@ -204,7 +229,7 @@ final class Hybrid {
 				return;
 			}
 			unset( $args['nopaging'] );
-			$args['post_status']    = $vars['post_status'] ?? 'publish';
+			$args['post_status']    = ! empty( $vars['post_status'] ) ? $vars['post_status'] : 'publish';
 			$args['posts_per_page'] = $per;
 			$args['offset']         = $offset;
 			if ( ! isset( $args['orderby'] ) && ! empty( $vars['orderby'] ) ) {
@@ -246,6 +271,8 @@ final class Hybrid {
 			$query->set( 'orderby', 'post__in' );
 		}
 		if ( $paged ) {
+			$this->restore         ??= new \WeakMap();
+			$this->restore[ $query ] = array( $query->get( 'paged' ), $query->get( 'offset' ) );
 			$query->set( 'paged', 1 );
 			$query->set( 'offset', 0 );
 		}
@@ -255,9 +282,9 @@ final class Hybrid {
 	/**
 	 * IDs of the core side of the query (its non-NF conditions), unordered, at most `$limit` of them.
 	 *
-	 * @param \WP_Query           $query Query.
-	 * @param int[]               $in    Restrict to these IDs (empty = no restriction beyond the query's own).
-	 * @param int                 $limit Limit.
+	 * @param \WP_Query $query Query.
+	 * @param int[]     $in    Restrict to these IDs (empty = no restriction beyond the query's own).
+	 * @param int       $limit Limit.
 	 * @return int[]
 	 */
 	private function coreIds( \WP_Query $query, array $in, int $limit ): array {
@@ -294,17 +321,19 @@ final class Hybrid {
 	private function walk( \WP_Query $query, QuerySpec $full, int $offset, int $per ): void {
 		$need = $offset + $per;
 		$kept = array();
-		for ( $pos = 0, $n = 0; $n < self::WALK_BATCHES && count( $kept ) < $need; $n++, $pos += self::BATCH ) {
+		$have = 0;
+		for ( $pos = 0, $n = 0; $n < self::WALK_BATCHES && $have < $need; $n++, $pos += self::BATCH ) {
 			$batch = $this->context->ids( $this->limited( $full, array(), self::BATCH, $pos ) );
 			if ( array() === $batch ) {
 				break;
 			}
 			$kept = array_merge( $kept, $this->coreIds( $query, $batch, self::BATCH ) );
+			$have = count( $kept );
 			if ( count( $batch ) < self::BATCH ) {
 				break;
 			}
 		}
-		if ( count( $kept ) < $need && self::WALK_BATCHES === $n ) {
+		if ( $have < $need && self::WALK_BATCHES === $n ) {
 			$this->failClosed( $query, 'page not filled within ' . ( self::WALK_BATCHES * self::BATCH ) . ' ids' );
 			return;
 		}
@@ -319,8 +348,12 @@ final class Hybrid {
 	 */
 	private function isPure( array $vars ): bool {
 		$ok = array( 'post_type', 'post_status', 'posts_per_page', 'paged', 'offset', 'nopaging', 'order', 'orderby', 'nf_mode', 'nf_count', 'no_found_rows', 'cache_results', 'update_post_term_cache', 'update_post_meta_cache', 'lazy_load_term_meta', 'update_menu_item_cache', 'ignore_sticky_posts', 'suppress_filters', 'fields', 'perm', 'comments_per_page' );
+		$zero = array( 'p', 'page', 'page_id', 'attachment_id', 'm', 'year', 'monthnum', 'day', 'w', 'hour', 'minute', 'second', 'tag_id', 'posts_per_archive_page' );
 		foreach ( $vars as $name => $value ) {
-			if ( ! in_array( $name, $ok, true ) && ! empty( $value ) ) {
+			if ( in_array( $name, $ok, true ) || in_array( $name, $zero, true ) && ( 0 === $value || '0' === $value ) ) {
+				continue;
+			}
+			if ( null !== $value && false !== $value && '' !== $value && array() !== $value ) {
 				return false;
 			}
 		}

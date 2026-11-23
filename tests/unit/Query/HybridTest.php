@@ -361,6 +361,13 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function test_large_list_starts_from_the_smaller_core_side(): void {
 		$this->hy_cap( 3 );
+		$why = '';
+		add_action(
+			'nf/hybrid/failed',
+			static function ( $reason ) use ( &$why ) {
+				$why = $reason;
+			}
+		);
 		$q = $this->hy_run(
 			array(
 				'post__not_in' => array_slice( $this->ids, 0, 4 ),
@@ -374,7 +381,7 @@ class HybridTest extends WP_UnitTestCase {
 				),
 			)
 		);
-		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ), $why );
 		$this->assertEqualsCanonicalizing( array_slice( $this->ids, 4 ), wp_list_pluck( $q->posts, 'ID' ) );
 	}
 
@@ -405,7 +412,8 @@ class HybridTest extends WP_UnitTestCase {
 		);
 		remove_filter( 'posts_where', $where );
 		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
-		$this->assertSame( array( $this->ids[3], $this->ids[2] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 2, (int) $q->get( 'paged' ) );
 		$this->assertSame( 6, $q->found_posts );
 		$this->assertSame( 3, $q->max_num_pages );
 	}
@@ -415,6 +423,7 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function test_both_sides_large_walks_nf_order(): void {
 		$this->hy_cap( 3 );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$q = $this->hy_run(
 			array(
 				'meta_key'       => 'hyprice',
@@ -433,6 +442,7 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function test_both_sides_large_fails_closed_without_exact_answer(): void {
 		$this->hy_cap( 3 );
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$clause = array(
 			array(
 				'key'     => 'hyprice',
