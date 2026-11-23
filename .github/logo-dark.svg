@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 30 30" role="img" aria-label="Normalized Fields">
+<title>Normalized Fields</title>
+<rect x="0" y="0" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="8.25" y="0.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="16.25" y="0.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="24" y="0" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="0" y="8" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="8" y="8" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="16.25" y="8.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="24" y="8" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="0" y="16" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="8.25" y="16.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="16" y="16" width="6" height="6" rx="1.2" fill="#f77036"/>
+<rect x="24" y="16" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="0" y="24" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+<rect x="8.25" y="24.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="16.25" y="24.25" width="5.5" height="5.5" rx="1.1" fill="none" stroke="#3a3d44" stroke-width="0.5"/>
+<rect x="24" y="24" width="6" height="6" rx="1.2" fill="#f3f1ea"/>
+</svg>
