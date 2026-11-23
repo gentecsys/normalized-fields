@@ -92,7 +92,7 @@ final class Hybrid {
 				$this->failClosed( $query, 'unsupported NF condition' );
 				return;
 			}
-			$spec = new QuerySpec( $spec->type, $spec->subtype, array_values( Status::cases() ), $spec->conditions, $spec->orders, $cap + 1, 0, $spec->masks, $spec->rows );
+			$spec = new QuerySpec( $spec->type, $spec->subtype, Status::cases(), $spec->conditions, $spec->orders, $cap + 1, 0, $spec->masks, $spec->rows );
 			if ( null === $this->context->compile( $spec ) ) {
 				$this->failClosed( $query, 'no pivot set for the post type' );
 				return;
