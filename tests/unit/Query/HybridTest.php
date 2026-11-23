@@ -312,6 +312,20 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A meta_value_num filter on an NF key is not silently dropped.
+	 */
+	public function test_meta_value_num_fails_closed(): void {
+		$q = $this->run(
+			array(
+				'meta_key'       => 'hyprice',
+				'meta_value_num' => 30,
+			)
+		);
+		$this->assertSame( array(), $q->posts );
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+	}
+
+	/**
 	 * Queries without an NF field are untouched.
 	 */
 	public function test_without_nf_field_is_untouched(): void {

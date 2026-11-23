@@ -190,7 +190,13 @@ final class Hybrid {
 			return null;
 		}
 		$args = null;
-		if ( ! $bad && ! ( $nf_key && isset( $vars['meta_value'] ) && '' !== $vars['meta_value'] ) ) {
+		$value_used = false;
+		foreach ( array( 'meta_value', 'meta_value_num', 'meta_compare', 'meta_type' ) as $name ) {
+			if ( isset( $vars[ $name ] ) && '' !== $vars[ $name ] ) {
+				$value_used = true;
+			}
+		}
+		if ( ! $bad && ! ( $nf_key && ( $value_used || is_array( $orderby ) ) ) ) {
 			$args = array(
 				'post_type'   => $type,
 				'post_status' => 'publish',
