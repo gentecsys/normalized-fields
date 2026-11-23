@@ -45,6 +45,20 @@ class HybridTest extends WP_UnitTestCase {
 	private array $ids = array();
 
 	/**
+	 * Pivot.
+	 *
+	 * @var Pivot
+	 */
+	private Pivot $pivot;
+
+	/**
+	 * Pivot set of the test type.
+	 *
+	 * @var int
+	 */
+	private int $pid = 0;
+
+	/**
 	 * Seven posts with a slotted integer field `hyprice`, stored in NF only.
 	 */
 	public function set_up() {
@@ -64,6 +78,8 @@ class HybridTest extends WP_UnitTestCase {
 		$pid         = $pivot->setId( ObjectType::Post, self::TYPE );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $pid ) );
 		$pivot->assignSlot( $pid, 'field_t33c2a_price', 'i1' );
+		$this->pivot = $pivot;
+		$this->pid   = $pid;
 		for ( $i = 1; $i <= 7; $i++ ) {
 			$id          = self::factory()->post->create(
 				array(
@@ -87,6 +103,8 @@ class HybridTest extends WP_UnitTestCase {
 		remove_all_filters( 'nf/hybrid/id_cap' );
 		remove_action( 'pre_get_posts', array( $this->hook, 'apply' ), 9999 );
 		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
+		remove_filter( 'the_posts', array( $this->hook, 'restorePaging' ), 1 );
+		delete_option( 'sticky_posts' );
 		foreach ( $this->ids as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 			wp_delete_post( $id, true );
@@ -469,5 +487,132 @@ class HybridTest extends WP_UnitTestCase {
 			)
 		);
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+	}
+
+	/**
+	 * The NF-paged large query of test_large_list_pages_in_nf_order_with_total, as the given user.
+	 *
+	 * @param int $paged Page.
+	 * @return WP_Query
+	 */
+	private function hy_large_page( int $paged = 1 ): WP_Query {
+		$this->hy_cap( 3 );
+		$where = static fn( $w ) => $w;
+		add_filter( 'posts_where', $where );
+		$q     = new WP_Query(
+			array(
+				'post_type'      => self::TYPE,
+				'meta_key'       => 'hyprice',
+				'orderby'        => 'meta_value_num',
+				'order'          => 'DESC',
+				'posts_per_page' => 2,
+				'paged'          => $paged,
+				'meta_query'     => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 20,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		remove_filter( 'posts_where', $where );
+		return $q;
+	}
+
+	/**
+	 * Make a post private in WordPress and in the pivot.
+	 *
+	 * @param int $id     Post ID.
+	 * @param int $author Author.
+	 */
+	private function hy_private( int $id, int $author ): void {
+		wp_update_post(
+			array(
+				'ID'          => $id,
+				'post_status' => 'private',
+				'post_author' => $author,
+			)
+		);
+		$this->pivot->sync( $this->pid, $id, array( 'status' => NF\Storage\Status::Private->value ) );
+	}
+
+	/**
+	 * Core adds sticky posts on page 1 only; NF paging the list itself must not add them to later pages.
+	 */
+	public function test_large_list_page_two_has_no_sticky_posts(): void {
+		stick_post( $this->ids[0] );
+		$q = $this->hy_large_page( 2 );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertFalse( (bool) $q->get( 'ignore_sticky_posts' ) );
+	}
+
+	/**
+	 * A user who can read private posts sees them in an NF-paged list, as core shows them; totals count them.
+	 */
+	public function test_large_list_includes_private_posts_the_user_can_read(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->hy_private( $this->ids[6], $admin );
+		wp_set_current_user( $admin );
+		$q = $this->hy_large_page();
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[6], $this->ids[5] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 6, $q->found_posts );
+	}
+
+	/**
+	 * Logged out, private posts stay out of an NF-paged list.
+	 */
+	public function test_large_list_hides_private_posts_from_visitors(): void {
+		$this->hy_private( $this->ids[6], 1 );
+		wp_set_current_user( 0 );
+		$q = $this->hy_large_page();
+		$this->assertSame( array( $this->ids[5], $this->ids[4] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 5, $q->found_posts );
+	}
+
+	/**
+	 * A user without read_private_posts who owns a private post: core shows it to them, a status list can't, so NF
+	 * leaves the page to the core side (here both sides are over the cap with totals wanted: no rows, never wrong rows).
+	 */
+	public function test_large_list_with_own_private_post_is_not_paged_by_nf(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$this->hy_private( $this->ids[6], $author );
+		wp_set_current_user( $author );
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$q = $this->hy_large_page();
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( array(), $q->posts );
+	}
+
+	/**
+	 * The fail-closed reason never carries the ID list it refused.
+	 */
+	public function test_fail_closed_reason_lists_no_ids(): void {
+		$this->hy_cap( 3 );
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$why = '';
+		add_action(
+			'nf/hybrid/failed',
+			static function ( $reason ) use ( &$why ) {
+				$why = $reason;
+			}
+		);
+		$this->hy_run(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 10,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		remove_all_actions( 'nf/hybrid/failed' );
+		$this->assertSame( 'both sides over 3 ids', $why );
 	}
 }

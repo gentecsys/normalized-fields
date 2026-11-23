@@ -53,9 +53,9 @@ final class Hybrid {
 	private ?\WeakMap $totals = null;
 
 	/**
-	 * Original `paged` and `offset` of queries NF paged itself, put back once the posts are fetched.
+	 * Original `paged`, `offset` and `ignore_sticky_posts` of queries NF paged itself, put back once the posts are fetched.
 	 *
-	 * @var \WeakMap<\WP_Query,array{0:mixed,1:mixed}>|null
+	 * @var \WeakMap<\WP_Query,array{0:mixed,1:mixed,2:mixed}>|null
 	 */
 	private ?\WeakMap $restore = null;
 
@@ -87,9 +87,10 @@ final class Hybrid {
 	 */
 	public function restorePaging( $posts, $query ) {
 		if ( $query instanceof \WP_Query && null !== $this->restore && isset( $this->restore[ $query ] ) ) {
-			list( $paged, $offset ) = $this->restore[ $query ];
+			list( $paged, $offset, $sticky ) = $this->restore[ $query ];
 			$query->set( 'paged', $paged );
 			$query->set( 'offset', $offset );
+			$query->set( 'ignore_sticky_posts', $sticky );
 			unset( $this->restore[ $query ] );
 		}
 		return $posts;
@@ -116,7 +117,17 @@ final class Hybrid {
 	 * @return void
 	 */
 	public function apply( $query ): void {
-		if ( ! $query instanceof \WP_Query || ( null !== $query->get( 'nf_mode' ) && '' !== $query->get( 'nf_mode' ) ) ) {
+		if ( ! $query instanceof \WP_Query ) {
+			return;
+		}
+		// A reused WP_Query object must not keep the total or paging of its previous run.
+		if ( null !== $this->totals ) {
+			unset( $this->totals[ $query ] );
+		}
+		if ( null !== $this->restore ) {
+			unset( $this->restore[ $query ] );
+		}
+		if ( null !== $query->get( 'nf_mode' ) && '' !== $query->get( 'nf_mode' ) ) {
 			return;
 		}
 		$vars = $query->query_vars;
@@ -205,50 +216,117 @@ final class Hybrid {
 			return;
 		}
 		$offset = isset( $vars['offset'] ) && is_numeric( $vars['offset'] ) && (int) $vars['offset'] > 0 ? (int) $vars['offset'] : ( max( 1, (int) ( $vars['paged'] ?? 1 ) ) - 1 ) * $per;
-		$pure   = $this->isPure( $vars );
 		try {
-			if ( ! $pure ) {
-				$core = $this->coreIds( $query, array(), $cap + 1 );
-				if ( count( $core ) <= $cap ) {
-					// Core side is the smaller one: filter it on the NF side.
-					$ids = array() === $core ? array() : $this->context->ids( $this->limited( $full, array( new Condition( 'ID', 'in', $core ) ), $cap + 1, 0 ) );
-					$this->finish( $query, $ids, (bool) $split['ordered'] );
-					return;
+			$statuses = $this->isPure( $vars ) ? $this->coreStatuses( $vars, $full->subtype ) : null;
+			$spec     = null === $statuses ? null : $this->pureSpec( $split, $vars, $statuses, $per, $offset );
+			if ( null !== $spec ) {
+				// Nothing on the core side but type, status and paging: NF pages its own list.
+				$ids = $this->context->ids( $spec );
+				if ( empty( $vars['no_found_rows'] ) ) {
+					$this->totals         ??= new \WeakMap();
+					$this->totals[ $query ] = $this->context->count( $spec );
 				}
-				if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) || ! is_user_logged_in() ) {
-					$this->failClosed( $query, 'both sides over ' . $cap . ' ids (' . count( $core ) . ': ' . implode( ',', $core ) . ')' . ( $split['ordered'] ? ' and no totals' : '' ) );
-					return;
-				}
-				$this->walk( $query, $full, $offset, $per );
+				$this->finish( $query, $ids, true, true );
 				return;
 			}
-			$args = $split['args'];
-			if ( ! is_array( $args ) ) {
-				$this->failClosed( $query, 'unsupported NF condition' );
+			$core = $this->coreIds( $query, array(), $cap + 1 );
+			if ( count( $core ) <= $cap ) {
+				// Core side is the smaller one: filter it on the NF side.
+				$ids = array() === $core ? array() : $this->context->ids( $this->limited( $full, array( new Condition( 'ID', 'in', $core ) ), $cap + 1, 0 ) );
+				$this->finish( $query, $ids, (bool) $split['ordered'] );
 				return;
 			}
-			unset( $args['nopaging'] );
-			$args['post_status']    = ! empty( $vars['post_status'] ) ? $vars['post_status'] : 'publish';
-			$args['posts_per_page'] = $per;
-			$args['offset']         = $offset;
-			if ( ! isset( $args['orderby'] ) && ! empty( $vars['orderby'] ) ) {
-				$args['orderby'] = $vars['orderby'];
-				$args['order']   = $vars['order'] ?? 'DESC';
-			}
-			$spec = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), is_user_logged_in() ) )->translate( $args );
-			if ( null === $spec ) {
-				$this->failClosed( $query, 'unsupported NF condition' );
+			if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) || ! is_user_logged_in() ) {
+				$this->failClosed( $query, 'both sides over ' . $cap . ' ids' . ( $split['ordered'] ? ' and no totals' : '' ) );
 				return;
 			}
-			$ids = $this->context->ids( $spec );
-			if ( empty( $vars['no_found_rows'] ) ) {
-				$this->totals         ??= new \WeakMap();
-				$this->totals[ $query ] = $this->context->count( $spec );
-			}
-			$this->finish( $query, $ids, true, true );
+			$this->walk( $query, $full, $offset, $per );
 		} catch ( \Throwable $e ) {
 			$this->failClosed( $query, 'backend: ' . $e->getMessage() );
 		}
+	}
+
+	/**
+	 * Spec for a query NF pages itself, or null when the translator can't express it.
+	 *
+	 * @param array<string,mixed> $split    Split.
+	 * @param array<string,mixed> $vars     Query vars (NF clauses stripped).
+	 * @param Status[]            $statuses Statuses core would return for this query and user.
+	 * @param int                 $per      Page size.
+	 * @param int                 $offset   Rows to skip.
+	 * @return QuerySpec|null
+	 */
+	private function pureSpec( array $split, array $vars, array $statuses, int $per, int $offset ): ?QuerySpec {
+		$args = $split['args'];
+		if ( ! is_array( $args ) ) {
+			return null;
+		}
+		unset( $args['nopaging'] );
+		$args['post_status']    = 'publish'; // Replaced by $statuses below.
+		$args['posts_per_page'] = $per;
+		$args['offset']         = $offset;
+		if ( ! isset( $args['orderby'] ) && ! empty( $vars['orderby'] ) ) {
+			$args['orderby'] = $vars['orderby'];
+			$args['order']   = $vars['order'] ?? 'DESC';
+		}
+		$s = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), is_user_logged_in() ) )->translate( $args );
+		return null === $s ? null : new QuerySpec( $s->type, $s->subtype, $statuses, $s->conditions, $s->orders, $s->limit, $s->offset, $s->masks, $s->rows, $s->after );
+	}
+
+	/**
+	 * Statuses core would return for this query and user, or null when NF can't express them as a status list
+	 * (another status argument, custom statuses, or the user's own private posts without `read_private_posts`).
+	 *
+	 * @param array<string,mixed> $vars Query vars.
+	 * @param string              $type Post type.
+	 * @return Status[]|null
+	 */
+	private function coreStatuses( array $vars, string $type ): ?array {
+		global $wpdb;
+		$status = $vars['post_status'] ?? '';
+		if ( 'publish' === $status || array( 'publish' ) === $status ) {
+			return array( Status::Publish );
+		}
+		if ( ( '' !== $status && array() !== $status ) || ( ! empty( $vars['perm'] ) && 'readable' !== $vars['perm'] ) ) {
+			return null;
+		}
+		$names = array_values( get_post_stati( array( 'public' => true ) ) );
+		if ( is_admin() ) {
+			$names = array_merge(
+				$names,
+				array_values(
+					get_post_stati(
+						array(
+							'protected'              => true,
+							'show_in_admin_all_list' => true,
+						)
+					)
+				)
+			);
+		}
+		if ( is_user_logged_in() ) {
+			$private = array_values( get_post_stati( array( 'private' => true ) ) );
+			$object  = get_post_type_object( $type );
+			if ( current_user_can( $object ? $object->cap->read_private_posts : 'read_private_posts' ) ) {
+				$names = array_merge( $names, $private );
+			} elseif ( array() !== $private ) {
+				// Core adds the user's own private posts: a status list can't say "own", so only go on when there are none.
+				$in  = implode( ',', array_fill( 0, count( $private ), '%s' ) );
+				$own = $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->posts} WHERE post_type = %s AND post_author = %d AND post_status IN ($in) LIMIT 1", array_merge( array( $type, get_current_user_id() ), $private ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				if ( null !== $own ) {
+					return null;
+				}
+			}
+		}
+		$out = array();
+		foreach ( array_unique( $names ) as $name ) {
+			$code = Status::fromName( (string) $name );
+			if ( null === $code ) {
+				return null;
+			}
+			$out[] = $code;
+		}
+		return $out;
 	}
 
 	/**
@@ -271,7 +349,11 @@ final class Hybrid {
 		}
 		if ( $paged ) {
 			$this->restore         ??= new \WeakMap();
-			$this->restore[ $query ] = array( $query->get( 'paged' ), $query->get( 'offset' ) );
+			$this->restore[ $query ] = array( $query->get( 'paged' ), $query->get( 'offset' ), $query->get( 'ignore_sticky_posts' ) );
+			if ( (int) $query->get( 'paged' ) > 1 ) {
+				// Core adds sticky posts on page 1 only; with `paged` forced to 1 it would add them to every page.
+				$query->set( 'ignore_sticky_posts', true );
+			}
 			$query->set( 'paged', 1 );
 			$query->set( 'offset', 0 );
 		}
