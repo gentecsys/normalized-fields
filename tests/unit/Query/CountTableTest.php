@@ -57,6 +57,17 @@ class CountTableTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A second put with the same key replaces the row and does not throw.
+	 */
+	public function test_repeated_put_replaces_row(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$this->table->put( '9:3:abc', 9, 3, 42 );
+		$this->table->put( '9:3:abc', 9, 3, 43 );
+		$this->assertSame( 1, $this->rows() );
+		$this->assertSame( 43, $this->table->get( '9:3:abc', 9, 3 ) );
+	}
+
+	/**
 	 * Anonymous requests read the table but never write to it.
 	 */
 	public function test_anonymous_never_writes(): void {

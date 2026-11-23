@@ -86,12 +86,15 @@ final class CountTable {
 			return;
 		}
 		$ttl = max( 60, (int) apply_filters( 'nf/count_cache/ttl', self::TTL ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-		$t   = $this->db->table( 'nf_count_cache' );
-		$this->db->execute( "DELETE FROM {$t} WHERE cache_key = ?", array( sha1( $key ) ) );
-		$this->db->execute(
-			"INSERT INTO {$t} (cache_key, pivot_id, version, n, expires) VALUES (?, ?, ?, ?, ?)",
-			array( sha1( $key ), $pivotId, $version, $count, gmdate( 'Y-m-d H:i:s', time() + $ttl ) )
-		);
+		$t = $this->db->table( 'nf_count_cache' );
+		try {
+			$this->db->execute(
+				$this->db->dialect()->upsert( $t, array( 'cache_key' ), array( 'pivot_id', 'version', 'n', 'expires' ) ),
+				array( sha1( $key ), $pivotId, $version, $count, gmdate( 'Y-m-d H:i:s', time() + $ttl ) )
+			);
+		} catch ( \RuntimeException $e ) {
+			return; // The cache is optional: a failed write never breaks a count.
+		}
 		// Queue the cleanup at most once a day, from this writing request (never from an anonymous one).
 		if ( (int) get_option( self::CLEANUP_OPTION, 0 ) < time() - DAY_IN_SECONDS ) {
 			update_option( self::CLEANUP_OPTION, time(), false );
