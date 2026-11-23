@@ -75,6 +75,7 @@ class CountCacheTest extends WP_UnitTestCase {
 		$this->pivot    = new Pivot( $db, $fields, $this->store );
 		$this->pivot_id = $this->pivot->setId( ObjectType::Post, self::TYPE );
 		$this->clean();
+		delete_option( 'nf_counts_ready_' . $this->pivot_id );
 		$this->pivot->assignSlot( $this->pivot_id, 'field_t34b_price', 'i1' );
 		$this->context = new QueryContext( $db, $this->pivot, $this->pivot->dictionary() );
 	}
