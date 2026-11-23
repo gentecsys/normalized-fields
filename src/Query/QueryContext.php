@@ -292,6 +292,29 @@ final class QueryContext {
 	}
 
 	/**
+	 * Whether a top-level field of this name exists for the post type (any data table, single or multi-valued).
+	 * An ambiguous name counts as owned, so callers fail closed instead of falling back to `wp_postmeta`.
+	 *
+	 * @param string $key  Meta key (the field name).
+	 * @param string $type Post type.
+	 * @return bool
+	 */
+	public function ownsField( string $key, string $type ): bool {
+		$rows = $this->db->select(
+			'SELECT field_id, field_key, data_table, multi FROM ' . $this->db->table( 'nf_fields' ) . ' WHERE field_name = ? AND parent_id = 0 ORDER BY field_id',
+			array( $key )
+		);
+		if ( array() === $rows ) {
+			return false;
+		}
+		try {
+			return null !== ( new FieldScope() )->choose( $rows, ObjectType::Post, $type, $key );
+		} catch ( \InvalidArgumentException $e ) {
+			return true;
+		}
+	}
+
+	/**
 	 * Resolve everything the compiler needs for a type.
 	 *
 	 * @param QuerySpec $spec Query.
