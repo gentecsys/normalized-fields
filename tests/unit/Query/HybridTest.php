@@ -271,6 +271,47 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * OR across NF clauses only is not read as AND.
+	 */
+	public function test_or_across_nf_clauses_fails_closed(): void {
+		$q = $this->run(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'     => 'hyprice',
+						'value'   => 10,
+						'compare' => '=',
+						'type'    => 'NUMERIC',
+					),
+					array(
+						'key'     => 'hyprice',
+						'value'   => 20,
+						'compare' => '=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		$this->assertSame( array(), $q->posts );
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+	}
+
+	/**
+	 * The nf argument's orderby works without a core orderby.
+	 */
+	public function test_nf_orderby(): void {
+		$q = new WP_Query(
+			array(
+				'post_type'    => self::TYPE,
+				'post__not_in' => array( 999999 ),
+				'nf'           => array( 'orderby' => array( 'hyprice' => 'DESC' ) ),
+			)
+		);
+		$this->assertSame( array_reverse( $this->ids ), wp_list_pluck( $q->posts, 'ID' ) );
+	}
+
+	/**
 	 * Queries without an NF field are untouched.
 	 */
 	public function test_without_nf_field_is_untouched(): void {

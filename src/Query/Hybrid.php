@@ -27,6 +27,13 @@ final class Hybrid {
 	public const ID_CAP = 5000;
 
 	/**
+	 * Ownership lookups of this request, by post type and key.
+	 *
+	 * @var array<string,bool>
+	 */
+	private array $owned = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param QueryContext $context Query context.
@@ -76,19 +83,23 @@ final class Hybrid {
 			$this->failClosed( $query, 'schema not current' );
 			return;
 		}
+		$cap = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		try {
 			$spec = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), false ) )->translate( $split['args'] );
 			if ( null === $spec ) {
 				$this->failClosed( $query, 'unsupported NF condition' );
 				return;
 			}
-			$spec = new QuerySpec( $spec->type, $spec->subtype, array_values( Status::cases() ), $spec->conditions, $spec->orders, 0, 0, $spec->masks, $spec->rows );
-			$ids  = null === $this->context->compile( $spec ) ? array() : $this->context->ids( $spec );
+			$spec = new QuerySpec( $spec->type, $spec->subtype, array_values( Status::cases() ), $spec->conditions, $spec->orders, $cap + 1, 0, $spec->masks, $spec->rows );
+			if ( null === $this->context->compile( $spec ) ) {
+				$this->failClosed( $query, 'no pivot set for the post type' );
+				return;
+			}
+			$ids = $this->context->ids( $spec );
 		} catch ( \Throwable $e ) {
 			$this->failClosed( $query, 'backend: ' . $e->getMessage() );
 			return;
 		}
-		$cap = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		if ( count( $ids ) > $cap ) {
 			$this->failClosed( $query, 'more than ' . $cap . ' ids' );
 			return;
@@ -129,7 +140,20 @@ final class Hybrid {
 	 * @return array{args:array<string,mixed>|null,meta_query:array<mixed>,strip_key:bool,ordered:bool}|null Null when no NF field is involved.
 	 */
 	private function split( array $vars, ?string $type ): ?array {
-		$owns = fn( $key ): bool => null !== $type && is_string( $key ) && '' !== $key && $this->context->ownsField( $key, $type );
+		$owns = function ( $key ) use ( $type ): bool {
+			if ( null === $type || ! is_string( $key ) || '' === $key ) {
+				return false;
+			}
+			$id = $type . "\0" . $key;
+			if ( ! isset( $this->owned[ $id ] ) ) {
+				try {
+					$this->owned[ $id ] = $this->context->ownsField( $key, $type );
+				} catch ( \Throwable $e ) {
+					return false; // A failed lookup must not blank unrelated queries.
+				}
+			}
+			return $this->owned[ $id ];
+		};
 		$meta = is_array( $vars['meta_query'] ?? null ) ? $vars['meta_query'] : array();
 		$nf   = array();
 		$core = array();
@@ -154,8 +178,8 @@ final class Hybrid {
 			}
 		}
 		$relation = strtoupper( (string) ( $meta['relation'] ?? 'AND' ) );
-		if ( array() !== $nf && 'AND' !== $relation && array() !== $core ) {
-			$bad = true; // OR between an NF clause and a core clause cannot be split.
+		if ( 'AND' !== $relation && ( count( $nf ) > 1 || ( array() !== $nf && array() !== $core ) ) ) {
+			$bad = true; // OR across NF clauses, or between an NF clause and a core clause, cannot be split.
 		}
 		$key     = $vars['meta_key'] ?? '';
 		$nf_key  = $owns( $key );
@@ -179,7 +203,7 @@ final class Hybrid {
 			if ( $nf_arg ) {
 				$args['nf'] = $vars['nf'];
 			}
-			if ( $ordered ) {
+			if ( $ordered && ! ( $nf_arg && isset( $vars['nf']['orderby'] ) ) ) {
 				$args['orderby'] = $orderby;
 				$args['order']   = $vars['order'] ?? 'DESC';
 			}
