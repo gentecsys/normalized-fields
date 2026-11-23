@@ -72,6 +72,20 @@ final class PreQuery {
 	}
 
 	/**
+	 * Whether the full short-circuit can answer this query (same gates as `answer()`, without running it).
+	 *
+	 * @param \WP_Query $query Query.
+	 * @return bool
+	 */
+	public function translatable( \WP_Query $query ): bool {
+		$args = $this->args( $query );
+		if ( null === $args || ! Upgrader::isCurrent() ) {
+			return false;
+		}
+		return null !== ( new ArgsTranslator( array( $this->context, 'fieldKind' ), is_user_logged_in() ) )->translate( $args );
+	}
+
+	/**
 	 * Answer a query, or null when core must.
 	 *
 	 * @param \WP_Query $query Query.

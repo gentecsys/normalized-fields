@@ -181,7 +181,9 @@ final class Plugin {
 		 * @param bool $on Default false.
 		 */
 		if ( apply_filters( 'nf/query/short_circuit', false ) ) { // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-			$services[] = new Query\PreQuery( self::queryContext() );
+			$pre        = new Query\PreQuery( self::queryContext() );
+			$services[] = $pre;
+			$services[] = new Query\Hybrid( self::queryContext(), $pre );
 		}
 		return $services;
 	}
