@@ -452,7 +452,11 @@ final class Hybrid {
 		foreach ( array( 'paged', 'offset', 'posts_per_page', 'nopaging', 'no_found_rows' ) as $name ) {
 			unset( $vars[ $name ] );
 		}
-		return 'x:' . md5( (string) wp_json_encode( array( $vars, $full, $ordered, $max, $version, wp_cache_get_last_changed( 'posts' ), is_user_logged_in() ? get_current_user_id() : 0 ) ) );
+		if ( ! empty( $vars['meta_query'] ) ) {
+			return null; // Meta writes on core-side keys do not bump any cache version.
+		}
+		$json = wp_json_encode( array( $vars, $full, $ordered, $max, $version, wp_cache_get_last_changed( 'posts' ), wp_cache_get_last_changed( 'terms' ), is_user_logged_in() ? get_current_user_id() : 0 ) );
+		return false === $json ? null : 'x:' . md5( $json );
 	}
 
 	/**
