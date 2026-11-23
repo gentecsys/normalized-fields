@@ -143,7 +143,6 @@ final class Hybrid {
 			return;
 		}
 		$cap  = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-		$full = null;
 		try {
 			$spec = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), false ) )->translate( $split['args'] );
 			if ( null === $spec ) {
@@ -161,7 +160,7 @@ final class Hybrid {
 			$this->failClosed( $query, 'backend: ' . $e->getMessage() );
 			return;
 		}
-		if ( count( $ids ) > $cap && $full instanceof QuerySpec ) {
+		if ( count( $ids ) > $cap ) {
 			$this->large( $query, $split, $full, $cap );
 			return;
 		}
