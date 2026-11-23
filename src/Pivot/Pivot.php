@@ -107,11 +107,6 @@ final class Pivot {
 	}
 
 	/**
-	 * Row pivot service.
-	 *
-	 * @return RowPivot
-	 */
-	/**
 	 * Row pivot and rollups (Series rows).
 	 *
 	 * @return RowPivot

@@ -219,4 +219,23 @@ class CountsTest extends WP_UnitTestCase {
 		$this->assertEquals( $through, $this->cells() );
 		$this->assertSame( $this->live( 'status = 1' ), $this->pivot->counts()->count( $this->pivot_id, array( 1 ) ) );
 	}
+
+	/**
+	 * A failure inside the write transaction leaves the rollup unchanged.
+	 */
+	public function test_rollback_leaves_counts_unchanged(): void {
+		$a      = $this->make( 'Oslo', array( 'art' ), 1 );
+		$before = $this->cells();
+		try {
+			nf_db()->transaction(
+				function () use ( $a ): void {
+					$this->pivot->sync( $this->pivot_id, $a, array( 'status' => 6, 'published' => '2026-11-03 10:00:00' ) );
+					throw new RuntimeException( 'abort' );
+				}
+			);
+		} catch ( RuntimeException $e ) {
+			$this->assertSame( 'abort', $e->getMessage() );
+		}
+		$this->assertEquals( $before, $this->cells() );
+	}
 }
