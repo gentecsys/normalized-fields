@@ -400,7 +400,7 @@ class HybridTest extends WP_UnitTestCase {
 		$this->hy_cap( 3 );
 		$where = static fn( $w ) => $w;
 		add_filter( 'posts_where', $where ); // Keeps the full short-circuit out; the hybrid path takes the query.
-		$q = new WP_Query(
+		$q     = new WP_Query(
 			array(
 				'post_type'      => self::TYPE,
 				'meta_key'       => 'hyprice',
