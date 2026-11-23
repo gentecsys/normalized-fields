@@ -142,7 +142,7 @@ final class Hybrid {
 			$this->failClosed( $query, 'schema not current' );
 			return;
 		}
-		$cap  = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$cap = max( 1, (int) apply_filters( 'nf/hybrid/id_cap', self::ID_CAP ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		try {
 			$spec = ( new ArgsTranslator( array( $this->context, 'fieldKind' ), false ) )->translate( $split['args'] );
 			if ( null === $spec ) {
