@@ -86,7 +86,7 @@ final class CountTable {
 			return;
 		}
 		$ttl = max( 60, (int) apply_filters( 'nf/count_cache/ttl', self::TTL ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-		$t = $this->db->table( 'nf_count_cache' );
+		$t   = $this->db->table( 'nf_count_cache' );
 		try {
 			$this->db->execute(
 				$this->db->dialect()->upsert( $t, array( 'cache_key' ), array( 'pivot_id', 'version', 'n', 'expires' ) ),
