@@ -264,7 +264,7 @@ class HybridTest extends WP_UnitTestCase {
 		$cap = static fn() => 2;
 		add_filter( 'nf/hybrid/id_cap', $cap );
 		add_filter( 'nf/hybrid/set_max', $cap );
-		$q   = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
+		$q = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
 		remove_filter( 'nf/hybrid/id_cap', $cap );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
