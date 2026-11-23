@@ -152,6 +152,7 @@ final class Plugin {
 		return self::$jobs ??= new Core\Jobs\JobRunner(
 			array(
 				new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ),
+				new Core\Jobs\CountCacheCleanupJob( self::db() ),
 				new Migration\PostPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
 				new Migration\ObjectPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
 				new Migration\PortVerifyJob( new Migration\AcfSource(), new Migration\PortVerifier( self::store(), self::fields(), null, null, self::sorter() ) ),

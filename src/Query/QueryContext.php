@@ -122,14 +122,22 @@ final class QueryContext {
 		if ( array() === $spec->conditions && array() === $spec->masks && array() === $spec->rows && $this->pivot->countsReady( $pivotId ) ) {
 			return $this->pivot->counts()->count( $pivotId, array_map( static fn ( Status $s ): int => $s->value, $statuses ) );
 		}
-		$key    = CountCache::key( $pivotId, $this->pivot->writeVersion( $pivotId ), $c->count_sql, $c->count_params );
-		$cached = CountCache::get( $key );
+		$version = $this->pivot->writeVersion( $pivotId );
+		$key     = CountCache::key( $pivotId, $version, $c->count_sql, $c->count_params );
+		$cached  = CountCache::get( $key );
 		if ( null !== $cached ) {
 			return $cached;
+		}
+		$table  = new CountTable( $this->db );
+		$stored = $table->get( $key, $pivotId, $version );
+		if ( null !== $stored ) {
+			CountCache::set( $key, $stored );
+			return $stored;
 		}
 		$rows  = $this->db->select( $c->count_sql, $c->count_params );
 		$total = (int) ( $rows[0]['c'] ?? 0 );
 		CountCache::set( $key, $total );
+		$table->put( $key, $pivotId, $version, $total );
 		return $total;
 	}
 

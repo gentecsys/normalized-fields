@@ -102,6 +102,16 @@ final class Schema {
   PRIMARY KEY  (pivot_id, status, dim, val, day),
   KEY by_day (pivot_id, status, dim, day, val, n)
 ) {$charset};";
+		$sql[] = "CREATE TABLE {$p}nf_count_cache (
+  cache_key CHAR(40) NOT NULL,
+  pivot_id SMALLINT UNSIGNED NOT NULL,
+  version BIGINT UNSIGNED NOT NULL,
+  n BIGINT UNSIGNED NOT NULL,
+  expires DATETIME NOT NULL,
+  PRIMARY KEY  (cache_key),
+  KEY by_pivot (pivot_id, version),
+  KEY by_expires (expires)
+) {$charset};";
 		$sql[] = "CREATE TABLE {$p}nf_dict (
   dict_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   field_id INT UNSIGNED NOT NULL,

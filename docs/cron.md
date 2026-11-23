@@ -77,6 +77,10 @@ jobs:
 
 Many managed hosts already run a server cron for WordPress. Check how often it fires: if it's less often than every 5 minutes, add your own entry as above or ask the host to shorten the interval.
 
+## Count cache cleanup
+
+Sites without a persistent object cache keep cached totals in the `nf_count_cache` table. A logged-in request or WP-CLI that writes a row queues the `count_cache_cleanup` job, at most once a day. It runs on the next cron firing in one short step and deletes expired rows (24 hours, filter `nf/count_cache/ttl`) and rows from older versions. Anonymous requests never write to the table or queue the job. If cron doesn't fire, stale rows stay until it does; they are never read, because a row is a hit only at the current version.
+
 ## Running and checking jobs
 
 ```bash
