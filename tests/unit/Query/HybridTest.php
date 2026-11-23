@@ -117,6 +117,7 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function test_meta_query_clause_resolves_to_ids(): void {
 		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- test checks core's table is empty for the key.
 		$this->assertSame( 0, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'hyprice'" ) );
 		$q = $this->hy_run(
 			array(
@@ -220,6 +221,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * A stale schema fails closed instead of reading wp_postmeta.
 	 */
 	public function test_stale_schema_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		update_option( NF\Install\Upgrader::OPTION, 0 );
 		$fired = 0;
 		$count = static function () use ( &$fired ): void {
@@ -237,9 +239,10 @@ class HybridTest extends WP_UnitTestCase {
 	 * Lists above the cap fail closed until the large-list path exists.
 	 */
 	public function test_over_cap_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$cap = static fn() => 2;
 		add_filter( 'nf/hybrid/id_cap', $cap );
-		$q = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
+		$q   = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
 		remove_filter( 'nf/hybrid/id_cap', $cap );
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
@@ -249,6 +252,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * OR between an NF clause and a core clause cannot be split: fail closed.
 	 */
 	public function test_or_with_core_clause_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
@@ -274,6 +278,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * OR across NF clauses only is not read as AND.
 	 */
 	public function test_or_across_nf_clauses_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$q = $this->hy_run(
 			array(
 				'meta_query' => array(
@@ -315,6 +320,7 @@ class HybridTest extends WP_UnitTestCase {
 	 * A meta_value_num filter on an NF key is not silently dropped.
 	 */
 	public function test_meta_value_num_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$q = $this->hy_run(
 			array(
 				'meta_key'       => 'hyprice',
