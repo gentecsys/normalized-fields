@@ -257,12 +257,13 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Lists above the cap fail closed until the large-list path exists.
+	 * Both sides above the per-side ceiling fail closed.
 	 */
 	public function test_over_cap_fails_closed(): void {
 		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$cap = static fn() => 2;
 		add_filter( 'nf/hybrid/id_cap', $cap );
+		add_filter( 'nf/hybrid/set_max', $cap );
 		$q   = $this->hy_run( array( 'meta_key' => 'hyprice' ) );
 		remove_filter( 'nf/hybrid/id_cap', $cap );
 		$this->assertSame( array(), $q->posts );
@@ -596,17 +597,17 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A user without read_private_posts who owns a private post: core shows it to them, a status list can't, so NF
-	 * leaves the page to the core side (here both sides are over the cap with totals wanted: no rows, never wrong rows).
+	 * A user without read_private_posts who owns a private post: NF can't page it (no "own" status), so core's ID set
+	 * is intersected and includes the user's own private post.
 	 */
-	public function test_large_list_with_own_private_post_is_not_paged_by_nf(): void {
+	public function test_large_list_with_own_private_post_is_intersected(): void {
 		$author = self::factory()->user->create( array( 'role' => 'author' ) );
 		$this->hy_private( $this->ids[6], $author );
 		wp_set_current_user( $author );
-		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$q = $this->hy_large_page();
-		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
-		$this->assertSame( array(), $q->posts );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[6], $this->ids[5] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 6, $q->found_posts );
 	}
 
 	/**
@@ -614,6 +615,7 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function test_fail_closed_reason_lists_no_ids(): void {
 		$this->hy_cap( 3 );
+		add_filter( 'nf/hybrid/set_max', static fn () => 3 );
 		$this->setExpectedIncorrectUsage( Hybrid::class );
 		$why = '';
 		add_action(
@@ -635,6 +637,6 @@ class HybridTest extends WP_UnitTestCase {
 			)
 		);
 		remove_all_actions( 'nf/hybrid/failed' );
-		$this->assertSame( 'both sides over 3 ids', $why );
+		$this->assertSame( 'NF side over 3 ids', $why );
 	}
 }
