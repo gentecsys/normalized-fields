@@ -29,14 +29,14 @@ final class Hybrid {
 	public const ID_CAP = 5000;
 
 	/**
-	 * IDs per batch when walking NF's sorted list.
+	 * Default for the most IDs either side (NF or core) may contribute to an intersection.
 	 */
-	public const BATCH = 1000;
+	public const SET_MAX = 500000;
 
 	/**
-	 * Most batches one query may walk.
+	 * Object cache group of intersected ID lists.
 	 */
-	public const WALK_BATCHES = 50;
+	public const CACHE_GROUP = 'nf_hybrid';
 
 	/**
 	 * Ownership lookups of this request, by post type and key.
@@ -236,11 +236,7 @@ final class Hybrid {
 				$this->finish( $query, $ids, (bool) $split['ordered'] );
 				return;
 			}
-			if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) || ! is_user_logged_in() ) {
-				$this->failClosed( $query, 'both sides over ' . $cap . ' ids' . ( $split['ordered'] ? ' and no totals' : '' ) );
-				return;
-			}
-			$this->walk( $query, $full, $offset, $per );
+			$this->intersect( $query, $full, $split, $offset, $per );
 		} catch ( \Throwable $e ) {
 			$this->failClosed( $query, 'backend: ' . $e->getMessage() );
 		}
@@ -366,9 +362,10 @@ final class Hybrid {
 	 * @param \WP_Query $query Query.
 	 * @param int[]     $in    Restrict to these IDs (empty = no restriction beyond the query's own).
 	 * @param int       $limit Limit.
+	 * @param bool      $keepOrder Keep the query's own order instead of `none`.
 	 * @return int[]
 	 */
-	private function coreIds( \WP_Query $query, array $in, int $limit ): array {
+	private function coreIds( \WP_Query $query, array $in, int $limit, bool $keepOrder = false ): array {
 		$vars                        = $query->query_vars;
 		$vars['fields']              = 'ids';
 		$vars['no_found_rows']       = true;
@@ -378,7 +375,9 @@ final class Hybrid {
 		$vars['offset']              = 0;
 		$vars['nopaging']            = false;
 		$vars['posts_per_page']      = $limit;
-		$vars['orderby']             = array() === $in ? 'none' : 'post__in';
+		if ( ! $keepOrder || array() !== $in ) {
+			$vars['orderby'] = array() === $in ? 'none' : 'post__in';
+		}
 		if ( array() !== $in ) {
 			$own              = array_map( 'intval', (array) ( $vars['post__in'] ?? array() ) );
 			$vars['post__in'] = array() === $own ? $in : array_values( array_intersect( $in, $own ) );
@@ -391,34 +390,69 @@ final class Hybrid {
 	}
 
 	/**
-	 * Page through NF's sorted IDs in batches until the page fills, asking core which of each batch qualify.
+	 * Both sides are large: fetch each side's IDs once, intersect them in PHP and page the result, so the total is exact
+	 * for every user and every order. With NF ordering the result keeps NF's order; otherwise core's.
 	 *
-	 * @param \WP_Query $query  Query.
-	 * @param QuerySpec $full   NF spec, no limit.
-	 * @param int       $offset Rows to skip.
-	 * @param int       $per    Page size.
+	 * @param \WP_Query           $query  Query (NF clauses already stripped).
+	 * @param QuerySpec           $full   NF spec, no limit.
+	 * @param array<string,mixed> $split  Split.
+	 * @param int                 $offset Rows to skip.
+	 * @param int                 $per    Page size.
 	 * @return void
 	 */
-	private function walk( \WP_Query $query, QuerySpec $full, int $offset, int $per ): void {
-		$need = $offset + $per;
-		$kept = array();
-		$have = 0;
-		for ( $pos = 0, $n = 0; $n < self::WALK_BATCHES && $have < $need; $n++, $pos += self::BATCH ) {
-			$batch = $this->context->ids( $this->limited( $full, array(), self::BATCH, $pos ) );
-			if ( array() === $batch ) {
-				break;
+	private function intersect( \WP_Query $query, QuerySpec $full, array $split, int $offset, int $per ): void {
+		$max     = max( 1, (int) apply_filters( 'nf/hybrid/set_max', self::SET_MAX ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$ordered = (bool) $split['ordered'];
+		$key     = $this->cacheKey( $query, $full, $ordered, $max );
+		$all     = null === $key ? false : wp_cache_get( $key, self::CACHE_GROUP );
+		if ( ! is_array( $all ) ) {
+			$nf = $this->context->ids( $this->limited( $full, array(), $max + 1, 0 ) );
+			if ( count( $nf ) > $max ) {
+				$this->failClosed( $query, 'NF side over ' . $max . ' ids' );
+				return;
 			}
-			$kept = array_merge( $kept, $this->coreIds( $query, $batch, self::BATCH ) );
-			$have = count( $kept );
-			if ( count( $batch ) < self::BATCH ) {
-				break;
+			$core = $this->coreIds( $query, array(), $max + 1, ! $ordered );
+			if ( count( $core ) > $max ) {
+				$this->failClosed( $query, 'core side over ' . $max . ' ids' );
+				return;
+			}
+			if ( $ordered ) {
+				$keep = array_flip( $core );
+				$all  = array_values( array_filter( $nf, static fn ( int $id ): bool => isset( $keep[ $id ] ) ) );
+			} else {
+				$keep = array_flip( $nf );
+				$all  = array_values( array_filter( $core, static fn ( int $id ): bool => isset( $keep[ $id ] ) ) );
+			}
+			if ( null !== $key ) {
+				wp_cache_set( $key, $all, self::CACHE_GROUP, 300 );
 			}
 		}
-		if ( $have < $need && self::WALK_BATCHES === $n ) {
-			$this->failClosed( $query, 'page not filled within ' . ( self::WALK_BATCHES * self::BATCH ) . ' ids' );
-			return;
+		if ( empty( $query->query_vars['no_found_rows'] ) ) {
+			$this->totals         ??= new \WeakMap();
+			$this->totals[ $query ] = count( $all );
 		}
-		$this->finish( $query, array_slice( $kept, $offset, $per ), true, true );
+		$this->finish( $query, array_slice( $all, $offset, $per ), true, true );
+	}
+
+	/**
+	 * Cache key of an intersection: the query, the NF side's version and the bounds. Null when the version is unknown.
+	 *
+	 * @param \WP_Query $query   Query.
+	 * @param QuerySpec $full    NF spec.
+	 * @param bool      $ordered Whether NF orders the result.
+	 * @param int       $max     Per-side ceiling.
+	 * @return string|null
+	 */
+	private function cacheKey( \WP_Query $query, QuerySpec $full, bool $ordered, int $max ): ?string {
+		$version = $this->context->version( $full );
+		if ( null === $version ) {
+			return null;
+		}
+		$vars = $query->query_vars;
+		foreach ( array( 'paged', 'offset', 'posts_per_page', 'nopaging', 'no_found_rows' ) as $name ) {
+			unset( $vars[ $name ] );
+		}
+		return 'x:' . md5( (string) wp_json_encode( array( $vars, $full, $ordered, $max, $version, wp_cache_get_last_changed( 'posts' ), is_user_logged_in() ? get_current_user_id() : 0 ) ) );
 	}
 
 	/**

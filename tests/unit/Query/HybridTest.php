@@ -101,6 +101,7 @@ class HybridTest extends WP_UnitTestCase {
 	 */
 	public function tear_down() {
 		remove_all_filters( 'nf/hybrid/id_cap' );
+		remove_all_filters( 'nf/hybrid/set_max' );
 		remove_action( 'pre_get_posts', array( $this->hook, 'apply' ), 9999 );
 		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
 		remove_filter( 'the_posts', array( $this->hook, 'restorePaging' ), 1 );
@@ -445,48 +446,69 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Both sides over the cap and NF ordering: batches of NF's sorted IDs are checked against core until the page fills.
+	 * Both sides over the cap with NF ordering: the intersection keeps NF's order, with an exact total for a visitor.
 	 */
-	public function test_both_sides_large_walks_nf_order(): void {
+	public function test_both_sides_large_intersect_in_nf_order_with_total(): void {
 		$this->hy_cap( 3 );
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		wp_set_current_user( 0 );
 		$q = $this->hy_run(
 			array(
 				'meta_key'       => 'hyprice',
 				'orderby'        => 'meta_value_num',
 				'order'          => 'DESC',
 				'posts_per_page' => 2,
-				'no_found_rows'  => true,
+				'paged'          => 2,
 			)
 		);
 		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
-		$this->assertSame( array( $this->ids[6], $this->ids[5] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 7, $q->found_posts );
+		$this->assertSame( 4, $q->max_num_pages );
+		$this->assertSame( 2, (int) $q->get( 'paged' ) );
 	}
 
 	/**
-	 * Both sides over the cap without NF ordering, or without no_found_rows, cannot be answered exactly: no rows.
+	 * Both sides over the cap without NF ordering: core's order, exact total, and a second run answers from the cache.
 	 */
-	public function test_both_sides_large_fails_closed_without_exact_answer(): void {
+	public function test_both_sides_large_unordered_keeps_core_order(): void {
+		$this->hy_cap( 3 );
+		$args = array(
+			'meta_query'     => array(
+				array(
+					'key'     => 'hyprice',
+					'value'   => 10,
+					'compare' => '>=',
+					'type'    => 'NUMERIC',
+				),
+			),
+			'orderby'        => 'ID',
+			'order'          => 'ASC',
+			'posts_per_page' => 3,
+		);
+		$q    = $this->hy_run( $args );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array_slice( $this->ids, 0, 3 ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 7, $q->found_posts );
+		$again = $this->hy_run( $args );
+		$this->assertSame( wp_list_pluck( $q->posts, 'ID' ), wp_list_pluck( $again->posts, 'ID' ) );
+	}
+
+	/**
+	 * A side over the per-side ceiling fails closed.
+	 */
+	public function test_both_sides_over_set_max_fails_closed(): void {
 		$this->hy_cap( 3 );
 		$this->setExpectedIncorrectUsage( Hybrid::class );
-		$clause = array(
-			array(
-				'key'     => 'hyprice',
-				'value'   => 10,
-				'compare' => '>=',
-				'type'    => 'NUMERIC',
-			),
-		);
-		$q      = $this->hy_run( array( 'meta_query' => $clause ) );
-		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
-		$this->assertSame( array(), $q->posts );
+		add_filter( 'nf/hybrid/set_max', static fn () => 4 );
 		$q = $this->hy_run(
 			array(
-				'meta_key' => 'hyprice',
-				'orderby'  => 'meta_value_num',
+				'meta_key'       => 'hyprice',
+				'orderby'        => 'meta_value_num',
+				'posts_per_page' => 2,
 			)
 		);
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( array(), $q->posts );
 	}
 
 	/**
