@@ -122,6 +122,19 @@ class CountsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Core columns for a sync.
+	 *
+	 * @param int $status Status code.
+	 * @return array<string,mixed>
+	 */
+	private function core( int $status ): array {
+		return array(
+			'status'    => $status,
+			'published' => '2026-11-03 10:00:00',
+		);
+	}
+
+	/**
 	 * Every cell of the rollup, sorted.
 	 *
 	 * @return array<int,array<string,mixed>>
@@ -147,10 +160,10 @@ class CountsTest extends WP_UnitTestCase {
 	 * Write-through counts equal live counts, including a status move, a value change and a delete.
 	 */
 	public function test_write_through_equals_live_counts(): void {
-		$a = $this->make( 'Oslo', array( 'music', 'art' ), 1 );
-		$b = $this->make( 'Oslo', array( 'music' ), 0 );
+		$a      = $this->make( 'Oslo', array( 'music', 'art' ), 1 );
+		$b      = $this->make( 'Oslo', array( 'music' ), 0 );
 		$this->make( 'Rome', array( 'art' ), 1, 1, '2026-11-04 09:00:00' );
-		$c = $this->make( 'Rome', array(), 1, 2 );
+		$c      = $this->make( 'Rome', array(), 1, 2 );
 		$counts = $this->pivot->counts();
 		$this->assertSame( 3, $counts->count( $this->pivot_id, array( 1 ) ) );
 		$this->assertSame( 1, $counts->count( $this->pivot_id, array( 2 ) ) );
@@ -159,10 +172,10 @@ class CountsTest extends WP_UnitTestCase {
 		$this->assertSame( $this->live( 'status = 1' ), $counts->count( $this->pivot_id, array( 1 ) ) );
 
 		// Move $c to publish, change $b's flag, trash $a, delete $b: cells stay equal to a rebuild.
-		$this->pivot->sync( $this->pivot_id, $c, array( 'status' => 1, 'published' => '2026-11-03 10:00:00' ) );
+		$this->pivot->sync( $this->pivot_id, $c, $this->core( 1 ) );
 		$this->store->set( ObjectType::Post, $b, 'field_t34_feat', 1 );
-		$this->pivot->sync( $this->pivot_id, $b, array( 'status' => 1, 'published' => '2026-11-03 10:00:00' ) );
-		$this->pivot->sync( $this->pivot_id, $a, array( 'status' => 6, 'published' => '2026-11-03 10:00:00' ) );
+		$this->pivot->sync( $this->pivot_id, $b, $this->core( 1 ) );
+		$this->pivot->sync( $this->pivot_id, $a, $this->core( 6 ) );
 		$this->pivot->remove( $this->pivot_id, $b );
 		$through = $this->cells();
 		$this->pivot->rebuildCounts( $this->pivot_id );
@@ -197,21 +210,28 @@ class CountsTest extends WP_UnitTestCase {
 	 * Seeded fuzz: random writes keep the rollup equal to a rebuild.
 	 */
 	public function test_fuzz_rollup_equals_rebuild(): void {
-		mt_srand( 34 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_seeding_mt_srand
+		$seed = 34;
+		$rnd  = function ( int $lo, int $hi ) use ( &$seed ): int {
+			$seed = ( $seed * 1103515245 + 12345 ) % 2147483648;
+			return $lo + intdiv( $seed >> 8, 1 ) % ( $hi - $lo + 1 );
+		};
 		$cities = array( 'Oslo', 'Rome', 'Lima' );
 		$cats   = array( 'a', 'b', 'c', 'd' );
 		$made   = array();
 		for ( $i = 0; $i < 30; $i++ ) {
-			$pick = array_values( array_filter( $cats, fn() => 1 === mt_rand( 0, 1 ) ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_mt_rand
-			$made[] = $this->make( $cities[ mt_rand( 0, 2 ) ], $pick, mt_rand( 0, 1 ), mt_rand( 1, 3 ), '2026-11-0' . mt_rand( 1, 5 ) . ' 08:00:00' );
+			$pick   = array_values( array_filter( $cats, fn() => 1 === $rnd( 0, 1 ) ) );
+			$made[] = $this->make( $cities[ $rnd( 0, 2 ) ], $pick, $rnd( 0, 1 ), $rnd( 1, 3 ), '2026-11-0' . $rnd( 1, 5 ) . ' 08:00:00' );
 		}
 		foreach ( $made as $id ) {
-			$roll = mt_rand( 0, 2 );
+			$roll = $rnd( 0, 2 );
 			if ( 0 === $roll ) {
 				$this->pivot->remove( $this->pivot_id, $id );
 			} elseif ( 1 === $roll ) {
-				$this->store->set( ObjectType::Post, $id, 'field_t34_city', $cities[ mt_rand( 0, 2 ) ] );
-				$this->pivot->sync( $this->pivot_id, $id, array( 'status' => mt_rand( 1, 3 ), 'published' => '2026-11-0' . mt_rand( 1, 5 ) . ' 08:00:00' ) );
+				$this->store->set( ObjectType::Post, $id, 'field_t34_city', $cities[ $rnd( 0, 2 ) ] );
+				$this->pivot->sync( $this->pivot_id, $id, array(
+						'status'    => $rnd( 1, 3 ),
+						'published' => '2026-11-0' . $rnd( 1, 5 ) . ' 08:00:00',
+					) );
 			}
 		}
 		$through = $this->cells();
@@ -229,7 +249,7 @@ class CountsTest extends WP_UnitTestCase {
 		try {
 			nf_db()->transaction(
 				function () use ( $a ): void {
-					$this->pivot->sync( $this->pivot_id, $a, array( 'status' => 6, 'published' => '2026-11-03 10:00:00' ) );
+					$this->pivot->sync( $this->pivot_id, $a, $this->core( 6 ) );
 					throw new RuntimeException( 'abort' );
 				}
 			);

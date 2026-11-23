@@ -107,15 +107,15 @@ final class Counts {
 	/**
 	 * Apply the difference between an old and a new pivot row (either may be null: insert or delete).
 	 *
-	 * @param int                      $pivotId Pivot set id.
-	 * @param array<string,mixed>|null $old     Row before, or null.
-	 * @param array<string,mixed>|null $new     Row after, or null.
-	 * @param string[]                 $dims    Dimension slots.
+	 * @param int                      $pivotId   Pivot set id.
+	 * @param array<string,mixed>|null $old       Row before, or null.
+	 * @param array<string,mixed>|null $after_row Row after, or null.
+	 * @param string[]                 $dims      Dimension slots.
 	 * @return void
 	 */
-	public function apply( int $pivotId, ?array $old, ?array $new, array $dims ): void {
+	public function apply( int $pivotId, ?array $old, ?array $after_row, array $dims ): void {
 		$before = null === $old ? array() : $this->cells( $old, $dims );
-		$after  = null === $new ? array() : $this->cells( $new, $dims );
+		$after  = null === $after_row ? array() : $this->cells( $after_row, $dims );
 		foreach ( array_diff_key( $before, $after ) as $cell => $_ ) {
 			$this->add( $pivotId, $cell, -1 );
 		}
@@ -133,10 +133,10 @@ final class Counts {
 	 * @return void
 	 */
 	private function add( int $pivotId, string $cell, int $delta ): void {
-		[ $status, $dim, $val, $day ] = explode( '|', $cell );
+		$parts = explode( '|', $cell );
 		$t     = $this->db->table( 'nf_count' );
 		$where = 'pivot_id = ? AND status = ? AND dim = ? AND val = ? AND day = ?';
-		$key   = array( $pivotId, (int) $status, $dim, (int) $val, $day );
+		$key   = array( $pivotId, (int) $parts[0], $parts[1], (int) $parts[2], $parts[3] );
 		if ( $delta < 0 ) {
 			$this->db->execute( "UPDATE {$t} SET n = n - 1 WHERE {$where} AND n > 0", $key );
 			$this->db->execute( "DELETE FROM {$t} WHERE {$where} AND n = 0", $key );

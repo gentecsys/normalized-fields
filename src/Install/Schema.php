@@ -92,6 +92,16 @@ final class Schema {
 ) {$charset};";
 		$sql[] = self::pivotTable( $p, $charset );
 		$sql[] = self::rowPivotTable( $p, $charset );
+		$sql[] = "CREATE TABLE {$p}nf_count (
+  pivot_id SMALLINT UNSIGNED NOT NULL,
+  status TINYINT UNSIGNED NOT NULL,
+  dim CHAR(3) NOT NULL,
+  val BIGINT NOT NULL,
+  day DATE NOT NULL,
+  n INT UNSIGNED NOT NULL,
+  PRIMARY KEY  (pivot_id, status, dim, val, day),
+  KEY by_day (pivot_id, status, dim, day, val, n)
+) {$charset};";
 		$sql[] = "CREATE TABLE {$p}nf_dict (
   dict_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   field_id INT UNSIGNED NOT NULL,
