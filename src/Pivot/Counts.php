@@ -190,12 +190,12 @@ final class Counts {
 	 * @return int
 	 */
 	public function count( int $pivotId, array $statuses, string $dim = '*', int $val = 0, ?string $from = null, ?string $to = null ): int {
-		if ( array() === $statuses ) {
+		if ( 0 === count( $statuses ) ) {
 			return 0;
 		}
 		$t      = $this->db->table( 'nf_count' );
 		$in     = implode( ', ', array_fill( 0, max( 1, count( $statuses ) ), '?' ) );
-		$params = array_merge( array( $pivotId ), array() === $statuses ? array( 0 ) : array_map( 'intval', $statuses ), array( $dim, $val ) );
+		$params = array_merge( array( $pivotId ), array_map( 'intval', $statuses ), array( $dim, $val ) );
 		$sql    = "SELECT COALESCE(SUM(n), 0) AS c FROM {$t} WHERE pivot_id = ? AND status IN ({$in}) AND dim = ? AND val = ?";
 		if ( null !== $from ) {
 			$sql     .= ' AND day >= ?';
