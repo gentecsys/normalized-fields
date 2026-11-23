@@ -160,8 +160,8 @@ class CountsTest extends WP_UnitTestCase {
 	 * Write-through counts equal live counts, including a status move, a value change and a delete.
 	 */
 	public function test_write_through_equals_live_counts(): void {
-		$a      = $this->make( 'Oslo', array( 'music', 'art' ), 1 );
-		$b      = $this->make( 'Oslo', array( 'music' ), 0 );
+		$a = $this->make( 'Oslo', array( 'music', 'art' ), 1 );
+		$b = $this->make( 'Oslo', array( 'music' ), 0 );
 		$this->make( 'Rome', array( 'art' ), 1, 1, '2026-11-04 09:00:00' );
 		$c      = $this->make( 'Rome', array(), 1, 2 );
 		$counts = $this->pivot->counts();
@@ -210,8 +210,8 @@ class CountsTest extends WP_UnitTestCase {
 	 * Seeded fuzz: random writes keep the rollup equal to a rebuild.
 	 */
 	public function test_fuzz_rollup_equals_rebuild(): void {
-		$seed = 34;
-		$rnd  = function ( int $lo, int $hi ) use ( &$seed ): int {
+		$seed   = 34;
+		$rnd    = function ( int $lo, int $hi ) use ( &$seed ): int {
 			$seed = ( $seed * 1103515245 + 12345 ) % 2147483648;
 			return $lo + intdiv( $seed >> 8, 1 ) % ( $hi - $lo + 1 );
 		};
@@ -228,10 +228,11 @@ class CountsTest extends WP_UnitTestCase {
 				$this->pivot->remove( $this->pivot_id, $id );
 			} elseif ( 1 === $roll ) {
 				$this->store->set( ObjectType::Post, $id, 'field_t34_city', $cities[ $rnd( 0, 2 ) ] );
-				$this->pivot->sync( $this->pivot_id, $id, array(
-						'status'    => $rnd( 1, 3 ),
-						'published' => '2026-11-0' . $rnd( 1, 5 ) . ' 08:00:00',
-					) );
+				$core = array(
+					'status'    => $rnd( 1, 3 ),
+					'published' => '2026-11-0' . $rnd( 1, 5 ) . ' 08:00:00',
+				);
+				$this->pivot->sync( $this->pivot_id, $id, $core );
 			}
 		}
 		$through = $this->cells();
