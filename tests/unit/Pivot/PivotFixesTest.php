@@ -216,7 +216,8 @@ class PivotFixesTest extends WP_UnitTestCase {
 			)
 		);
 		$scope  = new NF\Pivot\FieldScope( $source );
-		$rows   = nf_db()->select( 'SELECT field_key FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_name = ? ORDER BY field_id', array( 'price' ) );
+		// Only this test's two fields: other tests may have left fields with the same name in a reused test database.
+		$rows = nf_db()->select( 'SELECT field_key FROM ' . nf_db()->table( 'nf_fields' ) . ' WHERE field_name = ? AND field_key IN ( ?, ? ) ORDER BY field_id', array( 'price', 'field_t30k_price_a', 'field_t30k_price_b' ) );
 		$this->assertCount( 2, $rows );
 		$this->assertSame( 'field_t30k_price_b', $scope->choose( $rows, ObjectType::Post, self::TYPE_B, 'price' )['field_key'] );
 		$this->assertSame( 'field_t30k_price_a', $scope->choose( $rows, ObjectType::Post, self::TYPE, 'price' )['field_key'] );
