@@ -84,7 +84,9 @@ class HybridTest extends WP_UnitTestCase {
 	 * Remove hooks and data.
 	 */
 	public function tear_down() {
+		remove_all_filters( 'nf/hybrid/id_cap' );
 		remove_action( 'pre_get_posts', array( $this->hook, 'apply' ), 9999 );
+		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
 		foreach ( $this->ids as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 			wp_delete_post( $id, true );
@@ -338,5 +340,134 @@ class HybridTest extends WP_UnitTestCase {
 		$q = $this->hy_run( array( 'meta_key' => 'color' ) );
 		$this->assertSame( '', (string) $q->get( 'nf_mode' ) );
 		$this->assertSame( 'color', $q->get( 'meta_key' ) );
+	}
+
+	/**
+	 * Lower the ID cap so seven posts are a large list.
+	 *
+	 * @param int $cap Cap.
+	 */
+	private function hy_cap( int $cap ): void {
+		add_filter(
+			'nf/hybrid/id_cap',
+			static function () use ( $cap ) {
+				return $cap;
+			}
+		);
+	}
+
+	/**
+	 * Over the cap with a small core side: the core IDs are filtered on the NF side.
+	 */
+	public function test_large_list_starts_from_the_smaller_core_side(): void {
+		$this->hy_cap( 3 );
+		$others = get_posts(
+			array(
+				'post_type'   => self::TYPE,
+				'post_status' => 'any',
+				'fields'      => 'ids',
+				'nopaging'    => true,
+			)
+		);
+		$why    = '';
+		add_action(
+			'nf/hybrid/failed',
+			static function ( $reason ) use ( &$why ) {
+				$why = $reason;
+			}
+		);
+		$q = $this->hy_run(
+			array(
+				'post__not_in' => array_values( array_diff( $others, array_slice( $this->ids, 4 ) ) ),
+				'meta_query'   => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 20,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ), $why );
+		$this->assertEqualsCanonicalizing( array_slice( $this->ids, 4 ), wp_list_pluck( $q->posts, 'ID' ) );
+	}
+
+	/**
+	 * Over the cap, nothing else in the query: NF pages its own sorted list and supplies the total.
+	 */
+	public function test_large_list_pages_in_nf_order_with_total(): void {
+		$this->hy_cap( 3 );
+		$where = static fn( $w ) => $w;
+		add_filter( 'posts_where', $where ); // Keeps the full short-circuit out; the hybrid path takes the query.
+		$q     = new WP_Query(
+			array(
+				'post_type'      => self::TYPE,
+				'meta_key'       => 'hyprice',
+				'orderby'        => 'meta_value_num',
+				'order'          => 'DESC',
+				'posts_per_page' => 2,
+				'paged'          => 2,
+				'meta_query'     => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 20,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		remove_filter( 'posts_where', $where );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 2, (int) $q->get( 'paged' ) );
+		$this->assertSame( 6, $q->found_posts );
+		$this->assertSame( 3, $q->max_num_pages );
+	}
+
+	/**
+	 * Both sides over the cap and NF ordering: batches of NF's sorted IDs are checked against core until the page fills.
+	 */
+	public function test_both_sides_large_walks_nf_order(): void {
+		$this->hy_cap( 3 );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$q = $this->hy_run(
+			array(
+				'meta_key'       => 'hyprice',
+				'orderby'        => 'meta_value_num',
+				'order'          => 'DESC',
+				'posts_per_page' => 2,
+				'no_found_rows'  => true,
+			)
+		);
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[6], $this->ids[5] ), wp_list_pluck( $q->posts, 'ID' ) );
+	}
+
+	/**
+	 * Both sides over the cap without NF ordering, or without no_found_rows, cannot be answered exactly: no rows.
+	 */
+	public function test_both_sides_large_fails_closed_without_exact_answer(): void {
+		$this->hy_cap( 3 );
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$clause = array(
+			array(
+				'key'     => 'hyprice',
+				'value'   => 10,
+				'compare' => '>=',
+				'type'    => 'NUMERIC',
+			),
+		);
+		$q      = $this->hy_run( array( 'meta_query' => $clause ) );
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( array(), $q->posts );
+		$q = $this->hy_run(
+			array(
+				'meta_key' => 'hyprice',
+				'orderby'  => 'meta_value_num',
+			)
+		);
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
 	}
 }
