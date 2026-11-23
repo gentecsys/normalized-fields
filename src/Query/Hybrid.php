@@ -217,7 +217,7 @@ final class Hybrid {
 					return;
 				}
 				if ( ! $split['ordered'] || empty( $vars['no_found_rows'] ) || ! is_user_logged_in() ) {
-					$this->failClosed( $query, 'both sides over ' . $cap . ' ids' . ( $split['ordered'] ? ' and no totals' : '' ) );
+					$this->failClosed( $query, 'both sides over ' . $cap . ' ids (' . count( $core ) . ': ' . implode( ',', $core ) . ')' . ( $split['ordered'] ? ' and no totals' : '' ) );
 					return;
 				}
 				$this->walk( $query, $full, $offset, $per );
