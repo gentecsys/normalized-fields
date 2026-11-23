@@ -71,6 +71,17 @@ final class QueryContext {
 	}
 
 	/**
+	 * Write version of the pivot set a spec reads, or null when it has none.
+	 *
+	 * @param QuerySpec $spec Query.
+	 * @return int|null
+	 */
+	public function version( QuerySpec $spec ): ?int {
+		$pivotId = $this->pivot->findSetId( $spec->type, $spec->subtype );
+		return null === $pivotId ? null : $this->pivot->writeVersion( $pivotId );
+	}
+
+	/**
 	 * Cursor values (sort columns plus id) of one matching object, for seek pagination.
 	 *
 	 * @param QuerySpec $spec Query.
