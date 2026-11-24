@@ -525,7 +525,7 @@ class HybridTest extends WP_UnitTestCase {
 		global $wpdb;
 		$this->hy_cap( 3 );
 		add_filter( 'nf/hybrid/cold_slots', static fn () => 1 );
-		$other = new \mysqli( DB_HOST, DB_USER, DB_PASSWORD, DB_NAME );
+		$other = new \mysqli( DB_HOST, DB_USER, DB_PASSWORD, DB_NAME ); // phpcs:ignore WordPress.DB.RestrictedClasses.mysql__mysqli
 		$name  = $other->real_escape_string( 'nf_' . md5( $wpdb->prefix . 'hybrid_cold_0' ) );
 		$other->query( "SELECT GET_LOCK('" . $name . "', 0)" );
 		$args = array(
