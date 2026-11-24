@@ -125,10 +125,10 @@ class HybridTest extends WP_UnitTestCase {
 		return new WP_Query(
 			array_merge(
 				array(
-					'post_type'    => self::TYPE,
-					'menu_order'   => 0, // Core-only filter, so the hybrid path takes the query.
-					'orderby'      => 'title',
-					'order'        => 'ASC',
+					'post_type'  => self::TYPE,
+					'menu_order' => 0, // Core-only filter, so the hybrid path takes the query.
+					'orderby'    => 'title',
+					'order'      => 'ASC',
 				),
 				$extra
 			)
@@ -332,9 +332,9 @@ class HybridTest extends WP_UnitTestCase {
 	public function test_nf_orderby(): void {
 		$q = new WP_Query(
 			array(
-				'post_type'    => self::TYPE,
-				'menu_order'   => 0, // Core-only filter, so the hybrid path takes the query.
-				'nf'           => array( 'orderby' => array( 'hyprice' => 'DESC' ) ),
+				'post_type'  => self::TYPE,
+				'menu_order' => 0, // Core-only filter, so the hybrid path takes the query.
+				'nf'         => array( 'orderby' => array( 'hyprice' => 'DESC' ) ),
 			)
 		);
 		$this->assertSame( array_reverse( $this->ids ), wp_list_pluck( $q->posts, 'ID' ) );
