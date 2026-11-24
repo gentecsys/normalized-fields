@@ -463,9 +463,11 @@ final class Hybrid {
 	private function nfIds( QuerySpec $full, int $max ): array {
 		$chunk = max( 1, min( $max + 1, 50000, (int) apply_filters( 'nf/hybrid/chunk', self::CHUNK ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$out   = array();
-		while ( count( $out ) <= $max ) {
-			$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - count( $out ) ), count( $out ) ) );
+		$have  = 0;
+		while ( $have <= $max ) {
+			$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - $have ), $have ) );
 			array_push( $out, ...$rows );
+			$have += count( $rows );
 			if ( count( $rows ) < $chunk ) {
 				break;
 			}
