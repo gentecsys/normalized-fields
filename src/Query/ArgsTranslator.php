@@ -62,7 +62,14 @@ final class ArgsTranslator {
 		'nopaging',
 		'author',
 		'post_parent',
+		'post__in',
+		'post__not_in',
+		'author__in',
+		'author__not_in',
+		'date_query',
 	);
+
+	private const MAX_LIST = 1000;
 
 	private const NUMERIC_TYPES = array( 'NUMERIC', 'SIGNED', 'UNSIGNED', 'DECIMAL' );
 
@@ -148,6 +155,12 @@ final class ArgsTranslator {
 			$conditions[] = new Condition( 'parent', '=', (int) $args['post_parent'] );
 		}
 
+		$listed = $this->listConditions( $args );
+		if ( null === $listed ) {
+			return null;
+		}
+		$conditions = array_merge( $conditions, $listed );
+
 		$meta_query = $args['meta_query'] ?? array();
 		if ( ! is_array( $meta_query ) ) {
 			return null;
@@ -184,6 +197,120 @@ final class ArgsTranslator {
 		}
 
 		return new QuerySpec( ObjectType::Post, $type, $statuses, $conditions, $orders, $paging[0], $paging[1], $masks, $rows );
+	}
+
+	/**
+	 * Conditions from post__in, post__not_in, author__in, author__not_in and date_query.
+	 *
+	 * @param array<string,mixed> $args Arguments.
+	 * @return Condition[]|null Null when a value is not exactly what core would use.
+	 */
+	private function listConditions( array $args ): ?array {
+		$out = array();
+		if ( ! empty( $args['author__in'] ) && ! empty( $args['author__not_in'] ) ) {
+			return null; // Core lets one win; not worth mirroring.
+		}
+		if ( ! empty( $args['author'] ) && ( ! empty( $args['author__in'] ) || ! empty( $args['author__not_in'] ) ) ) {
+			return null; // Core merges `author` into the author lists.
+		}
+		if ( ! empty( $args['post__in'] ) && ! empty( $args['post__not_in'] ) ) {
+			return null;
+		}
+		foreach ( array(
+			'post__in'       => array( 'ID', 'in' ),
+			'post__not_in'   => array( 'ID', 'not_in' ),
+			'author__in'     => array( 'author', 'in' ),
+			'author__not_in' => array( 'author', 'not_in' ),
+		) as $name => $map ) {
+			$list = $args[ $name ] ?? null;
+			if ( null === $list || array() === $list || '' === $list || false === $list ) {
+				continue;
+			}
+			if ( ! is_array( $list ) || count( $list ) > self::MAX_LIST ) {
+				return null;
+			}
+			$ids = array();
+			foreach ( $list as $id ) {
+				if ( ! is_int( $id ) && ! ( is_string( $id ) && 1 === preg_match( '/^[1-9]\d{0,17}$/', $id ) ) ) {
+					return null; // Core absint()s; anything odd is left to it.
+				}
+				if ( (int) $id < 1 ) {
+					return null;
+				}
+				$ids[] = (int) $id;
+			}
+			$out[] = new Condition( $map[0], $map[1], array_values( array_unique( $ids ) ) );
+		}
+		$date = $args['date_query'] ?? null;
+		if ( null !== $date && array() !== $date && '' !== $date && false !== $date ) {
+			$dates = $this->dateConditions( $date );
+			if ( null === $dates ) {
+				return null;
+			}
+			$out = array_merge( $out, $dates );
+		}
+		return $out;
+	}
+
+	/**
+	 * Date conditions from `after` / `before` clauses written as full `Y-m-d H:i:s` strings on post_date, joined by AND.
+	 * Date-only values and year / month / day parts default to different bounds in core, so they pass through.
+	 *
+	 * @param mixed $date date_query value.
+	 * @return Condition[]|null
+	 */
+	private function dateConditions( mixed $date ): ?array {
+		if ( ! is_array( $date ) ) {
+			return null;
+		}
+		$single  = isset( $date['after'] ) || isset( $date['before'] );
+		$clauses = $single ? array( $date ) : array_filter( $date, 'is_array' );
+		if ( ! $single && array_diff( array_keys( $date ), array_keys( $clauses ), array( 'relation' ) ) !== array() ) {
+			return null; // Top-level column, compare or inclusive set defaults for every clause.
+		}
+		if ( isset( $date['relation'] ) && 'AND' !== strtoupper( (string) $date['relation'] ) ) {
+			return null;
+		}
+		if ( array() === $clauses || count( $clauses ) > 4 ) {
+			return null;
+		}
+		$out = array();
+		foreach ( $clauses as $clause ) {
+			if ( ! is_array( $clause ) ) {
+				return null;
+			}
+			foreach ( array_keys( $clause ) as $k ) {
+				if ( ! in_array( $k, array( 'after', 'before', 'inclusive', 'column', 'compare' ), true ) ) {
+					return null;
+				}
+			}
+			if ( isset( $clause['column'] ) && 'post_date' !== $clause['column'] ) {
+				return null;
+			}
+			if ( isset( $clause['compare'] ) && '=' !== $clause['compare'] ) {
+				return null;
+			}
+			$inclusive = ! empty( $clause['inclusive'] );
+			$found     = false;
+			foreach ( array(
+				'after'  => $inclusive ? '>=' : '>',
+				'before' => $inclusive ? '<=' : '<',
+			) as $k => $op ) {
+				if ( ! isset( $clause[ $k ] ) ) {
+					continue;
+				}
+				$v = $clause[ $k ];
+				if ( ! is_string( $v ) || 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $v, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) || (int) $m[4] > 23 || (int) $m[5] > 59 || (int) $m[6] > 59 ) {
+					return null;
+				}
+				$out[] = new Condition( 'date', $op, $v );
+				$found = true;
+			}
+			if ( ! $found ) {
+				return null;
+			}
+		}
+		return $out;
 	}
 
 	/**

@@ -105,7 +105,20 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'like'             => array( array( 'meta_query' => array( array( 'key' => 'price', 'value' => 1, 'compare' => 'LIKE' ) ) ) ),
 			'search'           => array( array( 's' => 'x' ) ),
 			'tax_query'        => array( array( 'tax_query' => array( array( 'taxonomy' => 'genre', 'terms' => 1 ) ) ) ),
-			'post__not_in'     => array( array( 'post__not_in' => array( 3 ) ) ),
+			'post__in and not' => array( array( 'post__in' => array( 1 ), 'post__not_in' => array( 3 ) ) ),
+			'post__in text'    => array( array( 'post__in' => array( 'abc' ) ) ),
+			'post__in zero'    => array( array( 'post__in' => array( 0 ) ) ),
+			'post__in scalar'  => array( array( 'post__in' => 5 ) ),
+			'author in + not'  => array( array( 'author__in' => array( 1 ), 'author__not_in' => array( 2 ) ) ),
+			'author + in'      => array( array( 'author' => 3, 'author__in' => array( 5 ) ) ),
+			'author + not in'  => array( array( 'author' => 3, 'author__not_in' => array( 2 ) ) ),
+			'date top column'  => array( array( 'date_query' => array( 'column' => 'post_modified', array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
+			'date top incl'    => array( array( 'date_query' => array( 'inclusive' => true, array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
+			'date only'        => array( array( 'date_query' => array( array( 'after' => '2020-01-01' ) ) ) ),
+			'date year'        => array( array( 'date_query' => array( array( 'year' => 2020 ) ) ) ),
+			'date or'          => array( array( 'date_query' => array( 'relation' => 'OR', array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
+			'date gmt column'  => array( array( 'date_query' => array( array( 'after' => '2020-01-01 00:00:00', 'column' => 'post_date_gmt' ) ) ) ),
+			'date impossible'  => array( array( 'date_query' => array( array( 'after' => '2020-02-31 00:00:00' ) ) ) ),
 			'orderby title'    => array( array( 'orderby' => 'title' ) ),
 			'status any'       => array( array( 'post_status' => 'any' ) ),
 			'post_type any'    => array( array( 'post_type' => 'any' ) ),
@@ -145,6 +158,24 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => '"1"', 'compare' => 'NOT LIKE' ) ) ) ) );
 		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'is_featured', 'value' => '"1"', 'compare' => 'LIKE' ) ) ) ) );
 		$this->assertNull( $this->t( array( 'post_type' => 'event', 'meta_query' => array( array( 'key' => 'artists', 'value' => '"1"', 'compare' => 'LIKE', 'type' => 'NUMERIC' ) ) ) ) );
+	}
+
+	public function test_id_and_author_lists(): void {
+		$spec = $this->t( array( 'post_type' => 'event', 'post__in' => array( '7', 3, 7 ), 'author__not_in' => array( 2 ) ) );
+		$this->assertNotNull( $spec );
+		$this->assertEquals( array( new \NF\Query\Condition( 'ID', 'in', array( 7, 3 ) ), new \NF\Query\Condition( 'author', 'not_in', array( 2 ) ) ), $spec->conditions );
+		$spec = $this->t( array( 'post_type' => 'event', 'post__not_in' => array( 9 ), 'author__in' => array( 1, 4 ) ) );
+		$this->assertNotNull( $spec );
+		$this->assertEquals( array( new \NF\Query\Condition( 'ID', 'not_in', array( 9 ) ), new \NF\Query\Condition( 'author', 'in', array( 1, 4 ) ) ), $spec->conditions );
+		$this->assertNotNull( $this->t( array( 'post_type' => 'event', 'post__in' => array(), 'author__in' => '' ) ) );
+	}
+
+	public function test_date_query_full_timestamps(): void {
+		$spec = $this->t( array( 'post_type' => 'event', 'date_query' => array( array( 'after' => '2020-01-01 00:00:00', 'before' => '2020-12-31 23:59:59', 'inclusive' => true ) ) ) );
+		$this->assertNotNull( $spec );
+		$this->assertEquals( array( new \NF\Query\Condition( 'date', '>=', '2020-01-01 00:00:00' ), new \NF\Query\Condition( 'date', '<=', '2020-12-31 23:59:59' ) ), $spec->conditions );
+		$spec = $this->t( array( 'post_type' => 'event', 'date_query' => array( 'after' => '2020-01-01 00:00:00' ) ) );
+		$this->assertEquals( array( new \NF\Query\Condition( 'date', '>', '2020-01-01 00:00:00' ) ), $spec->conditions );
 	}
 
 	public function test_nf_argument(): void {
