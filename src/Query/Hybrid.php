@@ -36,6 +36,13 @@ final class Hybrid {
 	/**
 	 * Object cache group of intersected ID lists.
 	 */
+	public const CHUNK = 20000;
+
+	/**
+	 * Number of cold-intersection slots shared by anonymous web requests (filter `nf/hybrid/cold_slots`).
+	 */
+	public const COLD_SLOTS = 2;
+
 	public const CACHE_GROUP = 'nf_hybrid';
 
 	/**
@@ -406,15 +413,24 @@ final class Hybrid {
 		$key     = $this->cacheKey( $query, $full, $ordered, $max );
 		$all     = null === $key ? false : wp_cache_get( $key, self::CACHE_GROUP );
 		if ( ! is_array( $all ) ) {
-			$nf = $this->context->ids( $this->limited( $full, array(), $max + 1, 0 ) );
-			if ( count( $nf ) > $max ) {
-				$this->failClosed( $query, 'NF side over ' . $max . ' ids' );
+			$slot = $this->takeSlot();
+			if ( false === $slot ) {
+				$this->failClosed( $query, 'no cold slot free' );
 				return;
 			}
-			$core = $this->coreIds( $query, array(), $max + 1, ! $ordered );
-			if ( count( $core ) > $max ) {
-				$this->failClosed( $query, 'core side over ' . $max . ' ids' );
-				return;
+			try {
+				$nf = $this->nfIds( $full, $max );
+				if ( count( $nf ) > $max ) {
+					$this->failClosed( $query, 'NF side over ' . $max . ' ids' );
+					return;
+				}
+				$core = $this->coreIds( $query, array(), $max + 1, ! $ordered );
+				if ( count( $core ) > $max ) {
+					$this->failClosed( $query, 'core side over ' . $max . ' ids' );
+					return;
+				}
+			} finally {
+				$this->releaseSlot( $slot );
 			}
 			if ( $ordered ) {
 				$keep = array_flip( $core );
@@ -432,6 +448,56 @@ final class Hybrid {
 			$this->totals[ $query ] = count( $all );
 		}
 		$this->finish( $query, array_slice( $all, $offset, $per ), true, true );
+	}
+
+	/**
+	 * NF's matching IDs in query order, read in chunks so no single result set holds the whole list. Stops one past `$max`.
+	 *
+	 * @param QuerySpec $full NF spec, no limit.
+	 * @param int       $max  Ceiling.
+	 * @return int[]
+	 */
+	private function nfIds( QuerySpec $full, int $max ): array {
+		$chunk = max( 1, min( $max + 1, (int) apply_filters( 'nf/hybrid/chunk', self::CHUNK ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$out   = array();
+		while ( count( $out ) <= $max ) {
+			$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - count( $out ) ), count( $out ) ) );
+			array_push( $out, ...$rows );
+			if ( count( $rows ) < $chunk ) {
+				break;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Take a cold-intersection slot. Only anonymous web requests are limited; others always pass.
+	 *
+	 * @return string|null|false Lock name held, null when no slot is needed, false when every slot is busy.
+	 */
+	private function takeSlot(): string|null|false {
+		if ( is_user_logged_in() || ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() ) {
+			return null;
+		}
+		$slots = max( 1, (int) apply_filters( 'nf/hybrid/cold_slots', self::COLD_SLOTS ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		for ( $i = 0; $i < $slots; $i++ ) {
+			if ( $this->context->tryLock( 'hybrid_cold_' . $i ) ) {
+				return 'hybrid_cold_' . $i;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Release a slot taken by takeSlot().
+	 *
+	 * @param string|null $slot Lock name.
+	 * @return void
+	 */
+	private function releaseSlot( ?string $slot ): void {
+		if ( null !== $slot ) {
+			$this->context->unlock( $slot );
+		}
 	}
 
 	/**

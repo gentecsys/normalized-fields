@@ -495,6 +495,28 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * NF's side is read in chunks of two: same page, same total as one read.
+	 */
+	public function test_intersection_reads_nf_ids_in_chunks(): void {
+		$this->hy_cap( 3 );
+		wp_set_current_user( 0 );
+		add_filter( 'nf/hybrid/chunk', static fn () => 2 );
+		$q = $this->hy_run(
+			array(
+				'meta_key'       => 'hyprice',
+				'orderby'        => 'meta_value_num',
+				'order'          => 'DESC',
+				'posts_per_page' => 2,
+				'paged'          => 2,
+			)
+		);
+		remove_all_filters( 'nf/hybrid/chunk' );
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 7, $q->found_posts );
+	}
+
+	/**
 	 * A side over the per-side ceiling fails closed.
 	 */
 	public function test_both_sides_over_set_max_fails_closed(): void {
