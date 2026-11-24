@@ -113,7 +113,7 @@ final class ArgsTranslatorTest extends WP_UnitTestCase {
 			'author + in'      => array( array( 'author' => 3, 'author__in' => array( 5 ) ) ),
 			'author + not in'  => array( array( 'author' => 3, 'author__not_in' => array( 2 ) ) ),
 			'date top column'  => array( array( 'date_query' => array( 'column' => 'post_modified', array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
-			'date top inclusive' => array( array( 'date_query' => array( 'inclusive' => true, array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
+			'date top incl'    => array( array( 'date_query' => array( 'inclusive' => true, array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
 			'date only'        => array( array( 'date_query' => array( array( 'after' => '2020-01-01' ) ) ) ),
 			'date year'        => array( array( 'date_query' => array( array( 'year' => 2020 ) ) ) ),
 			'date or'          => array( array( 'date_query' => array( 'relation' => 'OR', array( 'after' => '2020-01-01 00:00:00' ) ) ) ),
