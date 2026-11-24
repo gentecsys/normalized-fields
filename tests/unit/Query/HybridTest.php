@@ -551,15 +551,17 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Tied sort values with a one-row chunk still give each post once across pages.
+	 * Tied sort values with a one-row chunk: every post once, in price then ID order, across pages.
 	 */
 	public function test_tied_order_values_page_stably_with_small_chunk(): void {
 		$this->hy_cap( 3 );
 		wp_set_current_user( 0 );
+		$this->store->set( ObjectType::Post, $this->ids[1], 'field_t33c2a_price', 10 );
+		$this->store->set( ObjectType::Post, $this->ids[3], 'field_t33c2a_price', 30 );
 		add_filter( 'nf/hybrid/chunk', static fn () => 1 );
 		$seen = array();
 		foreach ( array( 1, 2, 3, 4 ) as $page ) {
-			$q    = $this->hy_run(
+			$q = $this->hy_run(
 				array(
 					'meta_key'       => 'hyprice',
 					'orderby'        => 'meta_value_num',
@@ -568,9 +570,12 @@ class HybridTest extends WP_UnitTestCase {
 					'paged'          => $page,
 				)
 			);
+			if ( $page < 4 ) {
+				$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+			}
 			$seen = array_merge( $seen, wp_list_pluck( $q->posts, 'ID' ) );
 		}
-		$this->assertSame( $seen, array_values( array_unique( $seen ) ) );
+		$this->assertSame( $this->ids, $seen );
 	}
 
 	/**
