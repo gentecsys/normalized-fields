@@ -210,6 +210,9 @@ final class ArgsTranslator {
 		if ( ! empty( $args['author__in'] ) && ! empty( $args['author__not_in'] ) ) {
 			return null; // Core lets one win; not worth mirroring.
 		}
+		if ( ! empty( $args['author'] ) && ( ! empty( $args['author__in'] ) || ! empty( $args['author__not_in'] ) ) ) {
+			return null; // Core merges `author` into the author lists.
+		}
 		if ( ! empty( $args['post__in'] ) && ! empty( $args['post__not_in'] ) ) {
 			return null;
 		}
@@ -260,7 +263,11 @@ final class ArgsTranslator {
 		if ( ! is_array( $date ) ) {
 			return null;
 		}
-		$clauses = isset( $date['after'] ) || isset( $date['before'] ) ? array( $date ) : array_filter( $date, 'is_array' );
+		$single  = isset( $date['after'] ) || isset( $date['before'] );
+		$clauses = $single ? array( $date ) : array_filter( $date, 'is_array' );
+		if ( ! $single && array_diff( array_keys( $date ), array_keys( $clauses ), array( 'relation' ) ) !== array() ) {
+			return null; // Top-level column, compare or inclusive set defaults for every clause.
+		}
 		if ( isset( $date['relation'] ) && 'AND' !== strtoupper( (string) $date['relation'] ) ) {
 			return null;
 		}
