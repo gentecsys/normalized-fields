@@ -116,7 +116,7 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Run a query the full short-circuit would not answer (a post__not_in list), so the hybrid path takes it.
+	 * Run a query the full short-circuit would not answer (a core-only menu_order filter), so the hybrid path takes it.
 	 *
 	 * @param array<string,mixed> $extra Extra arguments.
 	 * @return WP_Query
@@ -126,7 +126,7 @@ class HybridTest extends WP_UnitTestCase {
 			array_merge(
 				array(
 					'post_type'    => self::TYPE,
-					'post__not_in' => array( 999999 ),
+					'menu_order'   => 0, // Core-only filter, so the hybrid path takes the query.
 					'orderby'      => 'title',
 					'order'        => 'ASC',
 				),
@@ -333,7 +333,7 @@ class HybridTest extends WP_UnitTestCase {
 		$q = new WP_Query(
 			array(
 				'post_type'    => self::TYPE,
-				'post__not_in' => array( 999999 ),
+				'menu_order'   => 0, // Core-only filter, so the hybrid path takes the query.
 				'nf'           => array( 'orderby' => array( 'hyprice' => 'DESC' ) ),
 			)
 		);
