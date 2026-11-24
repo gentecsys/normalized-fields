@@ -102,6 +102,8 @@ class HybridTest extends WP_UnitTestCase {
 	public function tear_down() {
 		remove_all_filters( 'nf/hybrid/id_cap' );
 		remove_all_filters( 'nf/hybrid/set_max' );
+		remove_all_filters( 'nf/hybrid/chunk' );
+		remove_all_filters( 'nf/hybrid/cold_slots' );
 		remove_action( 'pre_get_posts', array( $this->hook, 'apply' ), 9999 );
 		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
 		remove_filter( 'the_posts', array( $this->hook, 'restorePaging' ), 1 );
@@ -510,10 +512,65 @@ class HybridTest extends WP_UnitTestCase {
 				'paged'          => 2,
 			)
 		);
-		remove_all_filters( 'nf/hybrid/chunk' );
 		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
 		$this->assertSame( array( $this->ids[4], $this->ids[3] ), wp_list_pluck( $q->posts, 'ID' ) );
 		$this->assertSame( 7, $q->found_posts );
+	}
+
+	/**
+	 * With every cold slot held by another connection, an anonymous cold intersection fails closed;
+	 * a logged-in user is not limited. GET_LOCK is re-entrant inside one session, so the lock is held on a second connection.
+	 */
+	public function test_busy_cold_slot_fails_closed_for_anonymous_only(): void {
+		global $wpdb;
+		$this->hy_cap( 3 );
+		add_filter( 'nf/hybrid/cold_slots', static fn () => 1 );
+		$other = new \mysqli( DB_HOST, DB_USER, DB_PASSWORD, DB_NAME );
+		$name  = $other->real_escape_string( 'nf_' . md5( $wpdb->prefix . 'hybrid_cold_0' ) );
+		$other->query( "SELECT GET_LOCK('" . $name . "', 0)" );
+		$args = array(
+			'meta_key'       => 'hyprice',
+			'orderby'        => 'meta_value_num',
+			'order'          => 'DESC',
+			'posts_per_page' => 2,
+		);
+		try {
+			wp_set_current_user( 0 );
+			$this->setExpectedIncorrectUsage( Hybrid::class );
+			$q = $this->hy_run( $args );
+			$this->assertSame( array(), $q->posts );
+			wp_set_current_user( self::factory()->user->create() );
+			$q = $this->hy_run( $args );
+			$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+			$this->assertCount( 2, $q->posts );
+		} finally {
+			$other->query( "SELECT RELEASE_LOCK('" . $name . "')" );
+			$other->close();
+			wp_set_current_user( 0 );
+		}
+	}
+
+	/**
+	 * Tied sort values with a one-row chunk still give each post once across pages.
+	 */
+	public function test_tied_order_values_page_stably_with_small_chunk(): void {
+		$this->hy_cap( 3 );
+		wp_set_current_user( 0 );
+		add_filter( 'nf/hybrid/chunk', static fn () => 1 );
+		$seen = array();
+		foreach ( array( 1, 2, 3, 4 ) as $page ) {
+			$q    = $this->hy_run(
+				array(
+					'meta_key'       => 'hyprice',
+					'orderby'        => 'meta_value_num',
+					'order'          => 'ASC',
+					'posts_per_page' => 2,
+					'paged'          => $page,
+				)
+			);
+			$seen = array_merge( $seen, wp_list_pluck( $q->posts, 'ID' ) );
+		}
+		$this->assertSame( $seen, array_values( array_unique( $seen ) ) );
 	}
 
 	/**

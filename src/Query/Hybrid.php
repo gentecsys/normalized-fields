@@ -481,6 +481,7 @@ final class Hybrid {
 	 * @return string|null|false Lock name held, null when no slot is needed, false when every slot is busy.
 	 */
 	private function takeSlot(): string|null|false {
+		// GET_LOCK is re-entrant within one connection: only a second request (another connection) sees a slot as busy.
 		if ( is_user_logged_in() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
 			return null;
 		}
