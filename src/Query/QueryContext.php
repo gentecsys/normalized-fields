@@ -71,6 +71,26 @@ final class QueryContext {
 	}
 
 	/**
+	 * Take a non-blocking named lock on the backend.
+	 *
+	 * @param string $name Lock name.
+	 * @return bool
+	 */
+	public function tryLock( string $name ): bool {
+		return $this->db->tryLock( $name );
+	}
+
+	/**
+	 * Release a named lock.
+	 *
+	 * @param string $name Lock name.
+	 * @return void
+	 */
+	public function unlock( string $name ): void {
+		$this->db->unlock( $name );
+	}
+
+	/**
 	 * Write version of the pivot set a spec reads, or null when it has none.
 	 *
 	 * @param QuerySpec $spec Query.
