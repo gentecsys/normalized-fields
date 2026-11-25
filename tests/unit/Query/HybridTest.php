@@ -544,8 +544,18 @@ class HybridTest extends WP_UnitTestCase {
 					++$busy;
 				}
 			);
+			$sent = array();
+			add_filter(
+				'nf/hybrid/busy_headers',
+				static function ( array $headers ) use ( &$sent ): array {
+					$sent = $headers;
+					return $headers;
+				}
+			);
 			$q = $this->hy_run( $args );
 			$this->assertSame( array(), $q->posts );
+			$this->assertSame( '1', $sent['Retry-After'] ?? null );
+			$this->assertStringContainsString( 'no-store', (string) ( $sent['Cache-Control'] ?? '' ) );
 			$this->assertSame( 'hybrid-busy', $q->get( 'nf_mode' ) );
 			$this->assertSame( 1, $busy );
 			wp_set_current_user( self::factory()->user->create() );
