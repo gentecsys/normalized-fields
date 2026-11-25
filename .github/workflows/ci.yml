@@ -129,6 +129,41 @@ jobs:
           vendor/bin/phpunit --filter SpikeBenchmarkTest
           cat "$NF_BENCH_OUT" | tee -a "$GITHUB_STEP_SUMMARY" || true
 
+  bench-hybrid:
+    name: Hybrid intersection gates (200k posts)
+    # Heavy: runs on manual dispatch only; pull requests and merges skip it.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp_test
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli
+          tools: composer
+          ini-values: memory_limit=2G
+      - run: composer install --no-interaction --prefer-dist
+      - run: bin/install-wp-tests.sh wp_test root root 127.0.0.1 7.0
+      - name: Run the hybrid gates
+        env:
+          NF_BENCH_POSTS: '200000'
+          NF_BENCH_GATES: '1'
+          NF_BENCH_OUT: ${{ runner.temp }}/hybrid.md
+        run: |
+          vendor/bin/phpunit --filter HybridBenchmarkTest
+          cat "$NF_BENCH_OUT" | tee -a "$GITHUB_STEP_SUMMARY" || true
+
   release-build:
     name: Release zip builds
     runs-on: ubuntu-latest
