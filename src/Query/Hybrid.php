@@ -621,7 +621,7 @@ final class Hybrid {
 		}
 		$t = $vars['post_type'] ?? '';
 		if ( is_array( $t ) ) {
-			return array_values( array_filter( array_map( 'strval', $t ), 'strlen' ) );
+			return array_values( array_filter( array_map( 'strval', $t ), static fn ( string $s ): bool => '' !== $s ) );
 		}
 		return array_values( get_post_types( array( 'exclude_from_search' => false ) ) );
 	}
