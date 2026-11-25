@@ -206,7 +206,7 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 		$rows  = array();
 		foreach ( array(
 			'unordered (core order)' => false,
-			'ordered by price'  => true,
+			'ordered by price'      => true,
 		) as $label => $ordered ) {
 			$r = $this->measure( $ordered );
 			$this->assertSame( 'hybrid', $r['mode'], $label . ' ' . $this->reason );

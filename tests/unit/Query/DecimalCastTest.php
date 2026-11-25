@@ -35,7 +35,7 @@ final class DecimalCastTest extends WP_UnitTestCase {
 		return 'trunc' === $mode ? (float) (int) $f : round( $f, $scale, PHP_ROUND_HALF_UP );
 	}
 
-	private function matches( Condition $c, string $v ): bool {
+	private function cond_holds( Condition $c, string $v ): bool {
 		$a = (float) $v;
 		$b = (float) $c->value;
 		return match ( $c->op ) {
@@ -69,7 +69,7 @@ final class DecimalCastTest extends WP_UnitTestCase {
 						}
 						$got = true;
 						foreach ( $conds as $cond ) {
-							$got = $got && $this->matches( $cond, $v );
+							$got = $got && $this->cond_holds( $cond, $v );
 						}
 						$this->assertSame( $want, $got, "$mode/$scale cast($v) $op $c" );
 					}
@@ -87,7 +87,7 @@ final class DecimalCastTest extends WP_UnitTestCase {
 					$want = $cv >= (float) $lo - 1e-9 && $cv <= (float) $hi + 1e-9;
 					$got  = true;
 					foreach ( $conds as $cond ) {
-						$got = $got && $this->matches( $cond, $v );
+						$got = $got && $this->cond_holds( $cond, $v );
 					}
 					$this->assertSame( $want, $got, "$mode/$scale cast($v) between $lo and $hi" );
 				}
