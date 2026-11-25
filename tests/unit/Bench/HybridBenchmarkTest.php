@@ -46,6 +46,13 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 	private Hybrid $hook;
 
 	/**
+	 * Reason of the last fail-closed answer.
+	 *
+	 * @var string
+	 */
+	private string $reason = '';
+
+	/**
 	 * Write the dataset to both stores, build the pivot and register the hybrid hooks.
 	 */
 	public function set_up() {
@@ -158,6 +165,13 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 	 */
 	private function measure( bool $ordered ): array {
 		wp_cache_flush();
+		$this->reason = '';
+		add_action(
+			'nf/hybrid/failed',
+			function ( $reason ) {
+				$this->reason = (string) $reason;
+			}
+		);
 		$can = function_exists( 'memory_reset_peak_usage' );
 		if ( $can ) {
 			memory_reset_peak_usage();
@@ -194,7 +208,7 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 			'ordered by event_date'  => true,
 		) as $label => $ordered ) {
 			$r = $this->measure( $ordered );
-			$this->assertSame( 'hybrid', $r['mode'], $label );
+			$this->assertSame( 'hybrid', $r['mode'], $label . ' ' . $this->reason );
 			$this->assertSame( $total, $r['total'], $label . ': found_posts' );
 			$this->assertSame( (int) ceil( $total / 20 ), $r['pages'], $label . ': max_num_pages' );
 			$this->assertCount( min( 20, max( 0, $total - 20 ) ), $r['ids'], $label . ': page 2 size' );
