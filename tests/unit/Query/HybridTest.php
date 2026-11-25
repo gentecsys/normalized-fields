@@ -272,6 +272,8 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An NF key fails closed when the query can reach several post types.
+	 *
 	 * @dataProvider multi_type_provider
 	 * @param mixed $type post_type value.
 	 */
@@ -311,8 +313,8 @@ class HybridTest extends WP_UnitTestCase {
 	private function hy_pending( WP_Query $q ): void {
 		$prop = new ReflectionProperty( Hybrid::class, 'pending' );
 		$prop->setAccessible( true );
-		$map = new WeakMap();
-		$map[ $q ] = true;
+		$map  = new WeakMap();
+		$map->offsetSet( $q, true );
 		$prop->setValue( $this->hook, $map );
 	}
 
