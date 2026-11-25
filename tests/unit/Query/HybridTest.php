@@ -105,6 +105,7 @@ class HybridTest extends WP_UnitTestCase {
 		remove_all_filters( 'nf/hybrid/chunk' );
 		remove_all_filters( 'nf/hybrid/cold_slots' );
 		remove_action( 'pre_get_posts', array( $this->hook, 'apply' ), 9999 );
+		remove_filter( 'posts_pre_query', array( $this->hook, 'guardHandBack' ), 20 );
 		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
 		remove_filter( 'the_posts', array( $this->hook, 'restorePaging' ), 1 );
 		delete_option( 'sticky_posts' );
@@ -256,6 +257,119 @@ class HybridTest extends WP_UnitTestCase {
 		$this->assertSame( array(), $q->posts );
 		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
 		$this->assertSame( 1, $fired );
+	}
+
+	/**
+	 * Post type 'any' or several types: an NF key never reaches wp_postmeta.
+	 *
+	 * @return array<string,array{0:mixed}>
+	 */
+	public function multi_type_provider(): array {
+		return array(
+			'any'      => array( 'any' ),
+			'two-type' => array( array( self::TYPE, 'page' ) ),
+		);
+	}
+
+	/**
+	 * An NF key fails closed when the query can reach several post types.
+	 *
+	 * @dataProvider multi_type_provider
+	 * @param mixed $type post_type value.
+	 */
+	public function test_several_post_types_fail_closed_for_nf_key( $type ): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$q = $this->hy_run(
+			array(
+				'post_type'  => $type,
+				'meta_query' => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 50,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( array(), $q->posts );
+	}
+
+	/**
+	 * A multi-type query without NF fields is left to core.
+	 */
+	public function test_several_post_types_without_nf_key_untouched(): void {
+		$q = $this->hy_run( array( 'post_type' => 'any' ) );
+		$this->assertNotSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertNotSame( 'hybrid', $q->get( 'nf_mode' ) );
+	}
+
+	/**
+	 * Mark a query as expected to be answered by the short-circuit, as apply() does.
+	 *
+	 * @param WP_Query $q Query.
+	 */
+	private function hy_pending( WP_Query $q ): void {
+		$prop = new ReflectionProperty( Hybrid::class, 'pending' );
+		$prop->setAccessible( true );
+		$map = new WeakMap();
+		$map->offsetSet( $q, true );
+		$prop->setValue( $this->hook, $map );
+	}
+
+	/**
+	 * A hand-back after the short-circuit was expected returns no rows and fires the action.
+	 */
+	public function test_hand_back_fails_closed(): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$q = new WP_Query();
+		$this->hy_pending( $q );
+		$fired = 0;
+		$count = static function () use ( &$fired ): void {
+			++$fired;
+		};
+		add_action( 'nf/hybrid/failed', $count );
+		$out = $this->hook->guardHandBack( null, $q );
+		remove_action( 'nf/hybrid/failed', $count );
+		$this->assertSame( array(), $out );
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( 0, $q->found_posts );
+		$this->assertSame( 1, $fired );
+	}
+
+	/**
+	 * An answered query, or one not marked, is left alone.
+	 */
+	public function test_hand_back_guard_leaves_answered_queries(): void {
+		$q = new WP_Query();
+		$this->hy_pending( $q );
+		$this->assertSame( array( 1 ), $this->hook->guardHandBack( array( 1 ), $q ) );
+		$this->assertNull( $this->hook->guardHandBack( null, $q ) );
+		$this->assertNull( $this->hook->guardHandBack( null, new WP_Query() ) );
+	}
+
+	/**
+	 * With wp_postmeta empty for the key, single-type queries still answer from NF only.
+	 */
+	public function test_empty_postmeta_queries_answer_from_nf(): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- test empties core's table for the key.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key = 'hyprice'" );
+		$q = $this->hy_run(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 50,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		$this->assertSame( 3, $q->found_posts );
+		$this->assertSame( 3, count( $q->posts ) );
 	}
 
 	/**
