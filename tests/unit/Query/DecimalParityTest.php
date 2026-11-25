@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-// phpcs:disable WordPress.DB.SlowDBQuery,Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,Generic.Commenting.DocComment.MissingShort
+// phpcs:disable WordPress.Arrays.ArrayDeclarationSpacing,WordPress.DB.SlowDBQuery,Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,Generic.Commenting.DocComment.MissingShort
 
 use NF\Pivot\Pivot;
 use NF\Query\PreQuery;
@@ -29,7 +29,9 @@ final class DecimalParityTest extends WP_UnitTestCase {
 	private const TYPE   = 'nf_dc_item';
 	private const VALUES = array( '-2.675', '-1.5', '-0.5', '-0.4', '0', '0.4', '0.5', '1', '1.5', '2', '2.675', '3.99', '250' );
 
+	/** @var Store */
 	private Store $store;
+	/** @var PreQuery */
 	private PreQuery $hook;
 	/** @var int[] Post IDs by value index. */
 	private array $ids = array();
@@ -75,7 +77,7 @@ final class DecimalParityTest extends WP_UnitTestCase {
 
 	/** @return int[] Sorted post IDs of one query. */
 	private function run_query( string $key, array $clause ): array {
-		$q = new WP_Query(
+		$q   = new WP_Query(
 			array(
 				'post_type'      => self::TYPE,
 				'fields'         => 'ids',
