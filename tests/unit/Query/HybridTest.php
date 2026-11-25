@@ -313,7 +313,7 @@ class HybridTest extends WP_UnitTestCase {
 	private function hy_pending( WP_Query $q ): void {
 		$prop = new ReflectionProperty( Hybrid::class, 'pending' );
 		$prop->setAccessible( true );
-		$map  = new WeakMap();
+		$map = new WeakMap();
 		$map->offsetSet( $q, true );
 		$prop->setValue( $this->hook, $map );
 	}
