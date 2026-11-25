@@ -419,6 +419,7 @@ final class Hybrid {
 			$slot = $this->takeSlot();
 			if ( false === $slot ) {
 				$this->failClosed( $query, 'no cold slot free' );
+				$this->markBusy( $query );
 				return;
 			}
 			try {
@@ -492,6 +493,27 @@ final class Hybrid {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Mark a response as not cacheable after a busy slot emptied it, and tell the client when to retry.
+	 * The page stays a normal 200 with no rows: front-end lists never answer 503.
+	 *
+	 * @param \WP_Query $query Query.
+	 * @return void
+	 */
+	private function markBusy( \WP_Query $query ): void {
+		$query->set( 'nf_mode', 'hybrid-busy' );
+		if ( ! headers_sent() && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			nocache_headers();
+			header( 'Retry-After: 1' );
+		}
+		/**
+		 * Fires when an anonymous hybrid query found every cold slot busy and returned no rows.
+		 *
+		 * @param \WP_Query $query Query.
+		 */
+		do_action( 'nf/hybrid/busy', $query ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
 	/**
