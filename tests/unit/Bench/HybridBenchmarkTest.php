@@ -132,7 +132,6 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 					'key'     => 'event_date',
 					'value'   => '20260101',
 					'compare' => '>=',
-					'type'    => 'DATE',
 				),
 			),
 		);
