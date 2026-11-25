@@ -376,6 +376,10 @@ final class ArgsTranslator {
 			if ( null === $op ) {
 				return null; // LIKE, REGEXP and the rest are for later WPs.
 			}
+			if ( 'decimal' === $kind && in_array( $op, array( 'null', 'not_null' ), true ) ) {
+				$out[] = new Condition( $key, $op ); // Existence needs no cast.
+				continue;
+			}
 			// Core compares as CHAR unless typed; NF compares by the field's own type. Only agree when they match.
 			$type = isset( $clause['type'] ) && is_string( $clause['type'] ) ? strtoupper( $clause['type'] ) : '';
 			if ( 'decimal' === $kind ) {
