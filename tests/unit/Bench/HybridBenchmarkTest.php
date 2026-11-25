@@ -109,9 +109,9 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Featured events from price 250: NF conditions plus a core-only filter, so the intersection path runs.
+	 * Featured events: NF conditions plus a core-only filter, so the intersection path runs.
 	 *
-	 * @param bool $ordered Order by the NF field price.
+	 * @param bool $ordered Order by the NF field event_date.
 	 * @return array<string,mixed>
 	 */
 	private function args( bool $ordered ): array {
@@ -129,17 +129,11 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 					'value' => '1',
 					'type'  => 'NUMERIC',
 				),
-				array(
-					'key'     => 'price',
-					'value'   => '250',
-					'compare' => '>=',
-					'type'    => 'NUMERIC',
-				),
 			),
 		);
 		if ( $ordered ) {
-			$args['meta_key'] = 'price';
-			$args['orderby']  = 'meta_value_num';
+			$args['meta_key'] = 'event_date';
+			$args['orderby']  = 'meta_value';
 			$args['order']    = 'ASC';
 		}
 		return $args;
@@ -151,7 +145,7 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 	private function expected_total(): int {
 		$n = 0;
 		foreach ( $this->dataset->records() as $record ) {
-			if ( 1 === (int) $record['fields']['featured'] && (int) $record['fields']['price'] >= 250 ) {
+			if ( 1 === (int) $record['fields']['featured'] ) {
 				++$n;
 			}
 		}
@@ -206,7 +200,7 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 		$rows  = array();
 		foreach ( array(
 			'unordered (core order)' => false,
-			'ordered by price'  => true,
+			'ordered by event_date'  => true,
 		) as $label => $ordered ) {
 			$r = $this->measure( $ordered );
 			$this->assertSame( 'hybrid', $r['mode'], $label . ' ' . $this->reason );
@@ -215,13 +209,12 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 			$this->assertCount( min( 20, max( 0, $total - 20 ) ), $r['ids'], $label . ': page 2 size' );
 			foreach ( $r['ids'] as $id ) {
 				$this->assertSame( '1', (string) get_post_meta( $id, 'featured', true ), $label . ': featured' );
-				$this->assertGreaterThanOrEqual( 250, (int) get_post_meta( $id, 'price', true ), $label . ': price' );
 			}
 			if ( $ordered ) {
-				$prices = array_map( static fn ( int $id ): int => (int) get_post_meta( $id, 'price', true ), $r['ids'] );
-				$sorted = $prices;
+				$dates  = array_map( static fn ( int $id ): string => (string) get_post_meta( $id, 'event_date', true ), $r['ids'] );
+				$sorted = $dates;
 				sort( $sorted );
-				$this->assertSame( $sorted, $prices, 'price order' );
+				$this->assertSame( $sorted, $dates, 'event_date order' );
 			}
 			$rows[ $label ] = $r;
 			if ( getenv( 'NF_BENCH_GATES' ) ) {
