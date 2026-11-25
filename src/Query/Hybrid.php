@@ -70,6 +70,13 @@ final class Hybrid {
 	private ?\WeakMap $restore = null;
 
 	/**
+	 * Queries that name NF fields and that the full short-circuit was expected to answer.
+	 *
+	 * @var \WeakMap<\WP_Query,bool>|null
+	 */
+	private ?\WeakMap $pending = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param QueryContext $context Query context.
@@ -90,13 +97,6 @@ final class Hybrid {
 	}
 
 	/**
-	 * Queries the full short-circuit was expected to answer although they name NF fields.
-	 *
-	 * @var \WeakMap<\WP_Query,bool>|null
-	 */
-	private ?\WeakMap $pending = null;
-
-	/**
 	 * Fail closed when the full short-circuit handed back a query that names NF fields (no pivot set, backend error).
 	 *
 	 * @param mixed     $posts Posts from earlier filters.
@@ -104,14 +104,15 @@ final class Hybrid {
 	 * @return mixed
 	 */
 	public function guardHandBack( $posts, $query ) {
-		if ( null !== $posts || ! $query instanceof \WP_Query || null === $this->pending || ! isset( $this->pending[ $query ] ) ) {
+		if ( ! $query instanceof \WP_Query || null === $this->pending || ! isset( $this->pending[ $query ] ) ) {
 			return $posts;
 		}
 		unset( $this->pending[ $query ] );
-		if ( 'short-circuit' === $query->get( 'nf_mode' ) ) {
-			return $posts;
+		if ( null !== $posts ) {
+			return $posts; // Answered by the short-circuit or another plugin.
 		}
 		$query->set( 'nf_mode', 'hybrid-failed' );
+		// Same hook and arguments as failClosed(); the reason is 'short-circuit handed back'.
 		do_action( 'nf/hybrid/failed', 'short-circuit handed back', $query ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			_doing_it_wrong( __CLASS__, esc_html( 'NF could not answer a query on its fields (short-circuit handed back); it returned no rows.' ), '0.1.0' );
@@ -644,7 +645,7 @@ final class Hybrid {
 					try {
 						$this->owned[ $id ] = $this->context->ownsField( $key, $t );
 					} catch ( \Throwable $e ) {
-						$this->owned[ $id ] = false; // A failed lookup must not blank unrelated queries.
+						continue; // A failed lookup must not blank unrelated queries; not cached, so a later call retries.
 					}
 				}
 				if ( $this->owned[ $id ] ) {
