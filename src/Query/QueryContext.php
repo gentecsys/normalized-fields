@@ -296,7 +296,7 @@ final class QueryContext {
 	 *
 	 * @param string $key  Meta key (the field name).
 	 * @param string $type Post type.
-	 * @return string|null `text`, `number` (integer fields only), `date` or `related` (multi-valued integer ids); null for unmanaged, multi-valued, decimal or serialized fields.
+	 * @return string|null `text`, `number` (integer fields), `decimal`, `date` or `related` (multi-valued integer ids); null for unmanaged, multi-valued or serialized fields.
 	 */
 	public function fieldKind( string $key, string $type ): ?string {
 		$rows = $this->db->select(
@@ -317,6 +317,7 @@ final class QueryContext {
 		return match ( (string) $r['data_table'] ) {
 			'str', 'text' => 'text',
 			'int'         => 'number',
+			'dec'         => 'decimal',
 			'date'        => 'date',
 			default       => null,
 		};

@@ -78,12 +78,22 @@ final class ArgsTranslator {
 	/**
 	 * Constructor.
 	 *
-	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` (integer-valued only: core casts to SIGNED), `date` or `related` (multi-valued ids, LIKE probes only) for a managed single-valued
+	 * @param callable(string,string):(string|null) $fieldKind     For a meta key and post type: `text`, `number` (integer-valued), `decimal`, `date` or `related` (multi-valued ids, LIKE probes only) for a managed single-valued
 	 *                                                              scalar field; null for an unmanaged, multi-valued or serialized one.
 	 * @param bool                                  $loggedIn       Whether a user is logged in; core then adds their own `private` posts to a
 	 *                                                              query without `post_status`, which the translator does not answer.
 	 */
-	public function __construct( private $fieldKind, private bool $loggedIn = false ) {}
+	public function __construct( private $fieldKind, private bool $loggedIn = false, private ?bool $exactDecimals = null ) {}
+
+	/**
+	 * Whether decimal fields compare their exact stored values instead of core's cast values.
+	 *
+	 * @return bool
+	 */
+	private function exact(): bool {
+		$this->exactDecimals ??= (bool) apply_filters( 'nf/query/exact_decimals', false ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		return $this->exactDecimals;
+	}
 
 	/**
 	 * Field kind of a key, or null.
@@ -94,7 +104,7 @@ final class ArgsTranslator {
 	 */
 	private function kind( string $key, string $type ): ?string {
 		$kind = ( $this->fieldKind )( $key, $type );
-		return in_array( $kind, array( 'text', 'number', 'date' ), true ) ? $kind : null;
+		return in_array( $kind, array( 'text', 'number', 'decimal', 'date' ), true ) ? $kind : null;
 	}
 
 	/**
@@ -368,7 +378,12 @@ final class ArgsTranslator {
 			}
 			// Core compares as CHAR unless typed; NF compares by the field's own type. Only agree when they match.
 			$type = isset( $clause['type'] ) && is_string( $clause['type'] ) ? strtoupper( $clause['type'] ) : '';
-			if ( 'number' === $kind ? ! in_array( $type, self::NUMERIC_TYPES, true ) : ( '' !== $type && 'CHAR' !== $type ) ) {
+			if ( 'decimal' === $kind ) {
+				$cast = DecimalCast::parseType( $type );
+				if ( $this->exact() ? ! DecimalCast::isNumericType( $type ) : null === $cast ) {
+					return null; // BINARY, UNSIGNED and the like cannot be reproduced from the exact value.
+				}
+			} elseif ( 'number' === $kind ? ! in_array( $type, self::NUMERIC_TYPES, true ) : ( '' !== $type && 'CHAR' !== $type ) ) {
 				return null;
 			}
 			if ( 'text' === $kind && in_array( $op, array( '<', '<=', '>', '>=', 'between' ), true ) ) {
@@ -406,6 +421,17 @@ final class ArgsTranslator {
 				if ( 'number' === $kind && 1 !== preg_match( '/^-?\d+$/', $str ) ) {
 					return null;
 				}
+				if ( 'decimal' === $kind && 1 !== preg_match( '/^-?\d+(\.\d+)?$/', $str ) ) {
+					return null;
+				}
+			}
+			if ( 'decimal' === $kind && ! $this->exact() && 'null' !== $op && 'not_null' !== $op ) {
+				$cond = DecimalCast::conditions( $key, $op, is_array( $value ) ? array_map( 'strval', $value ) : (string) $value, $cast[0] ?? 'trunc', $cast[1] ?? 0 );
+				if ( null === $cond ) {
+					return null;
+				}
+				array_push( $out, ...$cond );
+				continue;
 			}
 			try {
 				$out[] = Builder::condition( $key, $op, $value );
@@ -519,7 +545,7 @@ final class ArgsTranslator {
 					$key  = $args['meta_key'] ?? null;
 					$kind = is_string( $key ) ? $this->kind( $key, $type ) : null;
 					// meta_value sorts as text in core, meta_value_num as a number.
-					if ( null === $kind || 'text' === $kind || ( 'meta_value_num' === $part ) !== ( 'number' === $kind ) ) {
+					if ( null === $kind || 'text' === $kind || ( 'meta_value_num' === $part ) !== in_array( $kind, array( 'number', 'decimal' ), true ) ) {
 						return null;
 					}
 					$out[] = array( $key, $dir );
