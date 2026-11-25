@@ -6,6 +6,11 @@ on:
   pull_request:
   # nf-auto-merge dispatches this on main after a merge: pushes made with GITHUB_TOKEN start no workflows.
   workflow_dispatch:
+    inputs:
+      bench_hybrid:
+        description: 'Also run the 200k hybrid gates (heavy)'
+        type: boolean
+        default: false
 
 concurrency:
   # Run IDs keep main runs apart, so every merge commit on main gets a finished run; a new push to a PR cancels its older run.
@@ -131,8 +136,8 @@ jobs:
 
   bench-hybrid:
     name: Hybrid intersection gates (200k posts)
-    # Heavy: runs on manual dispatch only; pull requests and merges skip it.
-    if: github.event_name == 'workflow_dispatch'
+    # Heavy: only when a person ticks the input; pull requests and the dispatch after a merge skip it.
+    if: github.event_name == 'workflow_dispatch' && inputs.bench_hybrid
     runs-on: ubuntu-latest
     timeout-minutes: 120
     services:

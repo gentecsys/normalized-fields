@@ -170,7 +170,8 @@ class HybridBenchmarkTest extends WP_UnitTestCase {
 		$t    = microtime( true );
 		$w    = new WP_Query( $this->args( $ordered ) );
 		$warm = ( microtime( true ) - $t ) * 1000;
-		$this->assertSame( $q->posts, $w->posts, 'Warm run differs from cold.' );
+		$this->assertSame( wp_list_pluck( $q->posts, 'ID' ), wp_list_pluck( $w->posts, 'ID' ), 'Warm run differs from cold.' );
+		$this->assertSame( (int) $q->found_posts, (int) $w->found_posts, 'Warm total differs from cold.' );
 		return array(
 			'cold'  => $cold,
 			'warm'  => $warm,
