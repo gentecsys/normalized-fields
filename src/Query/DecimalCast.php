@@ -56,11 +56,11 @@ final class DecimalCast {
 	/**
 	 * Rewrite `CAST(value) op clause_value` as conditions on the exact stored value (ANDed).
 	 *
-	 * @param string       $field Field name.
-	 * @param string       $op    Operator: `= < <= > >= between`.
-	 * @param string|array $value Decimal string, or two for between.
-	 * @param string       $mode  `trunc` or `round`.
-	 * @param int          $scale Places kept by the cast.
+	 * @param string          $field Field name.
+	 * @param string          $op    Operator: `= < <= > >= between`.
+	 * @param string|string[] $value Decimal string, or two for between.
+	 * @param string          $mode  `trunc` or `round`.
+	 * @param int             $scale Places kept by the cast.
 	 * @return Condition[]|null Null when not expressible (`!=`, `in`, `not_in`, an `=` off the grid, too many digits).
 	 */
 	public static function conditions( string $field, string $op, string|array $value, string $mode, int $scale ): ?array {

@@ -430,7 +430,7 @@ final class ArgsTranslator {
 					return null;
 				}
 			}
-			if ( 'decimal' === $kind && ! $this->exact() && 'null' !== $op && 'not_null' !== $op ) {
+			if ( 'decimal' === $kind && ! $this->exact() ) {
 				$cond = DecimalCast::conditions( $key, $op, is_array( $value ) ? array_map( 'strval', $value ) : (string) $value, $cast[0] ?? 'trunc', $cast[1] ?? 0 );
 				if ( null === $cond ) {
 					return null;
