@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-// phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,WordPress.Arrays.ArrayDeclarationSpacing,Generic.Commenting.DocComment.MissingShort
+// phpcs:disable WordPress.DB.SlowDBQuery,Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,WordPress.Arrays.ArrayDeclarationSpacing,Generic.Commenting.DocComment.MissingShort
 
 use NF\Query\ArgsTranslator;
 use NF\Query\Condition;

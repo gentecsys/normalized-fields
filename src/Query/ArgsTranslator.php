@@ -82,6 +82,7 @@ final class ArgsTranslator {
 	 *                                                              scalar field; null for an unmanaged, multi-valued or serialized one.
 	 * @param bool                                  $loggedIn       Whether a user is logged in; core then adds their own `private` posts to a
 	 *                                                              query without `post_status`, which the translator does not answer.
+	 * @param bool|null                             $exactDecimals  Compare decimal fields by stored value; null reads the `nf/query/exact_decimals` filter.
 	 */
 	public function __construct( private $fieldKind, private bool $loggedIn = false, private ?bool $exactDecimals = null ) {}
 
