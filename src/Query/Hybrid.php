@@ -84,8 +84,41 @@ final class Hybrid {
 	 */
 	public function register(): void {
 		add_action( 'pre_get_posts', array( $this, 'apply' ), 9999 );
+		add_filter( 'posts_pre_query', array( $this, 'guardHandBack' ), 20, 2 );
 		add_filter( 'found_posts', array( $this, 'foundPosts' ), 1, 2 );
 		add_filter( 'the_posts', array( $this, 'restorePaging' ), 1, 2 );
+	}
+
+	/**
+	 * Queries the full short-circuit was expected to answer although they name NF fields.
+	 *
+	 * @var \WeakMap<\WP_Query,bool>|null
+	 */
+	private ?\WeakMap $pending = null;
+
+	/**
+	 * Fail closed when the full short-circuit handed back a query that names NF fields (no pivot set, backend error).
+	 *
+	 * @param mixed     $posts Posts from earlier filters.
+	 * @param \WP_Query $query Query.
+	 * @return mixed
+	 */
+	public function guardHandBack( $posts, $query ) {
+		if ( null !== $posts || ! $query instanceof \WP_Query || null === $this->pending || ! isset( $this->pending[ $query ] ) ) {
+			return $posts;
+		}
+		unset( $this->pending[ $query ] );
+		if ( 'short-circuit' === $query->get( 'nf_mode' ) ) {
+			return $posts;
+		}
+		$query->set( 'nf_mode', 'hybrid-failed' );
+		do_action( 'nf/hybrid/failed', 'short-circuit handed back', $query ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			_doing_it_wrong( __CLASS__, esc_html( 'NF could not answer a query on its fields (short-circuit handed back); it returned no rows.' ), '0.1.0' );
+		}
+		$query->found_posts   = 0;
+		$query->max_num_pages = 0;
+		return array();
 	}
 
 	/**
@@ -137,13 +170,16 @@ final class Hybrid {
 		if ( null !== $this->restore ) {
 			unset( $this->restore[ $query ] );
 		}
+		if ( null !== $this->pending ) {
+			unset( $this->pending[ $query ] );
+		}
 		if ( null !== $query->get( 'nf_mode' ) && '' !== $query->get( 'nf_mode' ) ) {
 			return;
 		}
 		$vars = $query->query_vars;
 		$type = $this->postType( $vars );
 		try {
-			$split = $this->split( $vars, $type );
+			$split = $this->split( $vars, $type, $this->candidateTypes( $vars, $type ) );
 		} catch ( \Throwable $e ) {
 			$this->failClosed( $query, 'backend: ' . $e->getMessage() );
 			return;
@@ -152,7 +188,10 @@ final class Hybrid {
 			return; // No NF field in the query: core as usual.
 		}
 		if ( $this->pre->translatable( $query ) ) {
-			return; // The full short-circuit answers it in one statement.
+			// The full short-circuit answers it; if it hands back anyway, guardHandBack() fails closed.
+			$this->pending         ??= new \WeakMap();
+			$this->pending[ $query ] = true;
+			return;
 		}
 		$this->strip( $query, $split );
 		if ( null === $split['args'] || null === $type ) {
@@ -569,26 +608,50 @@ final class Hybrid {
 	}
 
 	/**
+	 * Post types a query can reach, for deciding whether a meta key is an NF field.
+	 *
+	 * @param array<string,mixed> $vars Query vars.
+	 * @param string|null         $type Single post type, when there is one.
+	 * @return string[]
+	 */
+	private function candidateTypes( array $vars, ?string $type ): array {
+		if ( null !== $type ) {
+			return array( $type );
+		}
+		$t = $vars['post_type'] ?? '';
+		if ( is_array( $t ) ) {
+			return array_values( array_filter( array_map( 'strval', $t ), 'strlen' ) );
+		}
+		return array_values( get_post_types( array( 'exclude_from_search' => false ) ) );
+	}
+
+	/**
 	 * Separate the NF part of the query from core's.
 	 *
 	 * @param array<string,mixed> $vars Query vars.
-	 * @param string|null         $type Post type.
+	 * @param string|null         $type  Post type, null when the query names none or several.
+	 * @param string[]            $types Post types the query can reach; a key owned in any of them counts as NF's.
 	 * @return array{args:array<string,mixed>|null,meta_query:array<mixed>,strip_key:bool,ordered:bool}|null Null when no NF field is involved.
 	 */
-	private function split( array $vars, ?string $type ): ?array {
-		$owns = function ( $key ) use ( $type ): bool {
-			if ( null === $type || ! is_string( $key ) || '' === $key ) {
+	private function split( array $vars, ?string $type, array $types ): ?array {
+		$owns = function ( $key ) use ( $types ): bool {
+			if ( ! is_string( $key ) || '' === $key ) {
 				return false;
 			}
-			$id = $type . "\0" . $key;
-			if ( ! isset( $this->owned[ $id ] ) ) {
-				try {
-					$this->owned[ $id ] = $this->context->ownsField( $key, $type );
-				} catch ( \Throwable $e ) {
-					return false; // A failed lookup must not blank unrelated queries.
+			foreach ( $types as $t ) {
+				$id = $t . "\0" . $key;
+				if ( ! isset( $this->owned[ $id ] ) ) {
+					try {
+						$this->owned[ $id ] = $this->context->ownsField( $key, $t );
+					} catch ( \Throwable $e ) {
+						$this->owned[ $id ] = false; // A failed lookup must not blank unrelated queries.
+					}
+				}
+				if ( $this->owned[ $id ] ) {
+					return true;
 				}
 			}
-			return $this->owned[ $id ];
+			return false;
 		};
 		$meta = is_array( $vars['meta_query'] ?? null ) ? $vars['meta_query'] : array();
 		$nf   = array();

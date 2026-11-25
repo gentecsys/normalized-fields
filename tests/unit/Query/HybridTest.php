@@ -259,6 +259,49 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Post type 'any' or several types: an NF key never reaches wp_postmeta.
+	 *
+	 * @return array<string,array{0:mixed}>
+	 */
+	public function multi_type_provider(): array {
+		return array(
+			'any'      => array( 'any' ),
+			'two-type' => array( array( self::TYPE, 'page' ) ),
+		);
+	}
+
+	/**
+	 * @dataProvider multi_type_provider
+	 * @param mixed $type post_type value.
+	 */
+	public function test_several_post_types_fail_closed_for_nf_key( $type ): void {
+		$this->setExpectedIncorrectUsage( Hybrid::class );
+		$q = $this->hy_run(
+			array(
+				'post_type'  => $type,
+				'meta_query' => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 50,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+		$this->assertSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+		$this->assertSame( array(), $q->posts );
+	}
+
+	/**
+	 * A multi-type query without NF fields is left to core.
+	 */
+	public function test_several_post_types_without_nf_key_untouched(): void {
+		$q = $this->hy_run( array( 'post_type' => 'any' ) );
+		$this->assertNotSame( 'hybrid-failed', $q->get( 'nf_mode' ) );
+	}
+
+	/**
 	 * Both sides above the per-side ceiling fail closed.
 	 */
 	public function test_over_cap_fails_closed(): void {
