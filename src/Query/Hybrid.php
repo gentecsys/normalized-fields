@@ -473,6 +473,9 @@ final class Hybrid {
 			if ( count( $rows ) < $vars['posts_per_page'] ) {
 				break;
 			}
+			if ( (int) end( $rows ) <= $last ) {
+				throw new \RuntimeException( 'Core ID read did not advance.' );
+			}
 			$last = (int) end( $rows );
 		}
 		return $out;
@@ -487,12 +490,23 @@ final class Hybrid {
 	 * @return int[]
 	 */
 	private function coreIdsPaged( array $vars, int $limit, int $chunk ): array {
+		global $wpdb;
+		if ( is_string( $vars['orderby'] ?? null ) && str_starts_with( strtolower( $vars['orderby'] ), 'rand' ) ) {
+			$vars['orderby'] = 'ID'; // A random order cannot be paged; the order of an intersection is not random-stable anyway.
+		}
+		// Ties in core's order would make OFFSET pages overlap or skip rows: end every read with the ID.
+		$tie = static fn ( string $o ): string => '' === trim( $o ) ? "{$wpdb->posts}.ID ASC" : $o . ", {$wpdb->posts}.ID ASC";
 		$out  = array();
 		$page = 1;
 		while ( count( $out ) < $limit ) {
 			$vars['posts_per_page'] = $chunk;
 			$vars['paged']          = $page++;
-			$rows                   = array_map( 'intval', (array) ( new \WP_Query() )->query( $vars ) );
+			add_filter( 'posts_orderby', $tie, 999999 );
+			try {
+				$rows = array_map( 'intval', (array) ( new \WP_Query() )->query( $vars ) );
+			} finally {
+				remove_filter( 'posts_orderby', $tie, 999999 );
+			}
 			array_push( $out, ...$rows );
 			if ( count( $rows ) < $chunk ) {
 				break;
@@ -576,7 +590,16 @@ final class Hybrid {
 			// Seek on the last row's sort key and ID: no OFFSET rescan.
 			$after = $this->context->cursor( $full, (int) end( $rows ) );
 			if ( null === $after ) {
-				break;
+				// The last row vanished mid-read: fall back to an offset rather than return a short list.
+				$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - count( $out ) ), count( $out ) ) );
+				array_push( $out, ...$rows );
+				if ( count( $rows ) < $chunk || count( $out ) > $max ) {
+					break;
+				}
+				$after = $this->context->cursor( $full, (int) end( $rows ) );
+				if ( null === $after ) {
+					throw new \RuntimeException( 'NF ID list changed during the read.' );
+				}
 			}
 		}
 		return $out;
