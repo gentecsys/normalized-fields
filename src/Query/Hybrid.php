@@ -500,12 +500,16 @@ final class Hybrid {
 		$page = 1;
 		while ( count( $out ) < $limit ) {
 			$vars['posts_per_page'] = $chunk;
-			$vars['paged']          = $page++;
+			$vars['paged']          = 1;
+			$vars['offset']         = ( $page++ - 1 ) * $chunk;
 			add_filter( 'posts_orderby', $tie, 999999 );
 			try {
 				$rows = array_map( 'intval', (array) ( new \WP_Query() )->query( $vars ) );
 			} finally {
 				remove_filter( 'posts_orderby', $tie, 999999 );
+			}
+			if ( array() !== $out && $rows === array_slice( $out, -count( $rows ) ) ) {
+				throw new \RuntimeException( 'Core ID read did not advance.' );
 			}
 			array_push( $out, ...$rows );
 			if ( count( $rows ) < $chunk ) {
