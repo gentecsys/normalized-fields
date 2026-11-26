@@ -153,6 +153,7 @@ final class Plugin {
 			array(
 				new Core\Jobs\PivotRebuildJob( new Pivot\Pivot( self::db(), self::fields(), self::store() ) ),
 				new Core\Jobs\CountCacheCleanupJob( self::db() ),
+				self::countRecomputeJob(),
 				new Migration\PostPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
 				new Migration\ObjectPortJob( new Migration\AcfSource(), new Migration\AcfCopier( self::bridge() ) ),
 				new Migration\PortVerifyJob( new Migration\AcfSource(), new Migration\PortVerifier( self::store(), self::fields(), null, null, self::sorter() ) ),
@@ -161,12 +162,28 @@ final class Plugin {
 	}
 
 	/**
+	 * Count recompute job, shared by the runner and the scheduler service.
+	 *
+	 * @var Core\Jobs\CountRecomputeJob|null
+	 */
+	private static ?Core\Jobs\CountRecomputeJob $countRecompute = null;
+
+	/**
+	 * The count recompute job.
+	 *
+	 * @return Core\Jobs\CountRecomputeJob
+	 */
+	public static function countRecomputeJob(): Core\Jobs\CountRecomputeJob {
+		return self::$countRecompute ??= new Core\Jobs\CountRecomputeJob( self::db(), static fn(): Query\QueryContext => self::queryContext() );
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync() );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ) );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *

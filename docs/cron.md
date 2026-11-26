@@ -77,6 +77,10 @@ jobs:
 
 Many managed hosts already run a server cron for WordPress. Check how often it fires: if it's less often than every 5 minutes, add your own entry as above or ask the host to shorten the interval.
 
+## Count recompute
+
+A collection can keep chosen filter combinations warm (the `nf/count/combinations` filter returns them for a query target). After a save that changes a pivot set, NF queues one `count_recompute` job for that set, and none while one is already queued, so a burst of saves costs one job. The job runs on cron in steps of five combinations and stores each total in the object cache, or in `nf_count_cache` when there is no persistent object cache. Until cron fires, a combination is counted live on its first request and cached from then on. Anonymous reads never queue the job.
+
 ## Count cache cleanup
 
 Sites without a persistent object cache keep cached totals in the `nf_count_cache` table. A logged-in request or WP-CLI that writes a row queues the `count_cache_cleanup` job, at most once a day. It runs on the next cron firing in one short step and deletes expired rows (24 hours, filter `nf/count_cache/ttl`) and rows from older versions. Anonymous requests never write to the table or queue the job. If cron doesn't fire, stale rows stay until it does; they are never read, because a row is a hit only at the current version.
