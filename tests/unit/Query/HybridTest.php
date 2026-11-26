@@ -611,6 +611,33 @@ class HybridTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Both sides read in chunks of two without NF ordering: core's order and the exact total are unchanged.
+	 */
+	public function test_unordered_intersection_reads_both_sides_in_chunks(): void {
+		$this->hy_cap( 3 );
+		add_filter( 'nf/hybrid/chunk', static fn () => 2 );
+		$q = $this->hy_run(
+			array(
+				'meta_query'     => array(
+					array(
+						'key'     => 'hyprice',
+						'value'   => 10,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
+				'posts_per_page' => 3,
+				'paged'          => 2,
+			)
+		);
+		$this->assertSame( 'hybrid', $q->get( 'nf_mode' ) );
+		$this->assertSame( array_slice( $this->ids, 3, 3 ), wp_list_pluck( $q->posts, 'ID' ) );
+		$this->assertSame( 7, $q->found_posts );
+	}
+
+	/**
 	 * NF's side is read in chunks of two: same page, same total as one read.
 	 */
 	public function test_intersection_reads_nf_ids_in_chunks(): void {
