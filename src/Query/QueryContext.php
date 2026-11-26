@@ -116,9 +116,9 @@ final class QueryContext {
 		}
 		$kinds = ( new Compiler( $this->db, $this->dictionary ) )->cursorKinds( $spec, $in['slots'] );
 		$cols  = array_keys( $kinds );
-		$d    = $this->db->dialect();
-		$list = implode( ', ', array_map( static fn( string $c ): string => $d->quoteIdentifier( $c ), $cols ) );
-		$rows = $this->db->select( 'SELECT ' . $list . ' FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $in['pivot'], $id ) );
+		$d     = $this->db->dialect();
+		$list  = implode( ', ', array_map( static fn( string $c ): string => $d->quoteIdentifier( $c ), $cols ) );
+		$rows  = $this->db->select( 'SELECT ' . $list . ' FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $in['pivot'], $id ) );
 		if ( array() === $rows ) {
 			return null;
 		}
