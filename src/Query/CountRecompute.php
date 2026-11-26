@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * After a pivot write, queues one recompute job per pivot set when the set has declared combinations. While a job for
  * the set is queued or running, further saves queue nothing: the job reads the current write_version when it runs.
- * Saves are writes by logged-in users, WP-CLI or jobs, so an anonymous GET never queues it.
+ * Only writes queue it (saves, WP-CLI, jobs); an anonymous read never does.
  */
 final class CountRecompute {
 
@@ -58,6 +58,10 @@ final class CountRecompute {
 		if ( null !== $record && in_array( $record['status'], array( 'queued', 'running' ), true ) ) {
 			return;
 		}
-		$this->jobs->start( $this->job->key(), $args );
+		try {
+			$this->jobs->start( $this->job->key(), $args );
+		} catch ( \Throwable $e ) {
+			return; // Warming is optional: it never breaks the pivot write that fired the hook.
+		}
 	}
 }

@@ -79,7 +79,7 @@ Many managed hosts already run a server cron for WordPress. Check how often it f
 
 ## Count recompute
 
-A collection can keep chosen filter combinations warm (the `nf/count/combinations` filter returns them for a query target). After a save that changes a pivot set, NF queues one `count_recompute` job for that set, and none while one is already queued, so a burst of saves costs one job. The job runs on cron in steps of five combinations and stores each total in the object cache, or in `nf_count_cache` when there is no persistent object cache. Until cron fires, a combination is counted live on its first request and cached from then on. Anonymous requests never queue the job.
+A collection can keep chosen filter combinations warm (the `nf/count/combinations` filter returns them for a query target). After a save that changes a pivot set, NF queues one `count_recompute` job for that set, and none while one is already queued, so a burst of saves costs one job. The job runs on cron in steps of five combinations and stores each total in the object cache, or in `nf_count_cache` when there is no persistent object cache. Until cron fires, a combination is counted live on its first request and cached from then on. Anonymous reads never queue the job.
 
 ## Count cache cleanup
 
