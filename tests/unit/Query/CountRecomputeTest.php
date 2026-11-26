@@ -155,7 +155,9 @@ class CountRecomputeTest extends WP_UnitTestCase {
 	public function test_trigger_ignores_undeclared_set(): void {
 		remove_filter( 'nf/count/combinations', array( $this, 'combos' ), 10 );
 		$jobs = new JobRunner( array( $this->job() ) );
+		$id   = JobRunner::idFor( 'count_recompute', array( 'pivot_id' => $this->pivot_id ) );
+		delete_option( JobRunner::OPTION_PREFIX . sanitize_key( $id ) ); // Earlier saves in other tests may have queued it.
 		( new CountRecompute( $jobs, $this->job() ) )->onChanged( $this->pivot_id );
-		$this->assertNull( $jobs->record( JobRunner::idFor( 'count_recompute', array( 'pivot_id' => $this->pivot_id ) ) ) );
+		$this->assertNull( $jobs->record( $id ) );
 	}
 }
