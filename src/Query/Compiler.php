@@ -303,13 +303,29 @@ final class Compiler {
 	 * @throws UnsupportedQueryException When a sort field has no slot.
 	 */
 	public function cursorColumns( QuerySpec $spec, array $slots ): array {
+		return array_keys( $this->cursorKinds( $spec, $slots ) );
+	}
+
+	/**
+	 * Cursor columns with their value kind ('int', 'str', 'dec' or 'date'), in sort order.
+	 *
+	 * @param QuerySpec                                                $spec  Query.
+	 * @param array<string,array{name:string,table:DataTable,id?:int}> $slots Pivot slots.
+	 * @return array<string,string>
+	 * @throws UnsupportedQueryException When a sort field has no slot.
+	 */
+	public function cursorKinds( QuerySpec $spec, array $slots ): array {
 		$byName = array();
 		foreach ( $slots as $slot => $f ) {
 			if ( ! str_starts_with( $slot, 'm' ) ) {
 				$byName[ $f['name'] ] = array( $slot, $f['table'] );
 			}
 		}
-		return array_map( static fn( array $p ): string => $p[0], $this->sortPlan( $spec, $byName ) );
+		$out = array();
+		foreach ( $this->sortPlan( $spec, $byName ) as $p ) {
+			$out[ $p[0] ] = $p[2];
+		}
+		return $out;
 	}
 
 	/**

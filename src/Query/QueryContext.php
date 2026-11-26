@@ -114,10 +114,11 @@ final class QueryContext {
 		if ( null === $in ) {
 			return null;
 		}
-		$cols = ( new Compiler( $this->db, $this->dictionary ) )->cursorColumns( $spec, $in['slots'] );
-		$d    = $this->db->dialect();
-		$list = implode( ', ', array_map( static fn( string $c ): string => $d->quoteIdentifier( $c ), $cols ) );
-		$rows = $this->db->select( 'SELECT ' . $list . ' FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $in['pivot'], $id ) );
+		$kinds = ( new Compiler( $this->db, $this->dictionary ) )->cursorKinds( $spec, $in['slots'] );
+		$cols  = array_keys( $kinds );
+		$d     = $this->db->dialect();
+		$list  = implode( ', ', array_map( static fn( string $c ): string => $d->quoteIdentifier( $c ), $cols ) );
+		$rows  = $this->db->select( 'SELECT ' . $list . ' FROM ' . $this->db->table( 'nf_pivot' ) . ' WHERE pivot_id = ? AND object_id = ?', array( $in['pivot'], $id ) );
 		if ( array() === $rows ) {
 			return null;
 		}
@@ -128,7 +129,8 @@ final class QueryContext {
 				$out[] = null;
 				continue;
 			}
-			$out[] = is_numeric( $v ) && ! str_contains( (string) $v, '-' ) && ! str_contains( (string) $v, '.' ) ? (int) $v : (string) $v;
+			// Only integer columns become ints: a string such as "007" must stay as stored.
+			$out[] = 'int' === $kinds[ $c ] && 1 === preg_match( '/^-?\d+$/', (string) $v ) ? (int) $v : (string) $v;
 		}
 		return $out;
 	}

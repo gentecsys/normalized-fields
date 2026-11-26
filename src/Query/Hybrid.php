@@ -239,14 +239,15 @@ final class Hybrid {
 	/**
 	 * Copy of a spec with extra conditions, a limit and an offset.
 	 *
-	 * @param QuerySpec   $s      Spec.
-	 * @param Condition[] $extra  Conditions to add.
-	 * @param int         $limit  Limit.
-	 * @param int         $offset Offset.
+	 * @param QuerySpec                       $s      Spec.
+	 * @param Condition[]                     $extra  Conditions to add.
+	 * @param int                             $limit  Limit.
+	 * @param int                             $offset Offset.
+	 * @param array<int,int|string|null>|null $after  Seek cursor (replaces the offset), or null.
 	 * @return QuerySpec
 	 */
-	private function limited( QuerySpec $s, array $extra, int $limit, int $offset ): QuerySpec {
-		return new QuerySpec( $s->type, $s->subtype, $s->statuses, array_merge( $s->conditions, $extra ), $s->orders, $limit, $offset, $s->masks, $s->rows );
+	private function limited( QuerySpec $s, array $extra, int $limit, int $offset, ?array $after = null ): QuerySpec {
+		return new QuerySpec( $s->type, $s->subtype, $s->statuses, array_merge( $s->conditions, $extra ), $s->orders, $limit, $offset, $s->masks, $s->rows, $after );
 	}
 
 	/**
@@ -435,8 +436,93 @@ final class Hybrid {
 				return array();
 			}
 		}
-		$sub = new \WP_Query();
-		return array_map( 'intval', (array) $sub->query( $vars ) );
+		$chunk = max( 1, min( 50000, (int) apply_filters( 'nf/hybrid/chunk', self::CHUNK ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		if ( array() !== $in || $limit <= $chunk ) {
+			$sub = new \WP_Query();
+			return array_map( 'intval', (array) $sub->query( $vars ) );
+		}
+		return $keepOrder ? $this->coreIdsPaged( $vars, $limit, $chunk ) : $this->coreIdsSeek( $vars, $limit, $chunk );
+	}
+
+	/**
+	 * Core's IDs in chunks keyed on the ID (order does not matter), so no single read holds the whole list. Stops one past `$limit`.
+	 *
+	 * @param array<string,mixed> $vars  Query vars of the core-side query.
+	 * @param int                 $limit Ceiling.
+	 * @param int                 $chunk Rows per read.
+	 * @return int[]
+	 * @throws \RuntimeException When a read does not advance.
+	 */
+	private function coreIdsSeek( array $vars, int $limit, int $chunk ): array {
+		global $wpdb;
+		$vars['orderby'] = 'ID';
+		$vars['order']   = 'ASC';
+		$last            = 0;
+		$out             = array();
+		$have            = 0;
+		$seek            = static function ( string $where ) use ( &$last, $wpdb ): string {
+			return $where . $wpdb->prepare( " AND {$wpdb->posts}.ID > %d", $last );
+		};
+		while ( $have < $limit ) {
+			$vars['posts_per_page'] = min( $chunk, $limit - $have );
+			add_filter( 'posts_where', $seek );
+			try {
+				$rows = array_map( 'intval', (array) ( new \WP_Query() )->query( $vars ) );
+			} finally {
+				remove_filter( 'posts_where', $seek );
+			}
+			array_push( $out, ...$rows );
+			$have += count( $rows );
+			if ( count( $rows ) < $vars['posts_per_page'] ) {
+				break;
+			}
+			if ( $last >= (int) end( $rows ) ) {
+				throw new \RuntimeException( 'Core ID read did not advance.' );
+			}
+			$last = (int) end( $rows );
+		}
+		return $out;
+	}
+
+	/**
+	 * Core's IDs in the query's own order, one page of `$chunk` per read (core cannot seek on an arbitrary order). Stops one past `$limit`.
+	 *
+	 * @param array<string,mixed> $vars  Query vars of the core-side query.
+	 * @param int                 $limit Ceiling.
+	 * @param int                 $chunk Rows per read.
+	 * @return int[]
+	 * @throws \RuntimeException When a read does not advance.
+	 */
+	private function coreIdsPaged( array $vars, int $limit, int $chunk ): array {
+		global $wpdb;
+		if ( is_string( $vars['orderby'] ?? null ) && str_starts_with( strtolower( $vars['orderby'] ), 'rand' ) ) {
+			$vars['orderby'] = 'ID'; // A random order cannot be paged; the order of an intersection is not random-stable anyway.
+		}
+		// Ties in core's order would make OFFSET pages overlap or skip rows: end every read with the ID.
+		$tie  = static fn ( string $o ): string => '' === trim( $o ) ? "{$wpdb->posts}.ID ASC" : $o . ", {$wpdb->posts}.ID ASC";
+		$out  = array();
+		$have = 0;
+		while ( $have < $limit ) {
+			$vars['posts_per_page'] = $chunk;
+			$vars['paged']          = 1;
+			$vars['offset']         = $have;
+			add_filter( 'posts_orderby', $tie, 999999 );
+			try {
+				$rows = array_map( 'intval', (array) ( new \WP_Query() )->query( $vars ) );
+			} finally {
+				remove_filter( 'posts_orderby', $tie, 999999 );
+			}
+			$n = count( $rows );
+			if ( $n > 0 && $have > 0 && array_slice( $out, -$n ) === $rows ) {
+				throw new \RuntimeException( 'Core ID read did not advance.' );
+			}
+			array_push( $out, ...$rows );
+			$have += $n;
+			if ( $n < $chunk ) {
+				break;
+			}
+		}
+		return array_slice( $out, 0, $limit );
 	}
 
 	/**
@@ -470,7 +556,7 @@ final class Hybrid {
 				}
 				$core = $this->coreIds( $query, array(), $max + 1, ! $ordered );
 				if ( count( $core ) > $max ) {
-					$this->failClosed( $query, 'core side over ' . $max . ' ids' );
+					$this->failClosed( $query, 'core side over ' . $max . ' ids (' . count( $core ) . ' read)' );
 					return;
 				}
 			} finally {
@@ -500,17 +586,34 @@ final class Hybrid {
 	 * @param QuerySpec $full NF spec, no limit.
 	 * @param int       $max  Ceiling.
 	 * @return int[]
+	 * @throws \RuntimeException When the list changes during the read.
 	 */
 	private function nfIds( QuerySpec $full, int $max ): array {
 		$chunk = max( 1, min( $max + 1, 50000, (int) apply_filters( 'nf/hybrid/chunk', self::CHUNK ) ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$out   = array();
 		$have  = 0;
+		$after = null;
 		while ( $have <= $max ) {
-			$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - $have ), $have ) );
+			$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - $have ), 0, $after ) );
 			array_push( $out, ...$rows );
 			$have += count( $rows );
-			if ( count( $rows ) < $chunk ) {
+			if ( count( $rows ) < $chunk || $have > $max ) {
 				break;
+			}
+			// Seek on the last row's sort key and ID: no OFFSET rescan.
+			$after = $this->context->cursor( $full, (int) end( $rows ) );
+			if ( null === $after ) {
+				// The last row vanished mid-read: fall back to an offset rather than return a short list.
+				$rows = $this->context->ids( $this->limited( $full, array(), min( $chunk, $max + 1 - $have ), $have ) );
+				array_push( $out, ...$rows );
+				$have += count( $rows );
+				if ( count( $rows ) < $chunk || $have > $max ) {
+					break;
+				}
+				$after = $this->context->cursor( $full, (int) end( $rows ) );
+				if ( null === $after ) {
+					throw new \RuntimeException( 'NF ID list changed during the read.' );
+				}
 			}
 		}
 		return $out;
