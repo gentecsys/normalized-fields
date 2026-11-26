@@ -78,11 +78,12 @@ final class CountTable {
 	 * @param int    $pivotId Pivot set id.
 	 * @param int    $version write_version the count was computed at.
 	 * @param int    $count   Total.
+	 * @param bool   $warm    True from the recompute job, a trusted background context (never from a request).
 	 * @return void
 	 */
-	public function put( string $key, int $pivotId, int $version, int $count ): void {
+	public function put( string $key, int $pivotId, int $version, int $count, bool $warm = false ): void {
 		$cli = defined( 'WP_CLI' ) && WP_CLI;
-		if ( ! $this->enabled() || ! ( $cli || is_user_logged_in() ) ) {
+		if ( ! $this->enabled() || ! ( $warm || $cli || is_user_logged_in() ) ) {
 			return;
 		}
 		$ttl = max( 60, (int) apply_filters( 'nf/count_cache/ttl', self::TTL ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores

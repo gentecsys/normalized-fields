@@ -650,6 +650,12 @@ final class Pivot {
 	 */
 	private function bump( int $pivotId ): void {
 		$this->db->execute( 'UPDATE ' . $this->db->table( 'nf_pivot_sets' ) . ' SET write_version = write_version + 1 WHERE pivot_id = ?', array( $pivotId ) );
+		/**
+		 * Fires after a pivot set's write_version is bumped (inside the write's transaction).
+		 *
+		 * @param int $pivotId Pivot set id.
+		 */
+		do_action( 'nf/pivot/changed', $pivotId ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
 	/**

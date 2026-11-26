@@ -139,9 +139,10 @@ final class QueryContext {
 	 * Live count of matching objects, ignoring limit and offset.
 	 *
 	 * @param QuerySpec $spec Query.
+	 * @param bool      $warm True from the recompute job: also store the total in the table tier.
 	 * @return int
 	 */
-	public function count( QuerySpec $spec ): int {
+	public function count( QuerySpec $spec, bool $warm = false ): int {
 		$c = $this->compile( $spec );
 		if ( null === $c ) {
 			return 0;
@@ -170,7 +171,7 @@ final class QueryContext {
 		$rows  = $this->db->select( $c->count_sql, $c->count_params );
 		$total = (int) ( $rows[0]['c'] ?? 0 );
 		CountCache::set( $key, $total );
-		$table->put( $key, $pivotId, $version, $total );
+		$table->put( $key, $pivotId, $version, $total, $warm );
 		return $total;
 	}
 
