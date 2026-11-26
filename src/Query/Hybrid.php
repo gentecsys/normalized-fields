@@ -546,7 +546,7 @@ final class Hybrid {
 				}
 				$core = $this->coreIds( $query, array(), $max + 1, ! $ordered );
 				if ( count( $core ) > $max ) {
-					$this->failClosed( $query, 'core side over ' . $max . ' ids' );
+					$this->failClosed( $query, 'core side over ' . $max . ' ids (' . count( $core ) . ' read)' );
 					return;
 				}
 			} finally {
