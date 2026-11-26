@@ -22,16 +22,44 @@ use NF\Storage\Store;
  */
 class CountRecomputeTest extends WP_UnitTestCase {
 
+	/**
+	 * Post type.
+	 */
 	private const TYPE = 'nf_rc_event';
 
+	/**
+	 * Store.
+	 *
+	 * @var Store
+	 */
 	private Store $store;
 
+	/**
+	 * Pivot.
+	 *
+	 * @var Pivot
+	 */
 	private Pivot $pivot;
 
+	/**
+	 * Pivot set id.
+	 *
+	 * @var int
+	 */
 	private int $pivot_id;
 
+	/**
+	 * Query context.
+	 *
+	 * @var QueryContext
+	 */
 	private QueryContext $context;
 
+	/**
+	 * Created post ids.
+	 *
+	 * @var int[]
+	 */
 	private array $ids = array();
 
 	/**
@@ -77,16 +105,16 @@ class CountRecomputeTest extends WP_UnitTestCase {
 	/**
 	 * Declared combinations for the test type: one good, one with an unknown field.
 	 *
-	 * @param array<int,array<string,mixed>> $list   Combinations.
+	 * @param array<int,array<string,mixed>> $declared Combinations.
 	 * @param string                         $target Target.
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function combos( array $list, string $target ): array {
+	public function combos( array $declared, string $target ): array {
 		if ( self::TYPE === $target ) {
-			$list[] = array( 'where' => array( array( 'rcprice', '>=', 20 ) ) );
-			$list[] = array( 'where' => array( array( 'no_such_field', '=', 1 ) ) );
+			$declared[] = array( 'where' => array( array( 'rcprice', '>=', 20 ) ) );
+			$declared[] = array( 'where' => array( array( 'no_such_field', '=', 1 ) ) );
 		}
-		return $list;
+		return $declared;
 	}
 
 	/**

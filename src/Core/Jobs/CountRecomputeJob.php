@@ -79,8 +79,8 @@ final class CountRecomputeJob implements JobInterface {
 		 * @param array<int,array<string,mixed>> $combinations Declared combinations.
 		 * @param string                         $target       Query target.
 		 */
-		$list = apply_filters( 'nf/count/combinations', array(), $target ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
-		return is_array( $list ) ? array_values( array_filter( $list, 'is_array' ) ) : array();
+		$declared = apply_filters( 'nf/count/combinations', array(), $target ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		return is_array( $declared ) ? array_values( array_filter( $declared, 'is_array' ) ) : array();
 	}
 
 	/**
@@ -108,8 +108,10 @@ final class CountRecomputeJob implements JobInterface {
 		$target = $this->target( absint( $state['pivot_id'] ) );
 		$combos = null === $target ? array() : $this->combinations( $target );
 		$offset = absint( $state['offset'] );
-		/** @var QueryContext $ctx */
 		$ctx = ( $this->context )();
+		if ( ! $ctx instanceof QueryContext ) {
+			return $state;
+		}
 		foreach ( array_slice( $combos, $offset, self::PER_STEP ) as $combo ) {
 			try {
 				$b = new Builder( (string) $target, $ctx );
