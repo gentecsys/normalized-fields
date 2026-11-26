@@ -108,7 +108,7 @@ final class CountRecomputeJob implements JobInterface {
 		$target = $this->target( absint( $state['pivot_id'] ) );
 		$combos = null === $target ? array() : $this->combinations( $target );
 		$offset = absint( $state['offset'] );
-		$ctx = ( $this->context )();
+		$ctx    = ( $this->context )();
 		if ( ! $ctx instanceof QueryContext ) {
 			return $state;
 		}
