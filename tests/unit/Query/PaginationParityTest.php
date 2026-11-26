@@ -57,9 +57,12 @@ final class PaginationParityTest extends WP_UnitTestCase {
 		$pid         = $pivot->setId( ObjectType::Post, self::TYPE );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $pid ) );
 		for ( $i = 0; $i < self::TOTAL; $i++ ) {
-			$id          = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+			$id = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
+
 			$this->ids[] = $id;
-			$flag        = 0 === $i % 4 ? 0 : 1; // 26 posts, 19 flagged.
+
+			$flag = 0 === $i % 4 ? 0 : 1; // 26 posts, 19 flagged.
+
 			$this->matching += $flag;
 			update_post_meta( $id, 'pgcore', (string) $flag );
 			$this->store->set( ObjectType::Post, $id, 'field_t33d_flag', $flag );
@@ -123,26 +126,26 @@ final class PaginationParityTest extends WP_UnitTestCase {
 	/** @return array<string,array{0:array<string,mixed>}> */
 	public function paginationCases(): array {
 		return array(
-			'page 1'                        => array( array( 'posts_per_page' => 5, 'paged' => 1 ) ),
-			'page 2'                        => array( array( 'posts_per_page' => 5, 'paged' => 2 ) ),
-			'last page'                     => array( array( 'posts_per_page' => 5, 'paged' => 4 ) ),
-			'after the last page'           => array( array( 'posts_per_page' => 5, 'paged' => 5 ) ),
-			'far past the last page'        => array( array( 'posts_per_page' => 5, 'paged' => 50 ) ),
-			'exact multiple'                => array( array( 'posts_per_page' => 19, 'paged' => 1 ) ),
-			'one per page'                  => array( array( 'posts_per_page' => 1, 'paged' => 7 ) ),
-			'offset alone'                  => array( array( 'posts_per_page' => 5, 'offset' => 7 ) ),
-			'offset with paged'             => array( array( 'posts_per_page' => 5, 'offset' => 7, 'paged' => 3 ) ),
-			'offset past the end'           => array( array( 'posts_per_page' => 5, 'offset' => 40 ) ),
-			'posts_per_page -1'             => array( array( 'posts_per_page' => -1 ) ),
-			'nopaging'                      => array( array( 'nopaging' => true ) ),
-			'no_found_rows'                 => array( array( 'posts_per_page' => 5, 'paged' => 2, 'no_found_rows' => true ) ),
-			'descending, page 3'            => array( array( 'posts_per_page' => 4, 'paged' => 3, 'order' => 'DESC' ) ),
+			'page 1'                 => array( array( 'posts_per_page' => 5, 'paged' => 1 ) ),
+			'page 2'                 => array( array( 'posts_per_page' => 5, 'paged' => 2 ) ),
+			'last page'              => array( array( 'posts_per_page' => 5, 'paged' => 4 ) ),
+			'after the last page'    => array( array( 'posts_per_page' => 5, 'paged' => 5 ) ),
+			'far past the last page' => array( array( 'posts_per_page' => 5, 'paged' => 50 ) ),
+			'exact multiple'         => array( array( 'posts_per_page' => 19, 'paged' => 1 ) ),
+			'one per page'           => array( array( 'posts_per_page' => 1, 'paged' => 7 ) ),
+			'offset alone'           => array( array( 'posts_per_page' => 5, 'offset' => 7 ) ),
+			'offset with paged'      => array( array( 'posts_per_page' => 5, 'offset' => 7, 'paged' => 3 ) ),
+			'offset past the end'    => array( array( 'posts_per_page' => 5, 'offset' => 40 ) ),
+			'posts_per_page -1'      => array( array( 'posts_per_page' => -1 ) ),
+			'nopaging'               => array( array( 'nopaging' => true ) ),
+			'no_found_rows'          => array( array( 'posts_per_page' => 5, 'paged' => 2, 'no_found_rows' => true ) ),
+			'descending, page 3'     => array( array( 'posts_per_page' => 4, 'paged' => 3, 'order' => 'DESC' ) ),
 		);
 	}
 
 	/**
 	 * @dataProvider paginationCases
-	 * @param array<string,mixed> $args
+	 * @param array<string,mixed> $args Query arguments.
 	 */
 	public function test_pagination_matches_core( array $args ): void {
 		$this->assertParity( $args, wp_json_encode( $args ) );
