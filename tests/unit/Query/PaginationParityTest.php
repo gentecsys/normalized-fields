@@ -89,7 +89,7 @@ final class PaginationParityTest extends WP_UnitTestCase {
 	 * @param array<string,mixed> $args Extra WP_Query arguments.
 	 * @return array<string,mixed>
 	 */
-	private function run( string $key, array $args ): array {
+	private function run_query( string $key, array $args ): array {
 		$q = new WP_Query(
 			array_merge(
 				array(
@@ -112,8 +112,8 @@ final class PaginationParityTest extends WP_UnitTestCase {
 
 	/** @param array<string,mixed> $args */
 	private function assertParity( array $args, string $label ): array {
-		$core = $this->run( 'pgcore', $args );
-		$nf   = $this->run( 'pgflag', $args );
+		$core = $this->run_query( 'pgcore', $args );
+		$nf   = $this->run_query( 'pgflag', $args );
 		$this->assertSame( 'short-circuit', $nf['mode'], "$label: NF answered" );
 		unset( $core['mode'], $nf['mode'] );
 		$this->assertSame( $core, $nf, $label );
