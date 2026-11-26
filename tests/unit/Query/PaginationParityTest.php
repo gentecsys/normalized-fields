@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-// phpcs:disable WordPress.Arrays.ArrayDeclarationSpacing,WordPress.DB.SlowDBQuery,Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,Generic.Commenting.DocComment.MissingShort,Universal.Operators.DisallowShortTernary
+// phpcs:disable WordPress.Arrays.ArrayDeclarationSpacing,WordPress.DB.SlowDBQuery,Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamTag,WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid,Generic.Commenting.DocComment.MissingShort
 
 use NF\Pivot\Pivot;
 use NF\Query\Builder;
@@ -56,6 +56,7 @@ final class PaginationParityTest extends WP_UnitTestCase {
 		$pivot       = new Pivot( $db, $fields, $this->store );
 		$pid         = $pivot->setId( ObjectType::Post, self::TYPE );
 		$db->execute( 'DELETE FROM ' . $db->table( 'nf_pivot' ) . ' WHERE pivot_id = ?', array( $pid ) );
+		$pivot->assignSlot( $pid, 'field_t33d_flag', 'i1' );
 		for ( $i = 0; $i < self::TOTAL; $i++ ) {
 			$id = self::factory()->post->create( array( 'post_type' => self::TYPE ) );
 
@@ -78,6 +79,7 @@ final class PaginationParityTest extends WP_UnitTestCase {
 		remove_filter( 'found_posts_query', array( $this->hook, 'foundPostsQuery' ), 10 );
 		remove_filter( 'found_posts', array( $this->hook, 'foundPosts' ), 1 );
 		remove_all_filters( 'nf/count/cap' );
+		delete_option( 'sticky_posts' );
 		foreach ( $this->ids as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 			wp_delete_post( $id, true );
@@ -172,7 +174,6 @@ final class PaginationParityTest extends WP_UnitTestCase {
 		$this->assertNotSame( 'short-circuit', $q->get( 'nf_mode' ) );
 		$q = new WP_Query( array_merge( $this->base( 'pgflag' ), array( 'posts_per_page' => 5, 'ignore_sticky_posts' => true ) ) );
 		$this->assertSame( 'short-circuit', $q->get( 'nf_mode' ) );
-		delete_option( 'sticky_posts' );
 	}
 
 	public function test_capped_count_below_at_and_above_the_cap(): void {
