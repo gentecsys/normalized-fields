@@ -178,12 +178,28 @@ final class Plugin {
 	}
 
 	/**
+	 * Result-set registry, created on first use.
+	 *
+	 * @var Loading\ResultSetRegistry|null
+	 */
+	private static ?Loading\ResultSetRegistry $registry = null;
+
+	/**
+	 * The request-level result-set registry.
+	 *
+	 * @return Loading\ResultSetRegistry
+	 */
+	public static function registry(): Loading\ResultSetRegistry {
+		return self::$registry ??= new Loading\ResultSetRegistry();
+	}
+
+	/**
 	 * Services to register. Each exposes a register() method that adds its hooks.
 	 *
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ) );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ), new Loading\QueryWatcher( self::registry() ) );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *
