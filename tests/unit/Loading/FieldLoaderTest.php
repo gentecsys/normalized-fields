@@ -55,18 +55,18 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	/**
 	 * Count queries run by a callback.
 	 *
-	 * @param callable $fn Callback.
+	 * @param callable $callback Callback.
 	 * @return int
 	 */
-	private function queries( callable $fn ): int {
+	private function queries( callable $callback ): int {
 		global $wpdb;
 		$before = $wpdb->num_queries;
-		$fn();
+		$callback();
 		return $wpdb->num_queries - $before;
 	}
 
 	/**
-	 * getMany() returns what get() returns, including unset fields and long text.
+	 * The batch read returns what get() returns, including unset fields and long text.
 	 *
 	 * @return void
 	 */
