@@ -190,7 +190,7 @@ final class Plugin {
 	 * @return Loading\FieldLoader
 	 */
 	public static function loader(): Loading\FieldLoader {
-		return self::$loader ??= new Loading\FieldLoader( self::store(), self::registry() );
+		return self::$loader ??= new Loading\FieldLoader( self::store(), self::registry(), new Loading\Primer() );
 	}
 
 	/**
