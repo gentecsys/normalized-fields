@@ -33,6 +33,7 @@ final class FieldLoader {
 	 *
 	 * @param Store             $store    Store.
 	 * @param ResultSetRegistry $registry Registry.
+	 * @param Primer|null       $primer   Target primer; when null nothing is primed.
 	 */
 	public function __construct( private Store $store, private ResultSetRegistry $registry, private ?Primer $primer = null ) {}
 
@@ -55,7 +56,7 @@ final class FieldLoader {
 	 */
 	public function get( int $post_id, string $key, ?string $type = null ): mixed {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
-			$batch = $this->registry->batchFor( $post_id, $key );
+			$batch  = $this->registry->batchFor( $post_id, $key );
 			$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
 			foreach ( $loaded as $id => $value ) {
 				$this->values[ $key ][ $id ] = $value;

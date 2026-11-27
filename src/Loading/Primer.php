@@ -96,7 +96,7 @@ final class Primer {
 	 * @return int[]
 	 */
 	public static function ids( mixed $values ): array {
-		$out = array();
+		$out  = array();
 		$walk = static function ( mixed $v ) use ( &$walk, &$out ): void {
 			if ( is_array( $v ) ) {
 				foreach ( $v as $item ) {
