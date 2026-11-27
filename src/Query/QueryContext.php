@@ -176,6 +176,51 @@ final class QueryContext {
 	}
 
 	/**
+	 * Facet counts for dictionary (`select`-like) and bitmask (multi-valued) fields over the matching objects.
+	 *
+	 * An unfiltered query reads the `nf_count` rollup; any filter groups the matching pivot rows live. Same counts either way.
+	 *
+	 * @param QuerySpec $spec   Query (limit, offset and cursor are ignored).
+	 * @param string[]  $fields Field names.
+	 * @return array<string,array<int,array{value:string,count:int}>> Field name => value rows, largest count first.
+	 * @throws UnsupportedQueryException For a field without a dictionary or bitmask slot.
+	 */
+	public function facets( QuerySpec $spec, array $fields ): array {
+		$in = $this->resolve( $spec );
+		if ( null === $in ) {
+			return array_fill_keys( $fields, array() );
+		}
+		$statuses = array() === $spec->statuses ? array( Status::Publish ) : $spec->statuses;
+		$codes    = array_map( static fn ( Status $s ): int => $s->value, $statuses );
+		$facets   = new Facets( $this->db );
+		$ready    = array() === $spec->conditions && array() === $spec->masks && array() === $spec->rows && $this->pivot->countsReady( $in['pivot'] );
+		$ids      = null;
+		$out      = array();
+		foreach ( $fields as $name ) {
+			$slot = null;
+			$fid  = 0;
+			foreach ( $in['slots'] as $s => $def ) {
+				if ( $def['name'] === $name && ( 's' === $s[0] || 'm' === $s[0] ) ) {
+					$slot = (string) $s;
+					$fid  = $def['id'];
+					break;
+				}
+			}
+			if ( null === $slot ) {
+				throw new UnsupportedQueryException( sprintf( 'Field "%s" has no dictionary or bitmask slot to facet on.', $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			if ( $ready ) {
+				$counts = $facets->fromRollup( $in['pivot'], $codes, $slot );
+			} else {
+				$ids  ??= $this->ids( new QuerySpec( $spec->type, $spec->subtype, $spec->statuses, $spec->conditions, array(), 0, 0, $spec->masks, $spec->rows ) );
+				$counts = $facets->fromIds( $in['pivot'], $ids, $slot );
+			}
+			$out[ $name ] = $facets->decode( $fid, $slot, $counts );
+		}
+		return $out;
+	}
+
+	/**
 	 * The compiler's plan plus the database's own EXPLAIN of the page statement.
 	 *
 	 * @param QuerySpec $spec Query.

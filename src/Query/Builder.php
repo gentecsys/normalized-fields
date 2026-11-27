@@ -525,6 +525,16 @@ final class Builder {
 	}
 
 	/**
+	 * Facet counts per value for dictionary or bitmask fields, over the matches (limit and offset ignored).
+	 *
+	 * @param string[] $fields Field names.
+	 * @return array<string,array<int,array{value:string,count:int}>>
+	 */
+	public function facets( array $fields ): array {
+		return $this->context()->facets( $this->toSpec(), $fields );
+	}
+
+	/**
 	 * Matching posts as native WP_Post objects, in query order.
 	 *
 	 * One `_prime_post_caches()` call hydrates the page; ids that no longer resolve are dropped.
