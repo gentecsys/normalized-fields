@@ -157,7 +157,7 @@ final class ResultSetRegistry {
 				break; // The newest set that still has posts to load.
 			}
 		}
-		$pos  = (int) array_search( $post_id, $todo, true );
+		$pos = (int) array_search( $post_id, $todo, true );
 		return array_slice( $todo, intdiv( $pos, self::BATCH_CAP ) * self::BATCH_CAP, self::BATCH_CAP );
 	}
 

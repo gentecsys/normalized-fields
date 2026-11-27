@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * `posts_pre_query` fires even with `suppress_filters` (as in `get_posts()`), at the last priority so queries NF
- * answers itself are seen too. It only keeps a weak reference and returns the posts unchanged: no query, no write.
+ * answers itself are seen too. It only keeps a capped reference to the query and returns the posts unchanged: no query, no write.
  */
 final class QueryWatcher {
 
