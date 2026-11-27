@@ -90,9 +90,9 @@ final class Facets {
 	/**
 	 * Turn counts keyed by dictionary id or bit into labelled value rows, largest count first.
 	 *
-	 * @param int                $fieldId Field id of the slot.
-	 * @param string             $slot    Slot name.
-	 * @param array<int,int>     $counts  From {@see self::fromRollup()} or {@see self::fromIds()}.
+	 * @param int            $fieldId Field id of the slot.
+	 * @param string         $slot    Slot name.
+	 * @param array<int,int> $counts  From {@see self::fromRollup()} or {@see self::fromIds()}.
 	 * @return array<int,array{value:string,count:int}>
 	 */
 	public function decode( int $fieldId, string $slot, array $counts ): array {
@@ -134,7 +134,10 @@ final class Facets {
 		}
 		$digits = array_map( 'intval', str_split( $mask ) );
 		$out    = array();
-		for ( $bit = 0; $bit < 64 && array() !== array_filter( $digits ); $bit++ ) {
+		for ( $bit = 0; $bit < 64; $bit++ ) {
+			if ( array() === array_filter( $digits ) ) {
+				break;
+			}
 			if ( 1 === end( $digits ) % 2 ) {
 				$out[] = $bit;
 			}

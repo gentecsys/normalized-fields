@@ -24,15 +24,35 @@ final class FacetsTest extends WP_UnitTestCase {
 
 	private const TYPE = 'nf_fc_item';
 
-	/** @var Store */
+	/**
+	 * Fixture.
+	 *
+	 * @var Store
+	 */
 	private Store $store;
-	/** @var Pivot */
+	/**
+	 * Fixture.
+	 *
+	 * @var Pivot
+	 */
 	private Pivot $pivot;
-	/** @var QueryContext */
+	/**
+	 * Fixture.
+	 *
+	 * @var QueryContext
+	 */
 	private QueryContext $context;
-	/** @var int[] Post IDs. */
+	/**
+	 * Fixture.
+	 *
+	 * @var int[] Post IDs.
+	 */
 	private array $ids = array();
-	/** @var int Pivot set id. */
+	/**
+	 * Fixture.
+	 *
+	 * @var int Pivot set id.
+	 */
 	private int $pid;
 
 	/**

@@ -212,7 +212,7 @@ final class QueryContext {
 			if ( $ready ) {
 				$counts = $facets->fromRollup( $in['pivot'], $codes, $slot );
 			} else {
-				$ids ??= $this->ids( new QuerySpec( $spec->type, $spec->subtype, $spec->statuses, $spec->conditions, array(), 0, 0, $spec->masks, $spec->rows ) );
+				$ids  ??= $this->ids( new QuerySpec( $spec->type, $spec->subtype, $spec->statuses, $spec->conditions, array(), 0, 0, $spec->masks, $spec->rows ) );
 				$counts = $facets->fromIds( $in['pivot'], $ids, $slot );
 			}
 			$out[ $name ] = $facets->decode( $fid, $slot, $counts );
