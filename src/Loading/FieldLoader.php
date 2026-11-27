@@ -48,7 +48,7 @@ final class FieldLoader {
 	/**
 	 * Read a post field, loading it for the post's whole result set on first use.
 	 *
-	 * @param int    $post_id Post ID.
+	 * @param int         $post_id Post ID.
 	 * @param string      $key     Field key.
 	 * @param string|null $type    ACF field type; when set, the batch's targets are primed.
 	 * @return mixed
@@ -86,6 +86,7 @@ final class FieldLoader {
 	 * @return void
 	 */
 	public function forget( ?int $post_id = null ): void {
+		$this->primer?->flush();
 		if ( null === $post_id ) {
 			$this->values = array();
 			return;
@@ -102,6 +103,5 @@ final class FieldLoader {
 	 */
 	public function flush(): void {
 		$this->forget();
-		$this->primer?->flush();
 	}
 }

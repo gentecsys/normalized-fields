@@ -37,8 +37,8 @@ final class Primer {
 	/**
 	 * Prime the targets of a batch of values of one field type.
 	 *
-	 * @param string            $type   ACF field type.
-	 * @param array<int,mixed>  $values Values by post ID, as the store returns them.
+	 * @param string           $type   ACF field type.
+	 * @param array<int,mixed> $values Values of any shape (usually by post ID); IDs are found recursively.
 	 * @return void
 	 */
 	public function prime( string $type, array $values ): void {
@@ -146,6 +146,7 @@ final class Primer {
 		$ids = $this->fresh( 'user', $ids );
 		if ( array() !== $ids ) {
 			cache_users( $ids );
+			update_meta_cache( 'user', $ids );
 		}
 	}
 

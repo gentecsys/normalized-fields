@@ -53,6 +53,9 @@ class PrimerTest extends WP_UnitTestCase {
 		foreach ( $users as $id ) {
 			get_userdata( $id );
 		}
+		foreach ( $terms as $id ) {
+			get_term( $id );
+		}
 		$this->assertSame( $before, get_num_queries() );
 	}
 
