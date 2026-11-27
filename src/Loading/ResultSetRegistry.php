@@ -84,7 +84,8 @@ final class ResultSetRegistry {
 		foreach ( $ids as $id ) {
 			$this->index[ $id ][] = $key;
 		}
-		while ( count( $this->sets ) > self::MAX_SETS ) {
+		$kept = count( $this->sets );
+		while ( $kept-- > self::MAX_SETS ) {
 			$old = (int) array_key_first( $this->sets );
 			foreach ( $this->sets[ $old ] as $id ) {
 				$this->index[ $id ] = array_values( array_diff( $this->index[ $id ] ?? array(), array( $old ) ) );
