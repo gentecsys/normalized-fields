@@ -18,12 +18,11 @@ class PrimerTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_ids_flatten_and_dedupe(): void {
-		$this->assertSame( array( 3, 4, 9 ), Primer::ids(
-			array(
-				array( 3, '4', 0, 'x', null ),
-				array( array( 9, 3 ) ),
-			)
-		) );
+		$values = array(
+			array( 3, '4', 0, 'x', null ),
+			array( array( 9, 3 ) ),
+		);
+		$this->assertSame( array( 3, 4, 9 ), Primer::ids( $values ) );
 	}
 
 	/**
