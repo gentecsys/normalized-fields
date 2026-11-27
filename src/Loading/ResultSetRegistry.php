@@ -28,6 +28,11 @@ final class ResultSetRegistry {
 	public const MAX_SETS = 64;
 
 	/**
+	 * Most watched queries kept before they are read; the oldest are dropped first.
+	 */
+	public const MAX_PENDING = 32;
+
+	/**
 	 * Registered sets, oldest first.
 	 *
 	 * @var array<int,int[]>
@@ -56,9 +61,10 @@ final class ResultSetRegistry {
 	private array $loaded = array();
 
 	/**
-	 * Queries whose posts are read when first needed (they may not have run yet when registered).
+	 * Queries whose posts are read when first needed (they may not have run yet when registered). Held strongly, so a
+	 * query built and dropped inside a helper such as get_posts() is still read; capped at MAX_PENDING.
 	 *
-	 * @var \WeakReference<\WP_Query>[]
+	 * @var \WP_Query[]
 	 */
 	private array $pending = array();
 
@@ -91,13 +97,16 @@ final class ResultSetRegistry {
 	}
 
 	/**
-	 * Remember a WP_Query weakly; its posts are read when a field is first accessed.
+	 * Remember a WP_Query; its posts are read when a field is first accessed.
 	 *
 	 * @param \WP_Query $query Query.
 	 * @return void
 	 */
 	public function watch( \WP_Query $query ): void {
-		$this->pending[] = \WeakReference::create( $query );
+		$this->pending[] = $query;
+		if ( count( $this->pending ) > self::MAX_PENDING ) {
+			array_shift( $this->pending );
+		}
 	}
 
 	/**
@@ -107,14 +116,12 @@ final class ResultSetRegistry {
 	 */
 	public function collect(): void {
 		$still = array();
-		foreach ( $this->pending as $ref ) {
-			$query = $ref->get();
-			if ( null === $query ) {
-				continue; // Freed before anyone read a field.
-			}
+		foreach ( $this->pending as $query ) {
 			if ( ! is_array( $query->posts ) || array() === $query->posts ) {
-				$still[] = $ref; // Has not run yet.
-				continue;
+				if ( null === $query->posts || $query->found_posts > 0 ) {
+					$still[] = $query; // Has not run yet.
+				}
+				continue; // Ran and found nothing: drop.
 			}
 			$ids = array();
 			foreach ( $query->posts as $post ) {
@@ -141,8 +148,14 @@ final class ResultSetRegistry {
 		if ( array() === $keys ) {
 			return array( $post_id );
 		}
-		$set  = $this->sets[ max( $keys ) ];
-		$todo = array_values( array_filter( $set, fn( int $id ): bool => $id === $post_id || empty( $this->loaded[ $field ][ $id ] ) ) );
+		rsort( $keys );
+		$todo = array( $post_id );
+		foreach ( $keys as $key ) {
+			$todo = array_values( array_filter( $this->sets[ $key ], fn( int $id ): bool => $id === $post_id || empty( $this->loaded[ $field ][ $id ] ) ) );
+			if ( count( $todo ) > 1 ) {
+				break; // The newest set that still has posts to load.
+			}
+		}
 		$pos  = (int) array_search( $post_id, $todo, true );
 		return array_slice( $todo, intdiv( $pos, self::BATCH_CAP ) * self::BATCH_CAP, self::BATCH_CAP );
 	}

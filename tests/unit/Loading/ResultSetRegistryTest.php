@@ -71,15 +71,27 @@ class ResultSetRegistryTest extends WP_UnitTestCase {
 		$this->assertFalse( $r->isLoaded( 'f', 1 ) );
 	}
 
-	public function test_watcher_registers_wp_query_posts_even_with_suppress_filters(): void {
+	public function test_watcher_registers_get_posts_results_with_suppress_filters(): void {
 		$ids = self::factory()->post->create_many( 3 );
 		$reg = new ResultSetRegistry();
 		( new QueryWatcher( $reg ) )->register();
-		$posts = get_posts( array( 'include' => $ids, 'orderby' => 'post__in', 'suppress_filters' => false ) );
-		$q     = new WP_Query( array( 'post__in' => $ids, 'orderby' => 'post__in', 'posts_per_page' => 10 ) );
+		$posts = get_posts(
+			array(
+				'include'          => $ids,
+				'orderby'          => 'post__in',
+				'suppress_filters' => true,
+			)
+		);
 		$this->assertCount( 3, $posts );
 		$this->assertSame( $ids, $reg->batchFor( $ids[1], 'f' ) );
-		unset( $q );
+	}
+
+	public function test_older_set_is_used_when_newest_is_fully_loaded(): void {
+		$r = new ResultSetRegistry();
+		$r->register( array( 1, 2, 3 ) );
+		$r->register( array( 3, 4 ) );
+		$r->markLoaded( 'f', array( 4 ) );
+		$this->assertSame( array( 1, 2, 3 ), $r->batchFor( 3, 'f' ) );
 	}
 
 	public function test_watcher_ignores_singular_queries_and_keeps_posts_unchanged(): void {
