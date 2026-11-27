@@ -178,6 +178,22 @@ final class Plugin {
 	}
 
 	/**
+	 * Field loader, created on first use.
+	 *
+	 * @var Loading\FieldLoader|null
+	 */
+	private static ?Loading\FieldLoader $loader = null;
+
+	/**
+	 * The lazy per-field loader.
+	 *
+	 * @return Loading\FieldLoader
+	 */
+	public static function loader(): Loading\FieldLoader {
+		return self::$loader ??= new Loading\FieldLoader( self::store(), self::registry() );
+	}
+
+	/**
 	 * Result-set registry, created on first use.
 	 *
 	 * @var Loading\ResultSetRegistry|null
@@ -199,7 +215,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ), new Loading\QueryWatcher( self::registry() ) );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ), new Loading\QueryWatcher( self::registry() ), self::loader() );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *

@@ -63,6 +63,130 @@ final class Store {
 	}
 
 	/**
+	 * Read one field for many objects: one query per typed table touched (plus one for long text and one for
+	 * off-type values when present), whatever the number of objects.
+	 *
+	 * @param ObjectType $type Object type.
+	 * @param int[]      $ids  Object IDs.
+	 * @param string     $key  Field key.
+	 * @return array<int,mixed> Value per object ID, shaped as get() returns it (null or an empty list when unset).
+	 */
+	public function getMany( ObjectType $type, array $ids, string $key ): array {
+		$ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
+		$def = $this->valueField( $key );
+		if ( array() === $ids ) {
+			return array();
+		}
+		return $this->readMany( $def, $type, $ids );
+	}
+
+	/**
+	 * Batch read for a value or group-like field.
+	 *
+	 * @param FieldDef   $def  Field.
+	 * @param ObjectType $type Object type.
+	 * @param int[]      $ids  Object IDs.
+	 * @return array<int,mixed>
+	 */
+	private function readMany( FieldDef $def, ObjectType $type, array $ids ): array {
+		$out = array();
+		if ( DataTable::None === $def->table ) {
+			foreach ( $ids as $id ) {
+				$out[ $id ] = array();
+			}
+			foreach ( $this->fields->children( $def->id ) as $child ) {
+				foreach ( $this->readMany( $child, $type, $ids ) as $id => $value ) {
+					$out[ $id ][ $child->name ] = $value;
+				}
+			}
+			return $out;
+		}
+		$by = $this->readValuesMany( $def, $type, $ids );
+		foreach ( $ids as $id ) {
+			$vals       = $by[ $id ] ?? array();
+			$out[ $id ] = $def->multi ? $vals : ( $vals[0] ?? null );
+		}
+		return $out;
+	}
+
+	/**
+	 * Values per object for (field, row 0) in position order.
+	 *
+	 * @param FieldDef   $def  Field.
+	 * @param ObjectType $type Object type.
+	 * @param int[]      $ids  Object IDs.
+	 * @return array<int,array<int,mixed>>
+	 */
+	private function readValuesMany( FieldDef $def, ObjectType $type, array $ids ): array {
+		$marks = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+		$rows  = $this->db->select(
+			'SELECT object_id, position, value FROM ' . $this->db->table( $def->table->table() ) . ' WHERE object_type = ? AND field_id = ? AND row_id = 0 AND object_id IN (' . $marks . ') ORDER BY object_id, position',
+			array_merge( array( $type->value, $def->id ), $ids )
+		);
+		if ( DataTable::Str === $def->table ) {
+			$rows = $this->withSpillMany( $def, $type, $rows );
+		}
+		$by = array();
+		foreach ( $rows as $r ) {
+			$by[ (int) $r['object_id'] ][] = $def->table->fromDb( $r['value'] );
+		}
+		if ( $this->hasOffType( $def ) ) {
+			$missing = array_values( array_diff( $ids, array_keys( $by ) ) );
+			if ( array() !== $missing ) {
+				$marks = implode( ',', array_fill( 0, count( $missing ), '?' ) );
+				$json  = $this->db->select(
+					'SELECT object_id, value FROM ' . $this->db->table( 'nf_json' ) . ' WHERE object_type = ? AND field_id = ? AND row_id = 0 AND position = 0 AND object_id IN (' . $marks . ')',
+					array_merge( array( $type->value, $def->id ), $missing )
+				);
+				foreach ( $json as $r ) {
+					$by[ (int) $r['object_id'] ] = array( DataTable::Json->fromDb( $r['value'] ) );
+				}
+			}
+		}
+		return $by;
+	}
+
+	/**
+	 * Replace 191-char prefixes with the full value from nf_text, for many objects at once.
+	 *
+	 * @param FieldDef                       $def  Field.
+	 * @param ObjectType                     $type Object type.
+	 * @param array<int,array<string,mixed>> $rows nf_str rows ordered by object and position.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function withSpillMany( FieldDef $def, ObjectType $type, array $rows ): array {
+		$long = array();
+		foreach ( $rows as $r ) {
+			if ( mb_strlen( (string) $r['value'] ) >= self::STR_MAX ) {
+				$long[ (int) $r['object_id'] ] = true;
+			}
+		}
+		if ( array() === $long ) {
+			return $rows;
+		}
+		$need  = array_keys( $long );
+		$marks = implode( ',', array_fill( 0, count( $need ), '?' ) );
+		$full  = $this->db->select(
+			'SELECT object_id, position, value FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND field_id = ? AND row_id = 0 AND object_id IN (' . $marks . ')',
+			array_merge( array( $type->value, $def->id ), $need )
+		);
+		$by    = array();
+		foreach ( $full as $f ) {
+			$by[ (int) $f['object_id'] ][ (int) $f['position'] ] = $f['value'];
+		}
+		$index = array();
+		foreach ( $rows as $i => $r ) {
+			$oid = (int) $r['object_id'];
+			$pos = $index[ $oid ] ?? 0;
+			if ( isset( $by[ $oid ][ $pos ] ) ) {
+				$rows[ $i ]['value'] = $by[ $oid ][ $pos ];
+			}
+			$index[ $oid ] = $pos + 1;
+		}
+		return $rows;
+	}
+
+	/**
 	 * Write a field, replacing what was there. Null or an empty list removes it.
 	 *
 	 * @param ObjectType $type  Object type.
