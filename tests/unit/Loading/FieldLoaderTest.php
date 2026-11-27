@@ -38,7 +38,7 @@ class FieldLoaderTest extends WP_UnitTestCase {
 		$fields->flush();
 		$fields->register( 'field_t35b_title', 'title', DataTable::Str );
 		$fields->register( 'field_t35b_cap', 'cap', DataTable::Int );
-		$fields->register( 'field_t35b_rel', 'related', DataTable::Int, true );
+		$fields->register( 'field_t35b_related', 'related', DataTable::Int, true );
 		$this->store = new Store( $db, $fields );
 	}
 
