@@ -72,19 +72,26 @@ class PrimerTest extends WP_UnitTestCase {
 		$posts = self::factory()->post->create_many( 4 );
 		$atts  = array();
 		foreach ( $posts as $post ) {
-			$att = self::factory()->attachment->create( array( 'post_parent' => $post ) );
-			set_post_thumbnail( $post, $att );
+			$att = self::factory()->attachment->create(
+				array(
+					'post_parent'    => $post,
+					'post_mime_type' => 'image/jpeg',
+				)
+			);
+			// set_post_thumbnail() refuses an attachment with no image file, so store the meta directly.
+			update_post_meta( $post, '_thumbnail_id', $att );
+			update_post_meta( $att, '_wp_attached_file', 'nf-primer-' . $att . '.jpg' );
 			$atts[] = $att;
 		}
 		wp_cache_flush();
 		( new Primer() )->primeThumbnails( $posts );
 		$before = get_num_queries();
-		foreach ( $posts as $post ) {
-			get_post_meta( $post, '_thumbnail_id', true );
+		foreach ( $posts as $i => $post ) {
+			$this->assertSame( (string) $atts[ $i ], get_post_meta( $post, '_thumbnail_id', true ) );
 		}
 		foreach ( $atts as $att ) {
-			get_post( $att );
-			get_post_meta( $att, '_wp_attached_file', true );
+			$this->assertSame( 'attachment', get_post( $att )->post_type );
+			$this->assertSame( 'nf-primer-' . $att . '.jpg', get_post_meta( $att, '_wp_attached_file', true ) );
 		}
 		$this->assertSame( $before, get_num_queries() );
 	}
