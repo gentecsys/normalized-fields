@@ -81,10 +81,11 @@ class PrimerTest extends WP_UnitTestCase {
 		( new Primer() )->primeThumbnails( $posts );
 		$before = get_num_queries();
 		foreach ( $posts as $post ) {
-			get_post_thumbnail_id( $post );
+			get_post_meta( $post, '_thumbnail_id', true );
 		}
 		foreach ( $atts as $att ) {
 			get_post( $att );
+			get_post_meta( $att, '_wp_attached_file', true );
 		}
 		$this->assertSame( $before, get_num_queries() );
 	}
