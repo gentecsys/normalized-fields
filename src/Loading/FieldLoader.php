@@ -68,7 +68,7 @@ final class FieldLoader {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
 			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$batch = $this->registry->batchFor( $post_id, $key );
-			if ( 1 === count( $batch ) ) {
+			if ( 1 === count( $batch ) && ! $this->registry->inSet( $post_id ) ) {
 				$this->detector?->note( $key, $post_id );
 			}
 			try {
@@ -100,7 +100,7 @@ final class FieldLoader {
 			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$mark  = 'rows:' . $key;
 			$batch = $this->registry->batchFor( $post_id, $mark );
-			if ( 1 === count( $batch ) ) {
+			if ( 1 === count( $batch ) && ! $this->registry->inSet( $post_id ) ) {
 				$this->detector?->note( $mark, $post_id );
 			}
 			try {
@@ -137,8 +137,6 @@ final class FieldLoader {
 		$this->primer?->flush();
 		if ( null === $post_id ) {
 			$this->detector?->reset();
-		}
-		if ( null === $post_id ) {
 			$this->values = array();
 			$this->rows   = array();
 			return;

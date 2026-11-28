@@ -167,14 +167,14 @@ class DetectorTest extends WP_UnitTestCase {
 	public function test_twenty_card_listing_within_budget(): void {
 		global $wpdb;
 		$cards     = self::factory()->post->create_many( 20 );
-		$venues    = self::factory()->post->create_many( 3 );
+		$venues    = self::factory()->post->create_many( 8 );
 		$this->ids = array_merge( $cards, $venues );
 		foreach ( $venues as $i => $venue ) {
 			$this->store->set( ObjectType::Post, $venue, 'field_t35e_city', 'City ' . $i );
 		}
 		foreach ( $cards as $i => $card ) {
 			$this->store->set( ObjectType::Post, $card, 'field_t35e_title', 'Card ' . $i );
-			$this->store->set( ObjectType::Post, $card, 'field_t35e_venue', $venues[ $i % 3 ] );
+			$this->store->set( ObjectType::Post, $card, 'field_t35e_venue', $venues[ $i % 8 ] );
 		}
 		$fired = 0;
 		add_action(
@@ -200,6 +200,7 @@ class DetectorTest extends WP_UnitTestCase {
 		$render( $loader );
 		$lazy = $wpdb->num_queries - $before;
 		$this->assertLessThanOrEqual( 15, $lazy );
+		$fired_lazy = $fired;
 
 		// With with(): the venue path is loaded up front.
 		$registry = new ResultSetRegistry();
@@ -210,6 +211,7 @@ class DetectorTest extends WP_UnitTestCase {
 		$render( $loader );
 		$eager = $wpdb->num_queries - $before;
 		$this->assertLessThanOrEqual( 15, $eager );
-		$this->assertSame( 0, $fired );
+		$this->assertSame( 1, $fired_lazy, 'unprimed venue city reads are lone loads' );
+		$this->assertSame( $fired_lazy, $fired );
 	}
 }
