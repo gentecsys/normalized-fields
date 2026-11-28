@@ -158,10 +158,10 @@ final class With {
 	 *
 	 * @param int[]    $ids    Post IDs holding the step's field.
 	 * @param string[] $steps  Remaining path steps.
-	 * @param string   $parent Series key when the step is a sub-field, '' otherwise.
+	 * @param string   $series Series key when the step is a sub-field, '' otherwise.
 	 * @return void
 	 */
-	private function walk( array $ids, array $steps, string $parent ): void {
+	private function walk( array $ids, array $steps, string $series ): void {
 		$name = (string) array_shift( $steps );
 		/**
 		 * Describe a field by name for eager loading.
@@ -169,7 +169,14 @@ final class With {
 		 * @param array{key:string,type:string}|null $field Field, or null when unknown.
 		 * @param array{name:string,parent:string}   $query Field name and the Series key it sits in.
 		 */
-		$field = apply_filters( 'nf/loading/describe_field', null, array( 'name' => $name, 'parent' => $parent ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$field = apply_filters(
+			'nf/loading/describe_field', // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			null,
+			array(
+				'name'   => $name,
+				'parent' => $series,
+			)
+		);
 		if ( ! is_array( $field ) || ! isset( $field['key'], $field['type'] ) ) {
 			return;
 		}
@@ -204,12 +211,19 @@ final class With {
 	 *
 	 * @param array<int,array<int,array<string,mixed>>> $per_post Rows per post, in the order of the walked IDs.
 	 * @param string[]                                  $steps    Remaining path steps; the first names a sub-field.
-	 * @param string                                    $parent   Series key.
+	 * @param string                                    $series   Series key.
 	 * @return void
 	 */
-	private function walkRows( array $per_post, array $steps, string $parent ): void {
+	private function walkRows( array $per_post, array $steps, string $series ): void {
 		$name  = (string) array_shift( $steps );
-		$field = apply_filters( 'nf/loading/describe_field', null, array( 'name' => $name, 'parent' => $parent ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$field = apply_filters(
+			'nf/loading/describe_field', // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			null,
+			array(
+				'name'   => $name,
+				'parent' => $series,
+			)
+		);
 		if ( ! is_array( $field ) || ! isset( $field['type'] ) ) {
 			return;
 		}

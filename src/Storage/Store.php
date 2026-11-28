@@ -310,10 +310,10 @@ final class Store {
 	/**
 	 * Sub-field values for many rows: one query, plus long text and off-type lookups only when needed.
 	 *
-	 * @param FieldDef         $sub   Sub-field.
-	 * @param ObjectType       $type  Object type.
-	 * @param int[]            $ids   Object IDs.
-	 * @param array<int,int>   $owner Object ID by row ID.
+	 * @param FieldDef       $sub   Sub-field.
+	 * @param ObjectType     $type  Object type.
+	 * @param int[]          $ids   Object IDs.
+	 * @param array<int,int> $owner Object ID by row ID.
 	 * @return array<int,array<int,mixed>> Values by row ID in position order.
 	 */
 	private function readSubValuesMany( FieldDef $sub, ObjectType $type, array $ids, array $owner ): array {
@@ -341,8 +341,8 @@ final class Store {
 				}
 				$seen = array();
 				foreach ( $rows as $i => $r ) {
-					$rid  = (int) $r['row_id'];
-					$pos  = $seen[ $rid ] ?? 0;
+					$rid = (int) $r['row_id'];
+					$pos = $seen[ $rid ] ?? 0;
 					if ( isset( $full[ $rid ][ $pos ] ) ) {
 						$rows[ $i ]['value'] = $full[ $rid ][ $pos ];
 					}

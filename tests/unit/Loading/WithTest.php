@@ -45,8 +45,14 @@ class WithTest extends WP_UnitTestCase {
 			'nf/loading/describe_field',
 			static function ( $field, array $q ) {
 				$map = array(
-					'venue' => array( 'key' => 'field_t35w_venue', 'type' => 'post_object' ),
-					'city'  => array( 'key' => 'field_t35w_city', 'type' => 'text' ),
+					'venue' => array(
+						'key'  => 'field_t35w_venue',
+						'type' => 'post_object',
+					),
+					'city'  => array(
+						'key'  => 'field_t35w_city',
+						'type' => 'text',
+					),
 				);
 				return $map[ $q['name'] ] ?? $field;
 			},
@@ -158,9 +164,18 @@ class WithTest extends WP_UnitTestCase {
 			'nf/loading/describe_field',
 			static function ( $field, array $q ) {
 				if ( 'rows' === $q['name'] ) {
-					return array( 'key' => 'field_t35w_rows', 'type' => 'repeater' );
+					return array(
+						'key'  => 'field_t35w_rows',
+						'type' => 'repeater',
+					);
 				}
-				return 'pic' === $q['name'] ? array( 'key' => 'field_t35w_rows_pic', 'type' => 'image' ) : $field;
+				if ( 'pic' === $q['name'] ) {
+					return array(
+						'key'  => 'field_t35w_rows_pic',
+						'type' => 'image',
+					);
+				}
+				return $field;
 			},
 			20,
 			2

@@ -178,8 +178,20 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	 */
 	public function test_rows_many_match_get_rows_in_constant_queries(): void {
 		$long = str_repeat( 'y', 300 );
-		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( array( 'name' => 'a', 'note' => $long ), array( 'name' => 'b', 'note' => null ) ) );
-		$this->store->setRows( ObjectType::Post, 9132, 'field_t35d_rows', array( array( 'name' => 'c', 'note' => 'n' ) ) );
+		$row_a = array(
+			'name' => 'a',
+			'note' => $long,
+		);
+		$row_b = array(
+			'name' => 'b',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row_a, $row_b ) );
+		$row = array(
+			'name' => 'c',
+			'note' => 'n',
+		);
+		$this->store->setRows( ObjectType::Post, 9132, 'field_t35d_rows', array( $row ) );
 		$many = $this->store->getRowsMany( ObjectType::Post, array( 9131, 9132, 9133 ), 'field_t35d_rows' );
 		foreach ( array( 9131, 9132, 9133 ) as $id ) {
 			$this->assertSame( $this->store->getRows( ObjectType::Post, $id, 'field_t35d_rows' ), $many[ $id ], (string) $id );
@@ -203,9 +215,17 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	public function test_rows_are_fresh_after_a_write(): void {
 		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
 		$loader->register();
-		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( array( 'name' => 'a', 'note' => null ) ) );
+		$row = array(
+			'name' => 'a',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row ) );
 		$this->assertSame( 'a', $loader->rows( 9131, 'field_t35d_rows' )[0]['name'] );
-		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( array( 'name' => 'z', 'note' => null ) ) );
+		$row = array(
+			'name' => 'z',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row ) );
 		$this->assertSame( 'z', $loader->rows( 9131, 'field_t35d_rows' )[0]['name'] );
 		remove_action( 'nf/store/changed', array( $loader, 'onStoreChanged' ), 10 );
 		remove_action( 'switch_blog', array( $loader, 'onSwitchBlog' ) );
