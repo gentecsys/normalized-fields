@@ -431,6 +431,7 @@ final class Builder {
 			$seen   += count( $ids );
 			$cursor  = $page->cursor( $ids[ count( $ids ) - 1 ] );
 			$stop    = false === $callback( $objects );
+			do_action( 'nf/loading/flush' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			if ( function_exists( 'wp_cache_flush_runtime' ) ) {
 				wp_cache_flush_runtime();
 			}
@@ -551,6 +552,7 @@ final class Builder {
 			return array();
 		}
 		_prime_post_caches( $ids, true, true );
+		do_action( 'nf/loading/register', $ids ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		$posts = array();
 		foreach ( $ids as $id ) {
 			$post = get_post( $id );

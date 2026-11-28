@@ -31,6 +31,7 @@ final class QueryWatcher {
 	 */
 	public function register(): void {
 		add_filter( 'posts_pre_query', array( $this, 'watch' ), PHP_INT_MAX, 2 );
+		add_action( 'nf/loading/register', array( $this, 'register_set' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		add_action( 'nf/loading/flush', array( $this, 'flush' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
@@ -46,6 +47,18 @@ final class QueryWatcher {
 			$this->registry->watch( $query );
 		}
 		return $posts;
+	}
+
+	/**
+	 * `nf/loading/register` action callback: a result set built outside WP_Query (the query builder's posts()).
+	 *
+	 * @param mixed $ids Post IDs in result order.
+	 * @return void
+	 */
+	public function register_set( mixed $ids ): void {
+		if ( is_array( $ids ) ) {
+			$this->registry->register( array_map( 'intval', $ids ) );
+		}
 	}
 
 	/**

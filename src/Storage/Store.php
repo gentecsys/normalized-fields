@@ -254,6 +254,121 @@ final class Store {
 	}
 
 	/**
+	 * Read Series rows for many objects: one query for the row ids plus one per sub-field typed table (and one
+	 * for long text or off-type values when present), whatever the number of objects.
+	 *
+	 * @param ObjectType $type Object type.
+	 * @param int[]      $ids  Object IDs.
+	 * @param string     $key  Series field key.
+	 * @return array<int,array<int,array<string,mixed>>> Rows per object ID, shaped as getRows() returns them.
+	 */
+	public function getRowsMany( ObjectType $type, array $ids, string $key ): array {
+		$ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
+		$def = $this->rowsField( $key );
+		if ( array() === $ids ) {
+			return array();
+		}
+		$marks   = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+		$rowRows = $this->db->select(
+			'SELECT object_id, row_id FROM ' . $this->db->table( 'nf_rows' ) . ' WHERE object_type = ? AND field_id = ? AND parent_row_id = 0 AND object_id IN (' . $marks . ') ORDER BY object_id, row_order',
+			array_merge( array( $type->value, $def->id ), $ids )
+		);
+		$out     = array();
+		$owner   = array();
+		foreach ( $ids as $id ) {
+			$out[ $id ] = array();
+		}
+		foreach ( $rowRows as $r ) {
+			$owner[ (int) $r['row_id'] ] = (int) $r['object_id'];
+		}
+		$cells = array();
+		if ( array() !== $owner ) {
+			foreach ( $this->fields->children( $def->id ) as $sub ) {
+				foreach ( $this->readSubValuesMany( $sub, $type, $ids, $owner ) as $row_id => $vals ) {
+					$cells[ $row_id ][ $sub->name ] = $vals;
+				}
+			}
+		}
+		$rule = $this->sorter?->rule( $key );
+		foreach ( $rowRows as $r ) {
+			$row_id = (int) $r['row_id'];
+			$row    = array();
+			foreach ( $this->fields->children( $def->id ) as $sub ) {
+				$vals              = $cells[ $row_id ][ $sub->name ] ?? array();
+				$row[ $sub->name ] = $sub->multi ? $vals : ( $vals[0] ?? null );
+			}
+			$out[ (int) $r['object_id'] ][] = $row;
+		}
+		if ( null !== $rule && RowSortRule::ON_READ === $rule->mode ) {
+			foreach ( $out as $id => $rows ) {
+				$out[ $id ] = $this->sorter->sort( $rows, $rule, $key, $id );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Sub-field values for many rows: one query, plus long text and off-type lookups only when needed.
+	 *
+	 * @param FieldDef         $sub   Sub-field.
+	 * @param ObjectType       $type  Object type.
+	 * @param int[]            $ids   Object IDs.
+	 * @param array<int,int>   $owner Object ID by row ID.
+	 * @return array<int,array<int,mixed>> Values by row ID in position order.
+	 */
+	private function readSubValuesMany( FieldDef $sub, ObjectType $type, array $ids, array $owner ): array {
+		$marks = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+		$rows  = $this->db->select(
+			'SELECT object_id, row_id, position, value FROM ' . $this->db->table( $sub->table->table() ) . ' WHERE object_type = ? AND field_id = ? AND object_id IN (' . $marks . ') ORDER BY object_id, row_id, position',
+			array_merge( array( $type->value, $sub->id ), $ids )
+		);
+		$rows  = array_values( array_filter( $rows, static fn( array $r ): bool => isset( $owner[ (int) $r['row_id'] ] ) ) );
+		if ( DataTable::Str === $sub->table ) {
+			$long = false;
+			foreach ( $rows as $r ) {
+				if ( mb_strlen( (string) $r['value'] ) >= self::STR_MAX ) {
+					$long = true;
+					break;
+				}
+			}
+			if ( $long ) {
+				$full = array();
+				foreach ( $this->db->select(
+					'SELECT object_id, row_id, position, value FROM ' . $this->db->table( 'nf_text' ) . ' WHERE object_type = ? AND field_id = ? AND object_id IN (' . $marks . ')',
+					array_merge( array( $type->value, $sub->id ), $ids )
+				) as $f ) {
+					$full[ (int) $f['row_id'] ][ (int) $f['position'] ] = $f['value'];
+				}
+				$seen = array();
+				foreach ( $rows as $i => $r ) {
+					$rid  = (int) $r['row_id'];
+					$pos  = $seen[ $rid ] ?? 0;
+					if ( isset( $full[ $rid ][ $pos ] ) ) {
+						$rows[ $i ]['value'] = $full[ $rid ][ $pos ];
+					}
+					$seen[ $rid ] = $pos + 1;
+				}
+			}
+		}
+		$by = array();
+		foreach ( $rows as $r ) {
+			$by[ (int) $r['row_id'] ][] = $sub->table->fromDb( $r['value'] );
+		}
+		if ( $this->hasOffType( $sub ) ) {
+			foreach ( $this->db->select(
+				'SELECT object_id, row_id, value FROM ' . $this->db->table( 'nf_json' ) . ' WHERE object_type = ? AND field_id = ? AND position = 0 AND object_id IN (' . $marks . ')',
+				array_merge( array( $type->value, $sub->id ), $ids )
+			) as $j ) {
+				$rid = (int) $j['row_id'];
+				if ( isset( $owner[ $rid ] ) && ! isset( $by[ $rid ] ) ) {
+					$by[ $rid ] = array( DataTable::Json->fromDb( $j['value'] ) );
+				}
+			}
+		}
+		return $by;
+	}
+
+	/**
 	 * Series rows in stored (`row_order`) order, bypassing any read-time sort rule: row i is the i-th row id.
 	 *
 	 * @param ObjectType $type Object type.
@@ -359,6 +474,7 @@ final class Store {
 		 * @param int[]             $order New row_id order.
 		 */
 		do_action( 'nf/repeater/sorted', array( 'key' => $key ), $id, $order ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		$this->changed( $type, $id );
 		return true;
 	}
 
