@@ -65,6 +65,7 @@ final class FieldLoader {
 	 */
 	public function get( int $post_id, string $key, ?string $type = null ): mixed {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
+			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$batch = $this->registry->batchFor( $post_id, $key );
 			try {
 				$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
@@ -92,6 +93,7 @@ final class FieldLoader {
 	 */
 	public function rows( int $post_id, string $key ): array {
 		if ( ! array_key_exists( $post_id, $this->rows[ $key ] ?? array() ) ) {
+			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$mark  = 'rows:' . $key;
 			$batch = $this->registry->batchFor( $post_id, $mark );
 			try {

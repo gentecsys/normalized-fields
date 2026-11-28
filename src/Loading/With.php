@@ -30,6 +30,20 @@ final class With {
 	private const POST_RELATIONS = array( 'post_object', 'relationship', 'page_link', 'image', 'file', 'gallery' );
 
 	/**
+	 * Queries waiting for their first read.
+	 *
+	 * @var \WP_Query[]
+	 */
+	private array $pending = array();
+
+	/**
+	 * Signatures of the ID lists already registered as sets.
+	 *
+	 * @var array<string,true>
+	 */
+	private array $registered = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param FieldLoader       $loader   Loader.
@@ -45,6 +59,37 @@ final class With {
 	 */
 	public function register(): void {
 		add_filter( 'the_posts', array( $this, 'onPosts' ), 10, 2 );
+		add_filter( 'posts_pre_query', array( $this, 'onPreQuery' ), PHP_INT_MAX, 2 );
+		add_action( 'nf/loading/before_read', array( $this, 'runPending' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+	}
+
+	/**
+	 * Queries run with `suppress_filters` (get_posts()) never reach `the_posts`; their paths run on the first read.
+	 *
+	 * @param mixed $posts Posts so far.
+	 * @param mixed $query Query.
+	 * @return mixed Unchanged.
+	 */
+	public function onPreQuery( $posts, $query ) {
+		if ( $query instanceof \WP_Query && $query->get( 'suppress_filters' ) && ! empty( $query->get( 'nf_with' ) ) && count( $this->pending ) < 16 ) {
+			$this->pending[] = $query;
+		}
+		return $posts;
+	}
+
+	/**
+	 * Run the paths of the recorded queries whose posts are now loaded.
+	 *
+	 * @return void
+	 */
+	public function runPending(): void {
+		$queries       = $this->pending;
+		$this->pending = array();
+		foreach ( $queries as $query ) {
+			if ( is_array( $query->posts ) && array() !== $query->posts ) {
+				$this->onPosts( $query->posts, $query );
+			}
+		}
 	}
 
 	/**
@@ -58,7 +103,8 @@ final class With {
 		if ( ! $query instanceof \WP_Query || ! is_array( $posts ) || array() === $posts ) {
 			return $posts;
 		}
-		$paths = $query->get( 'nf_with' );
+		$this->pending = array_values( array_filter( $this->pending, static fn( $q ): bool => $q !== $query ) );
+		$paths         = $query->get( 'nf_with' );
 		if ( is_string( $paths ) ) {
 			$paths = array_map( 'trim', explode( ',', $paths ) );
 		}
@@ -119,7 +165,11 @@ final class With {
 		}
 		$key  = (string) $field['key'];
 		$type = (string) $field['type'];
-		$this->registry->register( $ids );
+		$sig = md5( implode( ',', $ids ) );
+		if ( ! isset( $this->registered[ $sig ] ) ) {
+			$this->registered[ $sig ] = true;
+			$this->registry->register( $ids );
+		}
 		if ( 'repeater' === $type ) {
 			$next = array();
 			foreach ( $ids as $id ) {
