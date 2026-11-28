@@ -116,4 +116,55 @@ class FieldLoaderTest extends WP_UnitTestCase {
 		$loader->forget( 9121 );
 		$this->assertSame( 2, $loader->get( 9121, 'field_t35b_cap' ) );
 	}
+
+	/**
+	 * A store write drops the held value, so a read after a write in the same request is fresh.
+	 *
+	 * @return void
+	 */
+	public function test_write_then_read_returns_the_new_value(): void {
+		$this->store->set( ObjectType::Post, 9121, 'field_t35b_cap', 1 );
+		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$loader->register();
+		$this->assertSame( 1, $loader->get( 9121, 'field_t35b_cap' ) );
+		$this->store->set( ObjectType::Post, 9121, 'field_t35b_cap', 2 );
+		$this->assertSame( 2, $loader->get( 9121, 'field_t35b_cap' ) );
+		$this->store->delete( ObjectType::Post, 9121, 'field_t35b_cap' );
+		$this->assertNull( $loader->get( 9121, 'field_t35b_cap' ) );
+		$this->store->set( ObjectType::Post, 9121, 'field_t35b_cap', 3 );
+		$this->assertSame( 3, $loader->get( 9121, 'field_t35b_cap' ) );
+		$this->store->deleteObject( ObjectType::Post, 9121 );
+		$this->assertNull( $loader->get( 9121, 'field_t35b_cap' ) );
+		remove_action( 'nf/store/changed', array( $loader, 'onStoreChanged' ), 10 );
+		remove_action( 'switch_blog', array( $loader, 'onSwitchBlog' ) );
+		remove_action( 'nf/loading/flush', array( $loader, 'flush' ) );
+	}
+
+	/**
+	 * Values do not survive a site switch.
+	 *
+	 * @return void
+	 */
+	public function test_switch_blog_flushes_values(): void {
+		$this->store->set( ObjectType::Post, 9121, 'field_t35b_cap', 1 );
+		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$loader->register();
+		$loader->get( 9121, 'field_t35b_cap' );
+		$this->assertTrue( $loader->has( 9121, 'field_t35b_cap' ) );
+		do_action( 'switch_blog', 1, 1 );
+		$this->assertFalse( $loader->has( 9121, 'field_t35b_cap' ) );
+		remove_action( 'nf/store/changed', array( $loader, 'onStoreChanged' ), 10 );
+		remove_action( 'switch_blog', array( $loader, 'onSwitchBlog' ) );
+		remove_action( 'nf/loading/flush', array( $loader, 'flush' ) );
+	}
+
+	/**
+	 * An unknown key returns null instead of throwing.
+	 *
+	 * @return void
+	 */
+	public function test_unknown_key_returns_null(): void {
+		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$this->assertNull( $loader->get( 9121, 'field_t35b_missing' ) );
+	}
 }
