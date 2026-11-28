@@ -45,3 +45,16 @@ if ( ! function_exists( 'nf_query' ) ) {
 		return new \NF\Query\Builder( $target, \NF\Plugin::queryContext() );
 	}
 }
+
+if ( ! function_exists( 'nf_with' ) ) {
+	/**
+	 * Eager-load fields for posts: dotted paths over relations and Series sub-fields, or `thumbnail`.
+	 *
+	 * @param int[]    $post_ids Post IDs.
+	 * @param string[] $paths    Paths such as `venue`, `artists.photo`, `thumbnail`.
+	 * @return void
+	 */
+	function nf_with( array $post_ids, array $paths ): void {
+		\NF\Plugin::with()->run( $post_ids, $paths );
+	}
+}

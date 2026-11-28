@@ -194,6 +194,22 @@ final class Plugin {
 	}
 
 	/**
+	 * Eager loader.
+	 *
+	 * @var Loading\With|null
+	 */
+	private static ?Loading\With $with = null;
+
+	/**
+	 * Eager loader (`nf_with`).
+	 *
+	 * @return Loading\With
+	 */
+	public static function with(): Loading\With {
+		return self::$with ??= new Loading\With( self::loader(), new Loading\Primer(), self::registry() );
+	}
+
+	/**
 	 * Result-set registry, created on first use.
 	 *
 	 * @var Loading\ResultSetRegistry|null
@@ -215,7 +231,7 @@ final class Plugin {
 	 * @return object[]
 	 */
 	private function services(): array {
-		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ), new Loading\QueryWatcher( self::registry() ), self::loader() );
+		$services = array( new Install\Upgrader(), self::jobs(), self::bridge(), new Storage\Lifecycle( self::db(), self::fields(), self::store() ), new Pivot\SlotSync(), new Query\CountRecompute( self::jobs(), self::countRecomputeJob() ), new Loading\QueryWatcher( self::registry() ), self::loader(), self::with() );
 		/**
 		 * Whether NF answers the core meta API for its fields (Layer 1). Off until standalone mode lands (WP 3.6).
 		 *

@@ -29,6 +29,13 @@ final class FieldLoader {
 	private array $values = array();
 
 	/**
+	 * Series rows loaded this request, by field key then post ID.
+	 *
+	 * @var array<string,array<int,array<int,array<string,mixed>>>>
+	 */
+	private array $rows = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Store             $store    Store.
@@ -58,6 +65,7 @@ final class FieldLoader {
 	 */
 	public function get( int $post_id, string $key, ?string $type = null ): mixed {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
+			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$batch = $this->registry->batchFor( $post_id, $key );
 			try {
 				$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
@@ -74,6 +82,31 @@ final class FieldLoader {
 			$this->registry->markLoaded( $key, $batch );
 		}
 		return $this->values[ $key ][ $post_id ] ?? null;
+	}
+
+	/**
+	 * Read a post's Series rows, loading them for the post's whole result set on first use.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Series field key.
+	 * @return array<int,array<string,mixed>> Rows as Store::getRows() returns them; empty for an unknown key.
+	 */
+	public function rows( int $post_id, string $key ): array {
+		if ( ! array_key_exists( $post_id, $this->rows[ $key ] ?? array() ) ) {
+			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+			$mark  = 'rows:' . $key;
+			$batch = $this->registry->batchFor( $post_id, $mark );
+			try {
+				$loaded = $this->store->getRowsMany( ObjectType::Post, $batch, $key );
+			} catch ( \InvalidArgumentException ) {
+				return array();
+			}
+			foreach ( $loaded as $id => $rows ) {
+				$this->rows[ $key ][ $id ] = $rows;
+			}
+			$this->registry->markLoaded( $mark, $batch );
+		}
+		return $this->rows[ $key ][ $post_id ] ?? array();
 	}
 
 	/**
@@ -97,10 +130,14 @@ final class FieldLoader {
 		$this->primer?->flush();
 		if ( null === $post_id ) {
 			$this->values = array();
+			$this->rows   = array();
 			return;
 		}
 		foreach ( array_keys( $this->values ) as $key ) {
 			unset( $this->values[ $key ][ $post_id ] );
+		}
+		foreach ( array_keys( $this->rows ) as $key ) {
+			unset( $this->rows[ $key ][ $post_id ] );
 		}
 	}
 

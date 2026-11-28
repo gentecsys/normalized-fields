@@ -39,6 +39,9 @@ class FieldLoaderTest extends WP_UnitTestCase {
 		$fields->register( 'field_t35b_title', 'title', DataTable::Str );
 		$fields->register( 'field_t35b_cap', 'cap', DataTable::Int );
 		$fields->register( 'field_t35b_related', 'related', DataTable::Int, true );
+		$series = $fields->register( 'field_t35d_rows', 'rows', DataTable::Rows );
+		$fields->register( 'field_t35d_rows_name', 'name', DataTable::Str, false, $series->id );
+		$fields->register( 'field_t35d_rows_note', 'note', DataTable::Str, false, $series->id );
 		$this->store = new Store( $db, $fields );
 	}
 
@@ -46,7 +49,7 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	 * Remove this test's rows.
 	 */
 	public function tear_down() {
-		foreach ( array( 9101, 9102, 9103, 9111, 9112, 9113, 9121 ) as $id ) {
+		foreach ( array( 9101, 9102, 9103, 9111, 9112, 9113, 9121, 9131, 9132, 9133 ) as $id ) {
 			$this->store->deleteObject( ObjectType::Post, $id );
 		}
 		parent::tear_down();
@@ -166,5 +169,68 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	public function test_unknown_key_returns_null(): void {
 		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
 		$this->assertNull( $loader->get( 9121, 'field_t35b_missing' ) );
+	}
+
+	/**
+	 * Series rows for a set match getRows() (long text included) and cost the same queries for 3 posts as for 1.
+	 *
+	 * @return void
+	 */
+	public function test_rows_many_match_get_rows_in_constant_queries(): void {
+		$long  = str_repeat( 'y', 300 );
+		$row_a = array(
+			'name' => 'a',
+			'note' => $long,
+		);
+		$row_b = array(
+			'name' => 'b',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row_a, $row_b ) );
+		$row = array(
+			'name' => 'c',
+			'note' => 'n',
+		);
+		$this->store->setRows( ObjectType::Post, 9132, 'field_t35d_rows', array( $row ) );
+		$many = $this->store->getRowsMany( ObjectType::Post, array( 9131, 9132, 9133 ), 'field_t35d_rows' );
+		foreach ( array( 9131, 9132, 9133 ) as $id ) {
+			$this->assertSame( $this->store->getRows( ObjectType::Post, $id, 'field_t35d_rows' ), $many[ $id ], (string) $id );
+		}
+		$lone_loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$lone        = $this->queries( fn() => $lone_loader->rows( 9131, 'field_t35d_rows' ) );
+		$registry    = new ResultSetRegistry();
+		$registry->register( array( 9131, 9132, 9133 ) );
+		$loader = new FieldLoader( $this->store, $registry );
+		$first  = $this->queries( fn() => $loader->rows( 9131, 'field_t35d_rows' ) );
+		$this->assertLessThanOrEqual( $lone + 1, $first, 'three posts cost about the same queries as one' );
+		$this->assertSame( 0, $this->queries( fn() => $loader->rows( 9132, 'field_t35d_rows' ) ) );
+		$this->assertSame( 'c', $loader->rows( 9132, 'field_t35d_rows' )[0]['name'] );
+		$this->assertSame( array(), $loader->rows( 9133, 'field_t35d_rows' ) );
+		$this->assertSame( array(), $loader->rows( 9133, 'field_t35d_missing' ) );
+	}
+
+	/**
+	 * A write drops the held Series rows.
+	 *
+	 * @return void
+	 */
+	public function test_rows_are_fresh_after_a_write(): void {
+		$loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$loader->register();
+		$row = array(
+			'name' => 'a',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row ) );
+		$this->assertSame( 'a', $loader->rows( 9131, 'field_t35d_rows' )[0]['name'] );
+		$row = array(
+			'name' => 'z',
+			'note' => null,
+		);
+		$this->store->setRows( ObjectType::Post, 9131, 'field_t35d_rows', array( $row ) );
+		$this->assertSame( 'z', $loader->rows( 9131, 'field_t35d_rows' )[0]['name'] );
+		remove_action( 'nf/store/changed', array( $loader, 'onStoreChanged' ), 10 );
+		remove_action( 'switch_blog', array( $loader, 'onSwitchBlog' ) );
+		remove_action( 'nf/loading/flush', array( $loader, 'flush' ) );
 	}
 }
