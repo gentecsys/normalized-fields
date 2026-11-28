@@ -60,6 +60,7 @@ final class With {
 	public function register(): void {
 		add_filter( 'the_posts', array( $this, 'onPosts' ), 10, 2 );
 		add_filter( 'posts_pre_query', array( $this, 'onPreQuery' ), PHP_INT_MAX, 2 );
+		add_action( 'nf/loading/flush', array( $this, 'forgetSets' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 		add_action( 'nf/loading/before_read', array( $this, 'runPending' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
@@ -75,6 +76,15 @@ final class With {
 			$this->pending[] = $query;
 		}
 		return $posts;
+	}
+
+	/**
+	 * Flush callback: the registry forgot its sets, so they may be registered again.
+	 *
+	 * @return void
+	 */
+	public function forgetSets(): void {
+		$this->registered = array();
 	}
 
 	/**
@@ -113,7 +123,7 @@ final class With {
 		}
 		$ids = array();
 		foreach ( $posts as $post ) {
-			$ids[] = $post instanceof \WP_Post ? $post->ID : (int) $post;
+			$ids[] = $post instanceof \WP_Post ? $post->ID : ( is_object( $post ) ? (int) ( $post->ID ?? 0 ) : (int) $post );
 		}
 		$this->run( $ids, array_map( 'strval', $paths ) );
 		return $posts;
@@ -165,7 +175,7 @@ final class With {
 		}
 		$key  = (string) $field['key'];
 		$type = (string) $field['type'];
-		$sig = md5( implode( ',', $ids ) );
+		$sig  = md5( implode( ',', $ids ) );
 		if ( ! isset( $this->registered[ $sig ] ) ) {
 			$this->registered[ $sig ] = true;
 			$this->registry->register( $ids );
