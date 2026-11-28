@@ -41,8 +41,9 @@ final class FieldLoader {
 	 * @param Store             $store    Store.
 	 * @param ResultSetRegistry $registry Registry.
 	 * @param Primer|null       $primer   Target primer; when null nothing is primed.
+	 * @param Detector|null     $detector N+1 detector; when null nothing is counted.
 	 */
-	public function __construct( private Store $store, private ResultSetRegistry $registry, private ?Primer $primer = null ) {}
+	public function __construct( private Store $store, private ResultSetRegistry $registry, private ?Primer $primer = null, private ?Detector $detector = null ) {}
 
 	/**
 	 * Add hooks.
@@ -67,6 +68,9 @@ final class FieldLoader {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
 			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$batch = $this->registry->batchFor( $post_id, $key );
+			if ( 1 === count( $batch ) ) {
+				$this->detector?->note( $key, $post_id );
+			}
 			try {
 				$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
 			} catch ( \InvalidArgumentException ) {
@@ -96,6 +100,9 @@ final class FieldLoader {
 			do_action( 'nf/loading/before_read' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 			$mark  = 'rows:' . $key;
 			$batch = $this->registry->batchFor( $post_id, $mark );
+			if ( 1 === count( $batch ) ) {
+				$this->detector?->note( $mark, $post_id );
+			}
 			try {
 				$loaded = $this->store->getRowsMany( ObjectType::Post, $batch, $key );
 			} catch ( \InvalidArgumentException ) {
@@ -128,6 +135,9 @@ final class FieldLoader {
 	 */
 	public function forget( ?int $post_id = null ): void {
 		$this->primer?->flush();
+		if ( null === $post_id ) {
+			$this->detector?->reset();
+		}
 		if ( null === $post_id ) {
 			$this->values = array();
 			$this->rows   = array();
