@@ -197,7 +197,7 @@ class FieldLoaderTest extends WP_UnitTestCase {
 			$this->assertSame( $this->store->getRows( ObjectType::Post, $id, 'field_t35d_rows' ), $many[ $id ], (string) $id );
 		}
 		$lone_loader = new FieldLoader( $this->store, new ResultSetRegistry() );
-		$lone        = $this->queries( fn() => $lone_loader->rows( 9133, 'field_t35d_rows' ) );
+		$lone        = $this->queries( fn() => $lone_loader->rows( 9131, 'field_t35d_rows' ) );
 		$registry    = new ResultSetRegistry();
 		$registry->register( array( 9131, 9132, 9133 ) );
 		$loader = new FieldLoader( $this->store, $registry );
