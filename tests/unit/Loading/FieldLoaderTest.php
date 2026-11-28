@@ -196,11 +196,13 @@ class FieldLoaderTest extends WP_UnitTestCase {
 		foreach ( array( 9131, 9132, 9133 ) as $id ) {
 			$this->assertSame( $this->store->getRows( ObjectType::Post, $id, 'field_t35d_rows' ), $many[ $id ], (string) $id );
 		}
-		$registry = new ResultSetRegistry();
+		$lone_loader = new FieldLoader( $this->store, new ResultSetRegistry() );
+		$lone        = $this->queries( fn() => $lone_loader->rows( 9133, 'field_t35d_rows' ) );
+		$registry    = new ResultSetRegistry();
 		$registry->register( array( 9131, 9132, 9133 ) );
 		$loader = new FieldLoader( $this->store, $registry );
 		$first  = $this->queries( fn() => $loader->rows( 9131, 'field_t35d_rows' ) );
-		$this->assertLessThanOrEqual( 5, $first );
+		$this->assertLessThanOrEqual( $lone, $first, 'three posts cost no more queries than one' );
 		$this->assertSame( 0, $this->queries( fn() => $loader->rows( 9132, 'field_t35d_rows' ) ) );
 		$this->assertSame( 'c', $loader->rows( 9132, 'field_t35d_rows' )[0]['name'] );
 		$this->assertSame( array(), $loader->rows( 9133, 'field_t35d_rows' ) );
