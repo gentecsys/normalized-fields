@@ -177,7 +177,7 @@ class FieldLoaderTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_rows_many_match_get_rows_in_constant_queries(): void {
-		$long = str_repeat( 'y', 300 );
+		$long  = str_repeat( 'y', 300 );
 		$row_a = array(
 			'name' => 'a',
 			'note' => $long,
