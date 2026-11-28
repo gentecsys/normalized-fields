@@ -206,6 +206,7 @@ final class Store {
 				$this->writeValues( $def, $type, $id, 0, $value );
 			}
 		);
+		$this->changed( $type, $id );
 	}
 
 	/**
@@ -232,6 +233,7 @@ final class Store {
 				}
 			}
 		);
+		$this->changed( $type, $id );
 	}
 
 	/**
@@ -402,6 +404,7 @@ final class Store {
 				}
 			}
 		);
+		$this->changed( $type, $id );
 	}
 
 	/**
@@ -422,6 +425,18 @@ final class Store {
 				$this->db->execute( 'DELETE FROM ' . $this->db->table( 'nf_rows' ) . ' WHERE object_type = ? AND object_id = ?', array( $type->value, $id ) );
 			}
 		);
+		$this->changed( $type, $id );
+	}
+
+	/**
+	 * Tell listeners (the loader's value cache) that an object's stored values changed.
+	 *
+	 * @param ObjectType $type Object type.
+	 * @param int        $id   Object ID.
+	 * @return void
+	 */
+	private function changed( ObjectType $type, int $id ): void {
+		do_action( 'nf/store/changed', $type->value, $id ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
 	/**

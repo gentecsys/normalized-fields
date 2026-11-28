@@ -44,6 +44,8 @@ final class FieldLoader {
 	 */
 	public function register(): void {
 		add_action( 'nf/loading/flush', array( $this, 'flush' ) ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		add_action( 'nf/store/changed', array( $this, 'onStoreChanged' ), 10, 2 ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
+		add_action( 'switch_blog', array( $this, 'onSwitchBlog' ) );
 	}
 
 	/**
@@ -56,8 +58,13 @@ final class FieldLoader {
 	 */
 	public function get( int $post_id, string $key, ?string $type = null ): mixed {
 		if ( ! array_key_exists( $post_id, $this->values[ $key ] ?? array() ) ) {
-			$batch  = $this->registry->batchFor( $post_id, $key );
-			$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
+			$batch = $this->registry->batchFor( $post_id, $key );
+			try {
+				$loaded = $this->store->getMany( ObjectType::Post, $batch, $key );
+			} catch ( \InvalidArgumentException ) {
+				// Unknown or non-value key: no value, as get_field() returns for it.
+				return null;
+			}
 			foreach ( $loaded as $id => $value ) {
 				$this->values[ $key ][ $id ] = $value;
 			}
@@ -95,6 +102,28 @@ final class FieldLoader {
 		foreach ( array_keys( $this->values ) as $key ) {
 			unset( $this->values[ $key ][ $post_id ] );
 		}
+	}
+
+	/**
+	 * A store write happened: drop that post's held values so the next read sees the new ones.
+	 *
+	 * @param mixed $object_type Object type value.
+	 * @param mixed $object_id   Object ID.
+	 * @return void
+	 */
+	public function onStoreChanged( mixed $object_type, mixed $object_id ): void {
+		if ( ObjectType::Post->value === $object_type ) {
+			$this->forget( (int) $object_id );
+		}
+	}
+
+	/**
+	 * The current site changed: values and sets belong to the previous site, so everything goes.
+	 *
+	 * @return void
+	 */
+	public function onSwitchBlog(): void {
+		do_action( 'nf/loading/flush' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores
 	}
 
 	/**
